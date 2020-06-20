@@ -374,7 +374,7 @@ mod amf3 {
     }
 
     fn read_int(i: &[u8]) -> IResult<&[u8], u32> {
-        log::debug!("Read int");
+        log::debug!("Read uint");
 
         let mut n = 0;
         let mut result: u32 = 0;
@@ -417,6 +417,7 @@ mod amf3 {
 
     /// (value, reference)
     fn read_length(i: &[u8]) -> IResult<&[u8], (u32, bool)> {
+        log::debug!("read_length");
         let (i, val) = read_int(i)?;
 
         Ok((i, (val >> 1, val & REFERENCE_FLAG == 0)))
@@ -424,6 +425,7 @@ mod amf3 {
 
     //TODO: use parse_byte_stream
     fn parse_string(i: &[u8]) -> IResult<&[u8], &str> {
+        log::debug!("parse_string");
         let (i, (len, reference)) = read_length(i)?;
         if reference {
             log::debug!("String ref not yet impl");
@@ -433,6 +435,7 @@ mod amf3 {
                 Ok((i, ""))
             } else {
                 take_str!(i, len)
+                    //Check bytes vs utf8
             }
         }
         // let (i, length) = be_u16(i)?;
@@ -442,6 +445,7 @@ mod amf3 {
     use nom::take;
 
     fn parse_byte_stream(i: &[u8]) -> IResult<&[u8], &[u8]> {
+        log::debug!("parse_byte_stream");
         let (i, (len, reference)) = read_length(i)?;
 
         if reference {
@@ -456,12 +460,14 @@ mod amf3 {
     }
 
     fn parse_element_string(i: &[u8]) -> IResult<&[u8], SolValue> {
+        log::debug!("parse_string");
         map(parse_string, |s: &str| SolValue::String(s.to_string()))(i)
     }
 
     use crate::parse_element_number;
 
     fn parse_element_int(i: &[u8]) -> IResult<&[u8], SolValue> {
+        log::debug!("parse_elem_int");
         map(read_int_signed, |s: i32| SolValue::Integer(s))(i)
     }
 
@@ -533,7 +539,39 @@ mod amf3 {
         Ok((i, SolValue::Array(elements)))
     }
 
-    fn un(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_object(i: &[u8]) -> IResult<&[u8], SolValue> {
+        log::debug!("paarse obj");
+        let (i, mut length) = read_int(i)?;
+
+        if length & REFERENCE_FLAG == 0 {
+            unimplemented!();
+        }
+        length >>= 1;
+
+        // Class def
+        if length & REFERENCE_FLAG == 0 {
+            unimplemented!();
+        }
+        length >>= 1;
+        let (i, name) = parse_byte_stream(i)?;
+        //TODO: handle empty name
+        //TODO: handle alias
+        let encoding = length & 0x03;
+        let attributes_count = length >> 2;
+        if attributes_count > 0 {
+            let mut i = i;
+            for _x in 0..attributes_count {
+                let (j, e) = parse_byte_stream(i)?;
+                i = j;
+            }
+        }
+        log::debug!("Got class def: {:?}-{:?}-{:?}", name, encoding, attributes_count);
+        // TOD: rest of object loding
+
+        Ok((i, SolValue::Null))
+    }
+
+    fn parse_element_byte_array(i: &[u8]) -> IResult<&[u8], SolValue> {
         log::warn!("Not impl yet");
         Ok((i, SolValue::Null))
     }
@@ -551,22 +589,26 @@ mod amf3 {
          TYPE_XML => call!(parse_element_xml) |
          TYPE_DATE => call!(parse_element_date) |
          TYPE_ARRAY => call!(parse_element_array) |
-         _ => call!(un)
-         //TYPE_OBJECT => call!(parse_element_object) |
-         //TYPE_REFERENCE => call!(parse_element_reference) |
-         //TYPE_MIXED_ARRAY_START => call!(parse_element_mixed_array) |
-         //TYPE_OBJECT_END => call!(parse_element_object_end) |
-    //     TYPE_TYPED_OBJECT => call!(parse_element_typed_object) |
+         TYPE_OBJECT => call!(parse_element_object) |
+         TYPE_XML_STRING => call!(parse_element_xml) |
+         TYPE_BYTE_ARRAY => call!(parse_element_byte_array)
         )
      );
     fn parse_element(i: &[u8]) -> IResult<&[u8], SolElement> {
         let (i, name) = parse_string(i)?;
         log::debug!("Got name {:?}", name);
 
-        map(parse_single_element, move |v: SolValue| SolElement {
+        let (i, id) = be_u8(i)?;
+        log::warn!("Id: {}", id);
+
+
+
+        Ok((i, SolElement { value: SolValue::Null, name: "".to_string()}))
+
+        /*map(parse_single_element, move |v: SolValue| SolElement {
             name: name.to_string(),
             value: v,
-        })(i)
+        })(i)*/
     }
 
     fn parse_element_and_padding(i: &[u8]) -> IResult<&[u8], SolElement> {
