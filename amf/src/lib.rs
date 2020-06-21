@@ -298,7 +298,7 @@ pub fn parse_full(i: &[u8]) -> IResult<&[u8], Sol> {
         }
         FORMAT_VERSION_AMF3 => {
             let (i, body) = amf3::parse_body(i)?;
-            Ok((i, Sol { header, body: body }))
+            Ok((i, Sol { header, body }))
         }
         _ => unimplemented!(),
     }
@@ -310,7 +310,7 @@ mod amf3 {
     use nom::combinator::map;
     use nom::multi::many0;
     use nom::number::complete::{be_f64, be_u8};
-    use nom::take_str;
+    use nom::{take_str, InputIter};
     use nom::IResult;
 
     const TYPE_UNDEFINED: u8 = 0;
@@ -330,7 +330,7 @@ mod amf3 {
     const REFERENCE_FLAG: u32 = 0x01;
 
     fn read_int_signed(i: &[u8]) -> IResult<&[u8], i32> {
-        log::debug!("Read int");
+        // log::debug!("Read int");
 
         let mut n = 0;
         let mut result: i32 = 0;
@@ -350,11 +350,11 @@ mod amf3 {
         }
 
         if n < 3 {
-            log::debug!("res < 3");
+            // log::debug!("res < 3");
             result <<= 7;
             result |= v as i32;
         } else {
-            log::debug!("res > 3");
+            // log::debug!("res > 3");
             result <<= 8;
             result |= v as i32;
 
@@ -374,7 +374,7 @@ mod amf3 {
     }
 
     fn read_int(i: &[u8]) -> IResult<&[u8], u32> {
-        log::debug!("Read uint");
+        // log::debug!("Read uint");
 
         let mut n = 0;
         let mut result: u32 = 0;
@@ -392,11 +392,11 @@ mod amf3 {
         }
 
         if n < 3 {
-            log::debug!("res < 3");
+            // log::debug!("res < 3");
             result <<= 7;
             result |= v as u32;
         } else {
-            log::debug!("res > 3");
+            // log::debug!("res > 3");
             result <<= 8;
             result |= v as u32;
 
@@ -417,57 +417,68 @@ mod amf3 {
 
     /// (value, reference)
     fn read_length(i: &[u8]) -> IResult<&[u8], (u32, bool)> {
-        log::debug!("read_length");
+        // log::debug!("read_length");
         let (i, val) = read_int(i)?;
 
         Ok((i, (val >> 1, val & REFERENCE_FLAG == 0)))
     }
 
+    use nom::take;
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+
+    lazy_static::lazy_static! {
+            static ref  cache: Mutex<Vec<Vec<u8>>> = Mutex::new(Vec::new());
+    }
+
     //TODO: use parse_byte_stream
-    fn parse_string(i: &[u8]) -> IResult<&[u8], &str> {
-        log::debug!("parse_string");
+    fn parse_string(i: &[u8]) -> IResult<&[u8], String> {
         let (i, (len, reference)) = read_length(i)?;
         if reference {
-            log::debug!("String ref not yet impl");
-            Ok((i, ""))
+            let bytes = cache.lock().unwrap().get(len as usize).unwrap_or(&vec![]).clone();
+            let str = String::from_utf8(bytes).unwrap();
+
+            Ok((i, str))
         } else {
             if len == 0 {
-                Ok((i, ""))
+                Ok((i, "".to_string()))
             } else {
-                take_str!(i, len)
+                let (i, str) = take_str!(i, len)?;
                     //Check bytes vs utf8
+                cache.lock().unwrap().push(str.as_bytes().to_vec());
+                Ok((i, str.to_string()))
             }
         }
         // let (i, length) = be_u16(i)?;
         // take_str!(i, length)
     }
 
-    use nom::take;
-
-    fn parse_byte_stream(i: &[u8]) -> IResult<&[u8], &[u8]> {
-        log::debug!("parse_byte_stream");
+    fn parse_byte_stream(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
         let (i, (len, reference)) = read_length(i)?;
 
         if reference {
-            unimplemented!();
-        }
-
-        if len == 0 {
-            Ok((i, &[]))
+            log::debug!("Reading refernce stream at {}", len);
+            //TODO: don't default to []
+            Ok((i, cache.lock().unwrap().get(len as usize).unwrap_or(&vec![]).clone()))
         } else {
-            take!(i, len)
+            if len == 0 {
+                Ok((i, vec![]))
+            } else {
+                let (i, bytes) = take!(i, len)?;
+                cache.lock().unwrap().push(bytes.to_vec());
+                Ok((i, bytes.to_vec()))
+            }
         }
     }
 
     fn parse_element_string(i: &[u8]) -> IResult<&[u8], SolValue> {
         log::debug!("parse_string");
-        map(parse_string, |s: &str| SolValue::String(s.to_string()))(i)
+        map(parse_string, |s: String| SolValue::String(s))(i)
     }
 
     use crate::parse_element_number;
 
     fn parse_element_int(i: &[u8]) -> IResult<&[u8], SolValue> {
-        log::debug!("parse_elem_int");
         map(read_int_signed, |s: i32| SolValue::Integer(s))(i)
     }
 
@@ -498,27 +509,34 @@ mod amf3 {
     }
 
     fn parse_element_array(i: &[u8]) -> IResult<&[u8], SolValue> {
+        log::warn!("Parse array");
         let (i, mut length) = read_int(i)?;
 
         if length & REFERENCE_FLAG == 0 {
-            unimplemented!();
+            log::warn!("Array reference not yet impl");
         }
         length >>= 1;
 
-        let mut elements = Vec::with_capacity(length as usize);
 
         // key = readBytes()
         let (i, mut key) = parse_byte_stream(i)?;
+        log::warn!("Key {:?}", key);
 
+        let mut i = i;
         if key == &[] {
+            log::warn!("Array length = {}", length);
             //TODO: return and enum
-            let mut i = i;
+            let mut elements = Vec::with_capacity(length as usize);
             for _x in 0..length {
-                let (j, e) = parse_element(i)?;
-                elements.push(e);
+                let (j, e) = parse_single_element(i)?;
+                elements.push(SolElement {name: "".to_string(), value: e});
                 i = j;
             }
+            log::warn!("Done parsing array body");
+            return Ok((i, SolValue::Array(elements)))
         }
+
+        let mut elements = Vec::with_capacity(length as usize);
 
         let mut i = i;
         while key != &[] {
@@ -536,7 +554,54 @@ mod amf3 {
             i = j;
         }
 
+        log::warn!("Parsed array: {:?}", elements.clone());
+        panic!();
+
         Ok((i, SolValue::Array(elements)))
+    }
+
+    const ENCODING_STATIC: u8 = 0;
+    const ENCODING_EXTERNAL: u8 = 1;
+    const ENCODING_DYNAMIC: u8 = 2;
+    const ENCODING_PROXY: u8 = 3;
+
+    #[derive(Clone, Debug)]
+    struct ClassDefinition {
+        name: String,
+        encoding: u8,
+        attribute_count: u32
+    }
+
+    lazy_static::lazy_static! {
+            static ref  class_def_cache: Mutex<Vec<ClassDefinition>> = Mutex::new(Vec::new());
+    }
+
+    fn parse_class_def(length :u32, i: &[u8]) -> IResult<&[u8], ClassDefinition> {
+        if length & REFERENCE_FLAG == 0 {
+            let class_def = class_def_cache.lock().unwrap().get((length>>1) as usize).unwrap().clone();
+            return Ok((i, class_def))
+        }
+        let length = length >> 1;
+        let (i, mut name) = parse_byte_stream(i)?;
+        if name == &[] {
+            log::warn!("No object default available");
+        }
+        let name_str = String::from_utf8(name).unwrap();
+        //TODO: handle empty name
+        //TODO: handle alias
+        let encoding = (length & 0x03) as u8;
+        let attributes_count = length >> 2;
+        if attributes_count > 0 {
+            let mut i = i;
+            for _x in 0..attributes_count {
+                let (j, e) = parse_byte_stream(i)?;
+                i = j;
+            }
+        }
+
+        let class_def = ClassDefinition {name: name_str, encoding, attribute_count: attributes_count};
+        class_def_cache.lock().unwrap().push(class_def.clone());
+        Ok((i, class_def))
     }
 
     fn parse_element_object(i: &[u8]) -> IResult<&[u8], SolValue> {
@@ -549,26 +614,45 @@ mod amf3 {
         length >>= 1;
 
         // Class def
-        if length & REFERENCE_FLAG == 0 {
-            unimplemented!();
-        }
-        length >>= 1;
-        let (i, name) = parse_byte_stream(i)?;
-        //TODO: handle empty name
-        //TODO: handle alias
-        let encoding = length & 0x03;
-        let attributes_count = length >> 2;
-        if attributes_count > 0 {
-            let mut i = i;
-            for _x in 0..attributes_count {
-                let (j, e) = parse_byte_stream(i)?;
-                i = j;
-            }
-        }
-        log::debug!("Got class def: {:?}-{:?}-{:?}", name, encoding, attributes_count);
-        // TOD: rest of object loding
+        let (i, class_def) = parse_class_def(length, i)?;
 
-        Ok((i, SolValue::Null))
+        log::debug!("Got class def: {:?}", class_def);
+
+
+        // TOD: rest of object loding
+        if class_def.encoding == ENCODING_EXTERNAL || class_def.encoding == ENCODING_PROXY {
+            log::warn!("Proxy objects not yet supported");
+        }
+
+        let mut elements = Vec::new();
+
+        let mut i = i;
+        if class_def.encoding == ENCODING_DYNAMIC {
+            log::warn!("Dynamic encoding");
+            //TODO: read static
+
+            // Read dynamic
+            let (mut j, mut attr) = parse_byte_stream(i)?;
+            while attr != &[] {
+                let attr_str = String::from_utf8(attr).unwrap();
+                log::warn!("Parsing child element {}", attr_str);
+                let (k, val) = parse_single_element(j)?;
+                elements.push(SolElement {
+                    name: attr_str,
+                    value: val
+                });
+
+                let (k, attr2) = parse_byte_stream(k)?;
+                j = k;
+                attr = attr2;
+            }
+            i = j;
+        }
+        if class_def.encoding == ENCODING_STATIC {
+            log::warn!("Static encoding");
+        }
+
+        Ok((i, SolValue::Object(elements)))
     }
 
     fn parse_element_byte_array(i: &[u8]) -> IResult<&[u8], SolValue> {
@@ -598,22 +682,15 @@ mod amf3 {
         let (i, name) = parse_string(i)?;
         log::debug!("Got name {:?}", name);
 
-        let (i, id) = be_u8(i)?;
-        log::warn!("Id: {}", id);
-
-
-
-        Ok((i, SolElement { value: SolValue::Null, name: "".to_string()}))
-
-        /*map(parse_single_element, move |v: SolValue| SolElement {
-            name: name.to_string(),
+        map(parse_single_element, move |v: SolValue| SolElement {
+            name: name.clone(),
             value: v,
-        })(i)*/
+        })(i)
     }
 
     fn parse_element_and_padding(i: &[u8]) -> IResult<&[u8], SolElement> {
         let (i, e) = parse_element(i)?;
-        log::debug!("Got element {:?}", e);
+        //println!("{:#?}", e);
         let (i, _) = parse_padding(i)?;
 
         Ok((i, e))
