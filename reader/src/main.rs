@@ -1,9 +1,8 @@
-use std::fs;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use amf::Sol;
+use amf::types::Sol;
 use clap::*;
 
 fn main() {
@@ -22,6 +21,7 @@ fn main() {
         let children = file.read_dir().unwrap();
         for child in children {
             if let Ok(c) = child {
+                // println!("Running {:?}", c.file_name());
                 let worked = read_file(c.path());
                 if worked.is_some() {
                     println!("{} = Worked", c.file_name().to_string_lossy().to_string())
@@ -40,6 +40,6 @@ fn read_file(path: PathBuf) -> Option<Sol> {
     let mut data = Vec::new();
     let _ = x.read_to_end(&mut data).expect("Unable to read file");
     let d = amf::parse_full(&data);
-    println!("{:#?}", d);
+    // println!("{:#?}", d);
     d.map(|s| s.1).ok()
 }
