@@ -115,8 +115,7 @@ fn parse_element_movie_clip(i: &[u8]) -> IResult<&[u8], SolValue> {
 }
 
 fn parse_element_mixed_array(i: &[u8]) -> IResult<&[u8], SolValue> {
-    //TODO: is this good?
-    let (i, array_length) = be_u32(i)?;
+    let (i, _array_length) = be_u32(i)?;
     map(parse_array_element, |elms: Vec<SolElement>| {
         SolValue::Object(elms)
     })(i)
@@ -178,22 +177,28 @@ fn parse_element_record_set(i: &[u8]) -> IResult<&[u8], SolValue> {
 }
 
 fn parse_element_xml(i: &[u8]) -> IResult<&[u8], SolValue> {
-    //TODO: xml obj
-    parse_element_long_string(i)
+    let (i, content) = parse_element_long_string(i)?;
+    let content_string = match content {
+        SolValue::LongString(s) => s,
+        _ => unimplemented!(), //TODO: better handling of this
+    };
+    Ok((i, SolValue::XML(content_string)))
 }
 
 fn parse_element_typed_object(i: &[u8]) -> IResult<&[u8], SolValue> {
-    //TODO: xml obj
     let (i, s) = parse_string(i)?;
+    let (i, obj) = parse_element_object(i)?;
+    let obj_content = match obj {
+        SolValue::Object(x) => x,
+        _ => unimplemented!(),
+    };
 
-    parse_element_object(i)
+    Ok((i, SolValue::TypedObject(s.to_string(), obj_content)))
 }
 
 fn parse_element_amf3(i: &[u8]) -> IResult<&[u8], SolValue> {
-    //TODO: xml obj
-    let (i, s) = parse_string(i)?;
-
-    parse_element_object(i)
+    // let (i, s) = parse_string(i)?;
+    amf3::parse_element_object(i)
 }
 
 use crate::types::{Sol, SolElement, SolHeader, SolValue};
@@ -223,7 +228,6 @@ named!(parse_single_element<&[u8], SolValue>,
 
 fn parse_element(i: &[u8]) -> IResult<&[u8], SolElement> {
     let (i, name) = parse_string(i)?;
-    // log::debug!("Got name {:?}", name);
 
     map(parse_single_element, move |v: SolValue| SolElement {
         name: name.to_string(),
@@ -307,8 +311,6 @@ mod amf3 {
     const REFERENCE_FLAG: u32 = 0x01;
 
     fn read_int_signed(i: &[u8]) -> IResult<&[u8], i32> {
-        // log::debug!("Read int");
-
         let mut n = 0;
         let mut result: i32 = 0;
 
@@ -327,23 +329,14 @@ mod amf3 {
         }
 
         if n < 3 {
-            // log::debug!("res < 3");
             result <<= 7;
             result |= v as i32;
         } else {
-            // log::debug!("res > 3");
             result <<= 8;
             result |= v as i32;
 
-            //TODO: signed will have to be a seperate one because of u32/i32
             if result & 0x10000000 != 0 {
-                let signed = true;
-                if signed {
-                    result -= 0x20000000;
-                } else {
-                    result <<= 1;
-                    result += 1;
-                }
+                result -= 0x20000000;
             }
         }
 
@@ -380,15 +373,9 @@ mod amf3 {
             result <<= 8;
             result |= v as u32;
 
-            //TODO: signed will have to be a seperate one because of u32/i32
             if result & 0x10000000 != 0 {
-                let signed = false;
-                if signed {
-                    result -= 0x20000000;
-                } else {
-                    result <<= 1;
-                    result += 1;
-                }
+                result <<= 1;
+                result += 1;
             }
         }
 
@@ -445,14 +432,12 @@ mod amf3 {
                     .unwrap_or(&vec![])
                     .clone(),
             ))
+        } else if len == 0 {
+            Ok((i, vec![]))
         } else {
-            if len == 0 {
-                Ok((i, vec![]))
-            } else {
-                let (i, bytes) = take!(i, len)?;
-                CACHE.lock().unwrap().push(bytes.to_vec());
-                Ok((i, bytes.to_vec()))
-            }
+            let (i, bytes) = take!(i, len)?;
+            CACHE.lock().unwrap().push(bytes.to_vec());
+            Ok((i, bytes.to_vec()))
         }
     }
 
@@ -509,7 +494,8 @@ mod amf3 {
         let (i, mut key) = parse_byte_stream(i)?;
 
         if key == [] {
-            let (i, elements) = many_m_n(length as usize, length as usize, parse_single_element)(i)?;
+            let (i, elements) =
+                many_m_n(length as usize, length as usize, parse_single_element)(i)?;
             return Ok((i, SolValue::ValueArray(elements)));
         }
 
@@ -647,7 +633,7 @@ mod amf3 {
         Ok((i, elements))
     }
 
-    fn parse_element_object(i: &[u8]) -> IResult<&[u8], SolValue> {
+    pub fn parse_element_object(i: &[u8]) -> IResult<&[u8], SolValue> {
         // log::warn!("parse obj");
         // log::warn!("First obj byte = {}", i[0]);
         let (i, mut length) = read_int(i)?;
@@ -724,8 +710,6 @@ mod amf3 {
     }
 
     fn parse_element_object_vector(i: &[u8]) -> IResult<&[u8], SolValue> {
-        // log::warn!("Object vec not impl yet");
-
         let (i, (len, reference)) = read_length(i)?;
 
         if reference {
@@ -734,32 +718,23 @@ mod amf3 {
 
         let (i, fixed_length) = be_u8(i)?;
 
-        // if fixed_length == 0x0 {
-        //     log::warn!("Variable length vector");
-        // } else {
-        //     log::warn!("fixed length vector");
-        // }
-
-        // log::warn!("vec len = {}", len);
-
         let (i, object_type_name) = parse_string(i)?;
-
-        // log::warn!("Object type name = {}", object_type_name);
 
         let mut i = i;
         let mut elems = Vec::new();
         for _x in 0..len {
             let (j, e) = parse_single_element(i)?;
             elems.push(e);
-            // log::warn!("Sub element[{}] of vec = {:?}", _x, e);
             i = j;
         }
 
-        Ok((i, SolValue::VectorObject(elems, fixed_length == 1)))
+        Ok((
+            i,
+            SolValue::VectorObject(elems, object_type_name, fixed_length == 1),
+        ))
     }
 
     fn parse_element_vector_int(i: &[u8]) -> IResult<&[u8], SolValue> {
-        // log::warn!("Reading vec<int>");
         let (i, (len, reference)) = read_length(i)?;
 
         if reference {
@@ -812,7 +787,6 @@ mod amf3 {
         }
 
         let (i, fixed_length) = be_u8(i)?;
-
 
         //TODO: use many_m_n
         let mut i = i;

@@ -36,6 +36,8 @@ pub enum SolValue {
     Date(f64, u16),
     LongString(String), // TODO: should this just be a string
     Unsupported,
+    XML(String),
+    TypedObject(String, Vec<SolElement>),
     // AMF3
     Integer(i32),
     ByteArray(Vec<u8>),
@@ -44,7 +46,7 @@ pub enum SolValue {
     VectorUInt(Vec<u32>, bool),
     //TODO: type
     VectorDouble(Vec<f64>, bool),
-    VectorObject(Vec<SolValue>, bool),
+    VectorObject(Vec<SolValue>, String, bool),
     Dictionary(Vec<(SolValue, SolValue)>),
 }
 
