@@ -18,9 +18,9 @@ fn main() {
     let sol = amf::parse_full(&data);
     println!("{:#?}", sol); */
 
-    let mut x = File::open(Path::new("../test.sol")).unwrap();
+    let mut x = File::open(Path::new("../test2.sol")).unwrap();
     let mut data = Vec::new();
     let _ = x.read_to_end(&mut data).unwrap();
     let sol = amf::parse_full(&data).unwrap();
-    println!("{:#?}", sol);
+    println!("{:?}", sol);
 }

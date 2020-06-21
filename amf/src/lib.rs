@@ -313,19 +313,24 @@ mod amf3 {
     use nom::{take_str, InputIter};
     use nom::IResult;
 
-    const TYPE_UNDEFINED: u8 = 0;
-    const TYPE_NULL: u8 = 1;
-    const TYPE_FALSE: u8 = 2;
-    const TYPE_TRUE: u8 = 3;
-    const TYPE_INTEGER: u8 = 4;
-    const TYPE_NUMBER: u8 = 5;
-    const TYPE_STRING: u8 = 6;
-    const TYPE_XML: u8 = 7;
-    const TYPE_DATE: u8 = 8;
-    const TYPE_ARRAY: u8 = 9;
-    const TYPE_OBJECT: u8 = 10;
-    const TYPE_XML_STRING: u8 = 11;
-    const TYPE_BYTE_ARRAY: u8 = 12;
+    const TYPE_UNDEFINED: u8 = 0x00;
+    const TYPE_NULL: u8 = 0x01;
+    const TYPE_FALSE: u8 = 0x02;
+    const TYPE_TRUE: u8 = 0x03;
+    const TYPE_INTEGER: u8 = 0x04;
+    const TYPE_NUMBER: u8 = 0x05;
+    const TYPE_STRING: u8 = 0x06;
+    const TYPE_XML: u8 = 0x07;
+    const TYPE_DATE: u8 = 0x08;
+    const TYPE_ARRAY: u8 = 0x09;
+    const TYPE_OBJECT: u8 = 0x0A;
+    const TYPE_XML_STRING: u8 = 0x0B;
+    const TYPE_BYTE_ARRAY: u8 = 0x0C;
+    const TYPE_VECTOR_INT: u8 = 0x0D;
+    const TYPE_VECTOR_UINT: u8 = 0x0E;
+    const TYPE_VECTOR_DOUBLE: u8 = 0x0F;
+    const TYPE_VECTOR_OBJECT: u8 = 0x10;
+    const TYPE_DICT: u8 = 0x11;
 
     const REFERENCE_FLAG: u32 = 0x01;
 
@@ -433,7 +438,7 @@ mod amf3 {
 
     //TODO: use parse_byte_stream
     fn parse_string(i: &[u8]) -> IResult<&[u8], String> {
-        let (i, (len, reference)) = read_length(i)?;
+        let (i, (mut len, reference)) = read_length(i)?;
         if reference {
             let bytes = cache.lock().unwrap().get(len as usize).unwrap_or(&vec![]).clone();
             let str = String::from_utf8(bytes).unwrap();
@@ -443,6 +448,14 @@ mod amf3 {
             if len == 0 {
                 Ok((i, "".to_string()))
             } else {
+                log::warn!("reading str len = {}", len);
+
+                //TODO: bug in parse_uint (possibly),
+                // Currently fixing
+                // if len == 2113728 {
+                //     len = 84;
+                // }
+
                 let (i, str) = take_str!(i, len)?;
                     //Check bytes vs utf8
                 cache.lock().unwrap().push(str.as_bytes().to_vec());
@@ -487,7 +500,9 @@ mod amf3 {
         let (i, reference) = read_int(i)?;
 
         if reference & REFERENCE_FLAG == 0 {
-            unimplemented!();
+            //TODO: make sure to reference>>1
+            log::warn!("XML REF not impl");
+            return Ok((i, SolValue::String("xml_ref_not_impl".to_string())))
         }
 
         let (i, data) = take_str!(i, reference >> 1)?;
@@ -505,7 +520,9 @@ mod amf3 {
         let (i, ms) = be_f64(i)?;
         //TODO: full logic, also for other date
 
-        map(read_int_signed, |s: i32| SolValue::Integer(s))(i)
+        // map(read_int_signed, |s: i32| SolValue::Integer(s))(i)
+        //TODO: maybe make timezone option, in amf3 always UTC
+        Ok((i, SolValue::Date(ms, 0)))
     }
 
     fn parse_element_array(i: &[u8]) -> IResult<&[u8], SolValue> {
@@ -569,7 +586,8 @@ mod amf3 {
     struct ClassDefinition {
         name: String,
         encoding: u8,
-        attribute_count: u32
+        attribute_count: u32,
+        static_properties: Vec<String>,
     }
 
     lazy_static::lazy_static! {
@@ -591,21 +609,42 @@ mod amf3 {
         //TODO: handle alias
         let encoding = (length & 0x03) as u8;
         let attributes_count = length >> 2;
-        if attributes_count > 0 {
-            let mut i = i;
+
+        // Read attributes if they exist
+        let mut i = i;
+
+        let mut static_props = Vec::new();
+        // if attributes_count > 0 {
             for _x in 0..attributes_count {
                 let (j, e) = parse_byte_stream(i)?;
+                let property_name = String::from_utf8(e).unwrap();
+                static_props.push(property_name);
                 i = j;
             }
-        }
+        // }
 
-        let class_def = ClassDefinition {name: name_str, encoding, attribute_count: attributes_count};
+        let class_def = ClassDefinition {name: name_str, encoding, attribute_count: attributes_count, static_properties: static_props};
         class_def_cache.lock().unwrap().push(class_def.clone());
         Ok((i, class_def))
     }
 
-    fn parse_element_object(i: &[u8]) -> IResult<&[u8], SolValue> {
-        log::debug!("paarse obj");
+    fn parse_object_static<'a>(i: &'a[u8], class_def: &ClassDefinition) -> IResult<&'a[u8], ()> {
+        let mut i = i;
+        for name in class_def.static_properties.iter() {
+            log::warn!("Got static name {}, {:?}", name, i[0]);
+
+            let (j, e) = parse_single_element(i)?;
+
+            log::warn!("Got static value {} = {:?}", name, e);
+            i = j;
+        }
+
+        Ok((i, ()))
+    }
+
+
+        fn parse_element_object(i: &[u8]) -> IResult<&[u8], SolValue> {
+        log::debug!("element obj");
         let (i, mut length) = read_int(i)?;
 
         if length & REFERENCE_FLAG == 0 {
@@ -629,10 +668,10 @@ mod amf3 {
         let mut i = i;
         if class_def.encoding == ENCODING_DYNAMIC {
             log::warn!("Dynamic encoding");
-            //TODO: read static
+            let (j, x) = parse_object_static(i, &class_def)?;
 
             // Read dynamic
-            let (mut j, mut attr) = parse_byte_stream(i)?;
+            let (mut j, mut attr) = parse_byte_stream(j)?;
             while attr != &[] {
                 let attr_str = String::from_utf8(attr).unwrap();
                 log::warn!("Parsing child element {}", attr_str);
@@ -650,13 +689,48 @@ mod amf3 {
         }
         if class_def.encoding == ENCODING_STATIC {
             log::warn!("Static encoding");
+            let (j, x) = parse_object_static(i, &class_def)?;
+            i = j;
         }
 
         Ok((i, SolValue::Object(elements)))
     }
 
     fn parse_element_byte_array(i: &[u8]) -> IResult<&[u8], SolValue> {
-        log::warn!("Not impl yet");
+        log::warn!("Byte array impl yet");
+        Ok((i, SolValue::Null))
+    }
+
+    fn parse_element_object_vector(i: &[u8]) -> IResult<&[u8], SolValue> {
+        log::warn!("Object vec not impl yet");
+
+        let (i, (len, reference)) = read_length(i)?;
+
+        if reference {
+            log::warn!("Object vector ref not impl");
+        }
+
+        let (i, fixed_length) = be_u8(i)?;
+
+        if fixed_length == 0x0 {
+            log::warn!("Variable length vector");
+        } else {
+            log::warn!("fixed length vector");
+        }
+
+        log::warn!("vec len = {}", len);
+
+        let (i, object_type_name) = parse_string(i)?;
+
+        log::warn!("Object type name = {}", object_type_name);
+
+        let mut i = i;
+        for _x in 0..len {
+            let (j, e) = parse_single_element(i)?;
+            log::warn!("Sub element[{}] of vec = {:?}", _x, e);
+            i = j;
+        }
+
         Ok((i, SolValue::Null))
     }
 
@@ -675,12 +749,16 @@ mod amf3 {
          TYPE_ARRAY => call!(parse_element_array) |
          TYPE_OBJECT => call!(parse_element_object) |
          TYPE_XML_STRING => call!(parse_element_xml) |
-         TYPE_BYTE_ARRAY => call!(parse_element_byte_array)
+         TYPE_BYTE_ARRAY => call!(parse_element_byte_array) |
+         TYPE_VECTOR_OBJECT => call!(parse_element_object_vector)
         )
      );
     fn parse_element(i: &[u8]) -> IResult<&[u8], SolElement> {
         let (i, name) = parse_string(i)?;
         log::debug!("Got name {:?}", name);
+
+        // let (i, type_) = be_u8(i)?;
+        // log::error!("Type: {}", type_);
 
         map(parse_single_element, move |v: SolValue| SolElement {
             name: name.clone(),
