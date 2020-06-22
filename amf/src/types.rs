@@ -31,7 +31,8 @@ pub enum SolValue {
     Null,
     Undefined,
     Reference(u16),
-    Array(Vec<SolElement>),
+    // Array(Vec<SolElement>),
+    Array(Vec<SolValue>),
     ValueArray(Vec<SolValue>),
     Date(f64, u16),
     LongString(String), // TODO: should this just be a string
@@ -47,7 +48,7 @@ pub enum SolValue {
     //TODO: type
     VectorDouble(Vec<f64>, bool),
     VectorObject(Vec<SolValue>, String, bool),
-    Dictionary(Vec<(SolValue, SolValue)>),
+    Dictionary(Vec<(SolValue, SolValue)>, bool),
 }
 
 #[derive(Clone, Debug)]

@@ -1,0 +1,64 @@
+
+[package]
+name = "amf-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2018"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.2"
+
+[dependencies.amf]
+path = "../amf"
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "fuzz_amf0_version"
+path = "fuzz_targets/fuzz_amf0_version.rs"
+
+[[bin]]
+name = "fuzz_amf0_string"
+path = "fuzz_targets/fuzz_amf0_string.rs"
+
+[[bin]]
+name = "fuzz_amf0_element_long_string"
+path = "fuzz_targets/fuzz_amf0_element_long_string.rs"
+
+[[bin]]
+name = "fuzz_amf0_signature"
+path = "fuzz_targets/fuzz_amf0_signature.rs"
+
+[[bin]]
+name = "fuzz_amf0_body"
+path = "fuzz_targets/fuzz_amf0_body.rs"
+
+[[bin]]
+name = "fuzz_amf0_element_array"
+path = "fuzz_targets/fuzz_amf0_element_array.rs"
+
+[[bin]]
+name = "fuzz_amf0_length"
+path = "fuzz_targets/fuzz_amf0_length.rs"
+
+[[bin]]
+name = "fuzz_amf0_header"
+path = "fuzz_targets/fuzz_amf0_header.rs"
+
+[[bin]]
+name = "fuzz_amf0_element_number"
+path = "fuzz_targets/fuzz_amf0_element_number.rs"
+
+[[bin]]
+name = "fuzz_amf0_element_bool"
+path = "fuzz_targets/fuzz_amf0_element_bool.rs"
+
+[[bin]]
+name = "fuzz_amf0_element_string"
+path = "fuzz_targets/fuzz_amf0_element_string.rs"
