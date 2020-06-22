@@ -99,21 +99,11 @@ fn parse_element_mixed_array(i: &[u8]) -> IResult<&[u8], SolValue> {
     })(i)
 }
 
-fn parse_element_object_end(i: &[u8]) -> IResult<&[u8], SolValue> {
-    Ok((i, SolValue::ObjectEnd))
-}
-
-fn parse_element_null(i: &[u8]) -> IResult<&[u8], SolValue> {
-    Ok((i, SolValue::Null))
-}
-
-fn parse_element_undefined(i: &[u8]) -> IResult<&[u8], SolValue> {
-    Ok((i, SolValue::Undefined))
-}
-
 fn parse_element_reference(i: &[u8]) -> IResult<&[u8], SolValue> {
     log::warn!("Reference resolution is not currently supported");
-    map(be_u16, SolValue::Reference)(i)
+    let (i, _ref) = be_u16(i)?;
+
+    Ok((i, SolValue::Unsupported))
 }
 
 pub fn parse_element_array(i: &[u8]) -> IResult<&[u8], SolValue> {
@@ -126,7 +116,7 @@ pub fn parse_element_array(i: &[u8]) -> IResult<&[u8], SolValue> {
 
     // There must be at least `length_usize` bytes (u8) to read this, this prevents OOM errors with v.large arrays
     if i.len() < length_usize {
-        return Err(Err::Error(make_error(i, ErrorKind::TooLarge)))
+        return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
     }
 
     // This must parse length elements
@@ -134,7 +124,7 @@ pub fn parse_element_array(i: &[u8]) -> IResult<&[u8], SolValue> {
     // let (i, elements) = many_m_n(length as usize, length as usize, parse_element)(i)?;
     let (i, elements) = many_m_n(length_usize, length_usize, parse_single_element)(i)?;
 
-    Ok((i, SolValue::Array(elements)))
+    Ok((i, SolValue::StrictArray(elements)))
 }
 
 fn parse_element_date(i: &[u8]) -> IResult<&[u8], SolValue> {
@@ -148,11 +138,7 @@ pub fn parse_element_long_string(i: &[u8]) -> IResult<&[u8], SolValue> {
     let (i, length) = be_u32(i)?;
     let (i, str) = take_str!(i, length)?;
 
-    Ok((i, SolValue::LongString(str.to_string())))
-}
-
-fn parse_element_unsupported(i: &[u8]) -> IResult<&[u8], SolValue> {
-    Ok((i, SolValue::Unsupported))
+    Ok((i, SolValue::String(str.to_string())))
 }
 
 fn parse_element_record_set(i: &[u8]) -> IResult<&[u8], SolValue> {
@@ -163,7 +149,7 @@ fn parse_element_record_set(i: &[u8]) -> IResult<&[u8], SolValue> {
 fn parse_element_xml(i: &[u8]) -> IResult<&[u8], SolValue> {
     let (i, content) = parse_element_long_string(i)?;
     let content_string = match content {
-        SolValue::LongString(s) => s,
+        SolValue::String(s) => s,
         _ => unimplemented!(), //TODO: better handling of this
     };
     Ok((i, SolValue::XML(content_string)))
@@ -181,8 +167,7 @@ fn parse_element_typed_object(i: &[u8]) -> IResult<&[u8], SolValue> {
 }
 
 fn parse_element_amf3(i: &[u8]) -> IResult<&[u8], SolValue> {
-    // amf3::parse_element_object(i)
-    Ok((i, SolValue::Unsupported))
+    amf3::AMF3Decoder::default().parse_element_object(i)
 }
 
 use crate::types::{SolElement, SolHeader, SolValue};
@@ -207,15 +192,15 @@ fn parse_single_element(i: &[u8]) -> IResult<&[u8], SolValue> {
         TYPE_STRING => parse_element_string(i),
         TYPE_OBJECT => parse_element_object(i),
         TYPE_MOVIE_CLIP => parse_element_movie_clip(i),
-        TYPE_NULL => parse_element_null(i),
-        TYPE_UNDEFINED => parse_element_undefined(i),
+        TYPE_NULL => Ok((i, SolValue::Null)),
+        TYPE_UNDEFINED => Ok((i, SolValue::Undefined)),
         TYPE_REFERENCE => parse_element_reference(i),
         TYPE_MIXED_ARRAY_START => parse_element_mixed_array(i),
-        TYPE_OBJECT_END => parse_element_object_end(i),
+        TYPE_OBJECT_END => Ok((i, SolValue::ObjectEnd)),
         TYPE_ARRAY => parse_element_array(i),
         TYPE_DATE => parse_element_date(i),
         TYPE_LONG_STRING => parse_element_long_string(i),
-        TYPE_UNSUPPORTED => parse_element_unsupported(i),
+        TYPE_UNSUPPORTED => Ok((i, SolValue::Unsupported)),
         TYPE_RECORD_SET => parse_element_record_set(i),
         TYPE_XML => parse_element_xml(i),
         TYPE_TYPED_OBJECT => parse_element_typed_object(i),

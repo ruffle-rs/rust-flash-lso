@@ -1,10 +1,18 @@
+use crate::amf0::parse_element_number;
 use crate::amf0::parse_padding;
 use crate::types::*;
+use crate::types::{SolElement, SolValue};
 use nom::combinator::map;
+use nom::error::{make_error, ErrorKind};
 use nom::multi::{many_m_n, separated_list};
 use nom::number::complete::{be_f64, be_i32, be_u32, be_u8};
+use nom::sequence::tuple;
+use nom::take;
 use nom::take_str;
+use nom::Err;
 use nom::IResult;
+use std::cell::RefCell;
+use std::convert::TryInto;
 
 const TYPE_UNDEFINED: u8 = 0x00;
 const TYPE_NULL: u8 = 0x01;
@@ -27,13 +35,11 @@ const TYPE_DICT: u8 = 0x11;
 
 const REFERENCE_FLAG: u32 = 0x01;
 
-fn read_int_signed(i: &[u8]) -> IResult<&[u8], i32> {
+pub fn read_int_signed(i: &[u8]) -> IResult<&[u8], i32> {
     let mut vlu_len = 0;
     let mut result: i32 = 0;
 
-    let (i, v) = be_u8(i)?;
-    let mut i = i;
-    let mut v = v;
+    let (mut i, mut v) = be_u8(i)?;
     //TODO: magic numbers from where??
     while v & 0x80 != 0 && vlu_len < 3 {
         result <<= 7;
@@ -60,14 +66,11 @@ fn read_int_signed(i: &[u8]) -> IResult<&[u8], i32> {
     Ok((i, result))
 }
 
-fn read_int(i: &[u8]) -> IResult<&[u8], u32> {
-    // log::debug!("Read uint");
-
+pub fn read_int(i: &[u8]) -> IResult<&[u8], u32> {
     let mut n = 0;
     let mut result: u32 = 0;
 
-    let (i, mut v) = be_u8(i)?;
-    let mut i = i;
+    let (mut i, mut v) = be_u8(i)?;
     //TODO: magic numbers from where??
     while v & 0x80 != 0 && n < 3 {
         result <<= 7;
@@ -79,14 +82,10 @@ fn read_int(i: &[u8]) -> IResult<&[u8], u32> {
         v = v2;
     }
 
-    // log::warn!("n = {}", n);
-
     if n < 3 {
-        // log::debug!("res < 3");
         result <<= 7;
         result |= v as u32;
     } else {
-        // log::debug!("res > 3");
         result <<= 8;
         result |= v as u32;
 
@@ -101,52 +100,9 @@ fn read_int(i: &[u8]) -> IResult<&[u8], u32> {
 
 /// (value, reference)
 fn read_length(i: &[u8]) -> IResult<&[u8], (u32, bool)> {
-    // log::debug!("read_length");
     let (i, val) = read_int(i)?;
 
     Ok((i, (val >> 1, val & REFERENCE_FLAG == 0)))
-}
-
-use nom::take;
-use std::sync::Mutex;
-
-lazy_static! {
-    static ref CACHE: Mutex<Vec<Vec<u8>>> = Mutex::new(Vec::new());
-}
-
-fn parse_string(i: &[u8]) -> IResult<&[u8], String> {
-    map(parse_byte_stream, |b| String::from_utf8(b).unwrap())(i)
-}
-
-fn parse_byte_stream(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
-    // log::warn!("Parse byte stream");
-    let (i, (len, reference)) = read_length(i)?;
-    // log::warn!("Byte stream len = {}", len);
-
-    if reference {
-        // log::debug!("Reading refernce stream at {}", len);
-        //TODO: don't default to []
-        Ok((
-            i,
-            CACHE
-                .lock()
-                .unwrap()
-                .get(len as usize)
-                .unwrap_or(&vec![])
-                .clone(),
-        ))
-    } else if len == 0 {
-        Ok((i, vec![]))
-    } else {
-        let (i, bytes) = take!(i, len)?;
-        CACHE.lock().unwrap().push(bytes.to_vec());
-        Ok((i, bytes.to_vec()))
-    }
-}
-
-fn parse_element_string(i: &[u8]) -> IResult<&[u8], SolValue> {
-    // log::debug!("parse_string");
-    map(parse_string, SolValue::String)(i)
 }
 
 fn parse_element_int(i: &[u8]) -> IResult<&[u8], SolValue> {
@@ -172,7 +128,8 @@ fn parse_element_date(i: &[u8]) -> IResult<&[u8], SolValue> {
     let (i, reference) = read_int(i)?;
 
     if reference & REFERENCE_FLAG == 0 {
-        unimplemented!();
+        log::warn!("Date reference not impl");
+        return Ok((i, SolValue::Null))
     }
 
     let (i, ms) = be_f64(i)?;
@@ -183,202 +140,10 @@ fn parse_element_date(i: &[u8]) -> IResult<&[u8], SolValue> {
     Ok((i, SolValue::Date(ms, 0)))
 }
 
-fn parse_element_array(i: &[u8]) -> IResult<&[u8], SolValue> {
-    // log::info!("Parse array");
-    let (i, mut length) = read_int(i)?;
-
-    if length & REFERENCE_FLAG == 0 {
-        log::warn!("Array reference not yet impl");
-    }
-    length >>= 1;
-
-    let (i, mut key) = parse_byte_stream(i)?;
-
-    if key == [] {
-        let (i, elements) = many_m_n(length as usize, length as usize, parse_single_element)(i)?;
-        return Ok((i, SolValue::ValueArray(elements)));
-    }
-
-    let mut elements = Vec::with_capacity(length as usize);
-
-    let mut i = i;
-    while key != [] {
-        let (j, e) = parse_single_element(i)?;
-        elements.push(SolElement {
-            name: String::from_utf8(key).unwrap(),
-            value: e,
-        });
-        let (j, k) = parse_byte_stream(j)?;
-        i = j;
-        key = k;
-    }
-
-    // Must parse `length` elements
-    let (i, el) = many_m_n(length as usize, length as usize, parse_single_element)(i)?;
-    let el_elemt: Vec<SolElement> = el
-        .iter()
-        .enumerate()
-        .map(|(pos, val)| SolElement {
-            name: format!("{}", pos),
-            value: val.clone(),
-        })
-        .collect();
-    elements.extend(el_elemt);
-
-    Ok((i, SolValue::MixedArray(elements)))
-}
-
 const ENCODING_STATIC: u8 = 0;
 const ENCODING_EXTERNAL: u8 = 1;
 const ENCODING_DYNAMIC: u8 = 2;
 const ENCODING_PROXY: u8 = 3;
-
-lazy_static! {
-    static ref CLASS_DEFINITION_CACHE: Mutex<Vec<ClassDefinition>> = Mutex::new(Vec::new());
-}
-
-fn parse_class_def(length: u32, i: &[u8]) -> IResult<&[u8], ClassDefinition> {
-    // log::warn!("Parsing class def");
-    if length & REFERENCE_FLAG == 0 {
-        // log::warn!("Reference = true");
-        //TODO: handle this error (ref that dosent exist) (how?)
-        let class_def = CLASS_DEFINITION_CACHE
-            .lock()
-            .expect("Can't lock mutex")
-            .get((length >> 1) as usize)
-            .unwrap_or(&ClassDefinition {
-                externalizable: false,
-                static_properties: vec![],
-                name: "".to_string(),
-                attribute_count: 0,
-                encoding: 0,
-            })
-            .clone();
-        return Ok((i, class_def));
-    }
-    let length = length >> 1;
-
-    let (i, name) = parse_byte_stream(i)?;
-    if name == [] {
-        log::warn!("No object default available");
-    }
-    let name_str = String::from_utf8(name).map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?;
-
-    //TODO: handle empty name
-    //TODO: handle alias
-    let encoding = (length & 0x03) as u8;
-    let attributes_count = length >> 2;
-
-    // Read static attributes if they exist
-    let (i, static_props) = many_m_n(
-        attributes_count as usize,
-        attributes_count as usize,
-        parse_string,
-    )(i)?;
-
-    let class_def = ClassDefinition {
-        name: name_str,
-        encoding,
-        attribute_count: attributes_count,
-        static_properties: static_props,
-        externalizable: false,
-    };
-
-    CLASS_DEFINITION_CACHE
-        .lock()
-        .unwrap()
-        .push(class_def.clone());
-    Ok((i, class_def))
-}
-
-fn parse_object_static<'a>(
-    i: &'a [u8],
-    class_def: &ClassDefinition,
-) -> IResult<&'a [u8], Vec<SolElement>> {
-    // log::warn!("Parse static props");
-    let mut elements = Vec::new();
-    let mut i = i;
-
-    for name in class_def.static_properties.iter() {
-        // log::warn!("Got static name {}", name);
-
-        let (j, e) = parse_single_element(i)?;
-        // log::warn!("Got static value {} = {:?}", name, e);
-
-        elements.push(SolElement {
-            name: name.clone(),
-            value: e,
-        });
-
-        i = j;
-    }
-
-    Ok((i, elements))
-}
-
-pub fn parse_element_object(i: &[u8]) -> IResult<&[u8], SolValue> {
-    // log::warn!("parse obj");
-    // log::warn!("First obj byte = {}", i[0]);
-    let (i, mut length) = read_int(i)?;
-
-    log::warn!("Obj len = {}", length);
-
-    if length & REFERENCE_FLAG == 0 {
-        log::warn!("Element references not yet impl");
-        return Ok((i, SolValue::Null));
-    }
-    length >>= 1;
-
-    // Class def
-    let (i, class_def) = parse_class_def(length, i)?;
-
-    log::warn!("Got class def: {:?}", class_def);
-
-    // if class_def.externalizable {
-    //     return Ok((i, SolValue::Null))
-    // }
-
-    // TOD: rest of object loding
-    if class_def.encoding == ENCODING_EXTERNAL || class_def.encoding == ENCODING_PROXY {
-        log::warn!("Proxy objects not yet supported");
-    }
-
-    let mut elements = Vec::new();
-
-    let mut i = i;
-    if class_def.encoding == ENCODING_DYNAMIC {
-        // log::info!("Dynamic encoding");
-        let (j, x) = parse_object_static(i, &class_def)?;
-        elements.extend(x);
-
-        // Read dynamic
-        let (mut j, mut attr) = parse_byte_stream(j)?;
-        // log::warn!("Got first dyn name {:?}", attr);
-        while attr != [] {
-            let attr_str = String::from_utf8(attr).unwrap();
-            // log::warn!("Parsing child element {}", attr_str);
-            let (k, val) = parse_single_element(j)?;
-            elements.push(SolElement {
-                name: attr_str,
-                value: val,
-            });
-
-            let (k, attr2) = parse_byte_stream(k)?;
-            j = k;
-            attr = attr2;
-        }
-        i = j;
-    }
-    if class_def.encoding == ENCODING_STATIC {
-        // log::warn!("Static encoding");
-        let (j, x) = parse_object_static(i, &class_def)?;
-        elements.extend(x);
-
-        i = j;
-    }
-
-    Ok((i, SolValue::Object(elements)))
-}
 
 fn parse_element_byte_array(i: &[u8]) -> IResult<&[u8], SolValue> {
     let (i, (len, reference)) = read_length(i)?;
@@ -392,30 +157,17 @@ fn parse_element_byte_array(i: &[u8]) -> IResult<&[u8], SolValue> {
     }
 }
 
-fn parse_element_object_vector(i: &[u8]) -> IResult<&[u8], SolValue> {
-    let (i, (len, reference)) = read_length(i)?;
-
-    if reference {
-        log::warn!("Object vector ref not impl");
-    }
-
-    let (i, fixed_length) = be_u8(i)?;
-
-    let (i, object_type_name) = parse_string(i)?;
-
-    let (i, elems) = many_m_n(len as usize, len as usize, parse_single_element)(i)?;
-
-    Ok((
-        i,
-        SolValue::VectorObject(elems, object_type_name, fixed_length == 1),
-    ))
-}
-use nom::Err;
 fn parse_element_vector_int(i: &[u8]) -> IResult<&[u8], SolValue> {
     let (i, (len, reference)) = read_length(i)?;
+
     let len_usize = len
         .try_into()
         .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+
+    // There must be at least `length_usize * 4` (i32 = 4 bytes) bytes to read this, this prevents OOM errors with v.large vecs
+    if i.len() < len_usize*4 {
+        return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+    }
 
     if reference {
         log::warn!("Not impl ref intvec");
@@ -430,9 +182,15 @@ fn parse_element_vector_int(i: &[u8]) -> IResult<&[u8], SolValue> {
 
 fn parse_element_vector_uint(i: &[u8]) -> IResult<&[u8], SolValue> {
     let (i, (len, reference)) = read_length(i)?;
+
     let len_usize = len
         .try_into()
         .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+
+    // There must be at least `length_usize * 4` (u32 = 4 bytes) bytes to read this, this prevents OOM errors with v.large vecs
+    if i.len() < len_usize*4 {
+        return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+    }
 
     if reference {
         log::warn!("Not impl ref intvec");
@@ -446,11 +204,15 @@ fn parse_element_vector_uint(i: &[u8]) -> IResult<&[u8], SolValue> {
 }
 
 fn parse_element_vector_double(i: &[u8]) -> IResult<&[u8], SolValue> {
-    // log::warn!("Reading vec<dub>");
     let (i, (len, reference)) = read_length(i)?;
     let len_usize = len
         .try_into()
         .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+
+    // There must be at least `length_usize * 8` (f64 = 8 bytes) bytes to read this, this prevents OOM errors with v.large dicts
+    if i.len() < len_usize*8 {
+        return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+    }
 
     if reference {
         log::warn!("Not impl ref dubvec");
@@ -463,63 +225,362 @@ fn parse_element_vector_double(i: &[u8]) -> IResult<&[u8], SolValue> {
     Ok((i, SolValue::VectorDouble(ints, fixed_length == 1)))
 }
 
-fn parse_element_dict(i: &[u8]) -> IResult<&[u8], SolValue> {
-    let (i, (len, reference)) = read_length(i)?;
+pub struct AMF3Decoder {
+    pub string_reference_table: RefCell<Vec<Vec<u8>>>,
+    pub trait_reference_table: RefCell<Vec<ClassDefinition>>,
+    pub object_reference_table: RefCell<Vec<SolValue>>,
+}
 
-    if reference {
-        log::warn!("Not impl ref dict");
+impl Default for AMF3Decoder {
+    fn default() -> Self {
+        AMF3Decoder {
+            string_reference_table: RefCell::new(Vec::new()),
+            trait_reference_table: RefCell::new(Vec::new()),
+            object_reference_table: RefCell::new(Vec::new()),
+        }
+    }
+}
+
+impl AMF3Decoder {
+    fn parse_element_string<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+        map(|i| self.parse_string(i), SolValue::String)(i)
     }
 
-    //TODO: implications of this
-    let (i, weak_keys) = be_u8(i)?;
+    pub fn parse_string<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], String> {
+        let (i, bytes) = self.parse_byte_stream(i)?;
+        let bytes_str =
+            String::from_utf8(bytes).map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?;
+        Ok((i, bytes_str))
+    }
 
-    let (i, pairs) = many_m_n(
-        len as usize,
-        len as usize,
-        tuple((parse_single_element, parse_single_element)),
-    )(i)?;
+    fn parse_class_def<'a>(&self, length: u32, i: &'a [u8]) -> IResult<&'a [u8], ClassDefinition> {
+        // log::warn!("Parsing class def");
+        if length & REFERENCE_FLAG == 0 {
+            let len_usize: usize = (length >> 1)
+                .try_into()
+                .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-    Ok((i, SolValue::Dictionary(pairs, weak_keys == 1)))
+            let class_def = self
+                .trait_reference_table
+                .borrow()
+                .get(len_usize)
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
+                .clone();
+
+            return Ok((i, class_def));
+        }
+        let length = length >> 1;
+
+        let (i, name) = self.parse_byte_stream(i)?;
+        if name == [] {
+            log::warn!("No object default available");
+        }
+        let name_str =
+            String::from_utf8(name).map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?;
+
+        //TODO: handle empty name
+        //TODO: handle alias
+        let encoding = (length & 0x03) as u8;
+        let attributes_count = length >> 2;
+
+
+        let attr_count_usize: usize = attributes_count
+            .try_into()
+            .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+
+
+        // Read static attributes if they exist
+        let (i, static_props) =
+            many_m_n(attr_count_usize, attr_count_usize, |i| {
+                self.parse_string(i)
+            })(i)?;
+
+        let class_def = ClassDefinition {
+            name: name_str,
+            encoding,
+            attribute_count: attributes_count,
+            static_properties: static_props,
+            externalizable: false,
+        };
+
+        self.trait_reference_table
+            .borrow_mut()
+            .push(class_def.clone());
+        Ok((i, class_def))
+    }
+
+    pub fn parse_byte_stream<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Vec<u8>> {
+        let (i, (len, reference)) = read_length(i)?;
+
+        if reference {
+            let length_usize: usize = len
+                .try_into()
+                .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+
+            let ref_result = self
+                .string_reference_table
+                .borrow()
+                .get(length_usize)
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
+                .clone();
+
+            Ok((i, ref_result))
+        } else if len == 0 {
+            Ok((i, vec![]))
+        } else {
+            let (i, bytes) = take!(i, len)?;
+            self.string_reference_table
+                .borrow_mut()
+                .push(bytes.to_vec());
+            Ok((i, bytes.to_vec()))
+        }
+    }
+
+    pub fn parse_object_static<'a>(
+        &self,
+        i: &'a [u8],
+        class_def: &ClassDefinition,
+    ) -> IResult<&'a [u8], Vec<SolElement>> {
+        let mut elements = Vec::new();
+        let mut i = i;
+
+        for name in class_def.static_properties.iter() {
+            let (j, e) = self.parse_single_element(i)?;
+
+            elements.push(SolElement {
+                name: name.clone(),
+                value: e,
+            });
+
+            i = j;
+        }
+
+        Ok((i, elements))
+    }
+
+    pub fn parse_element_object<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+        let (i, mut length) = read_int(i)?;
+
+        if length & REFERENCE_FLAG == 0 {
+            log::warn!("Element references not yet impl");
+            return Ok((i, SolValue::Null));
+        }
+        length >>= 1;
+
+        // Class def
+        let (i, class_def) = self.parse_class_def(length, i)?;
+
+        // TODO: rest of object loding
+        if class_def.encoding == ENCODING_EXTERNAL || class_def.encoding == ENCODING_PROXY {
+            log::warn!("Proxy objects not yet supported");
+        }
+
+        let mut elements = Vec::new();
+
+        let mut i = i;
+        if class_def.encoding == ENCODING_DYNAMIC {
+            // log::info!("Dynamic encoding");
+            let (j, x) = self.parse_object_static(i, &class_def)?;
+            elements.extend(x);
+
+            // Read dynamic
+            let (mut j, mut attr) = self.parse_byte_stream(j)?;
+            // log::warn!("Got first dyn name {:?}", attr);
+            while attr != [] {
+                let attr_str = String::from_utf8(attr)
+                    .map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?;
+                let (k, val) = self.parse_single_element(j)?;
+                elements.push(SolElement {
+                    name: attr_str,
+                    value: val,
+                });
+
+                let (k, attr2) = self.parse_byte_stream(k)?;
+                j = k;
+                attr = attr2;
+            }
+            i = j;
+        }
+        if class_def.encoding == ENCODING_STATIC {
+            // log::warn!("Static encoding");
+            let (j, x) = self.parse_object_static(i, &class_def)?;
+            elements.extend(x);
+
+            i = j;
+        }
+
+        Ok((i, SolValue::Object(elements)))
+    }
+
+    fn parse_element_object_vector<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+        let (i, (len, reference)) = read_length(i)?;
+
+        if reference {
+            log::warn!("Object vector ref not impl");
+        }
+
+        let (i, fixed_length) = be_u8(i)?;
+
+        let (i, object_type_name) = self.parse_string(i)?;
+
+        let length_usize = len
+            .try_into()
+            .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+
+        // There must be at least `length_usize` bytes to read this, this prevents OOM errors with v.large dicts
+        if i.len() < length_usize {
+            return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+        }
+
+        let (i, elems) = many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
+
+        Ok((
+            i,
+            SolValue::VectorObject(elems, object_type_name, fixed_length == 1),
+        ))
+    }
+
+    fn parse_element_array<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+        // log::info!("Parse array");
+        let (i, mut length) = read_int(i)?;
+
+        if length & REFERENCE_FLAG == 0 {
+            log::warn!("Array reference not yet impl");
+        }
+        length >>= 1;
+
+        let (i, mut key) = self.parse_byte_stream(i)?;
+
+        let length_usize = length
+            .try_into()
+            .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+
+        // There must be at least `length_usize` bytes to read this, this prevents OOM errors with v.large dicts
+        if i.len() < length_usize {
+            return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+        }
+
+
+        if key == [] {
+            let (i, elements) = many_m_n(length_usize, length_usize, |i| {
+                self.parse_single_element(i)
+            })(i)?;
+            return Ok((i, SolValue::StrictArray(elements)));
+        }
+
+        let mut elements = Vec::with_capacity(length_usize);
+
+        let mut i = i;
+        while key != [] {
+            let (j, e) = self.parse_single_element(i)?;
+            let key_str =
+                String::from_utf8(key).map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?;
+
+            elements.push(SolElement {
+                name: key_str,
+                value: e,
+            });
+            let (j, k) = self.parse_byte_stream(j)?;
+            i = j;
+            key = k;
+        }
+
+        // Must parse `length` elements
+        let (i, el) = many_m_n(length_usize, length_usize, |i| {
+            self.parse_single_element(i)
+        })(i)?;
+        let el_elemt: Vec<SolElement> = el
+            .iter()
+            .enumerate()
+            .map(|(pos, val)| SolElement {
+                name: format!("{}", pos),
+                value: val.clone(),
+            })
+            .collect();
+        elements.extend(el_elemt);
+
+        Ok((i, SolValue::ECMAArray(elements)))
+    }
+
+    fn parse_element_dict<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+        let (i, (len, reference)) = read_length(i)?;
+
+        if reference {
+            log::warn!("Not impl ref dict");
+        }
+
+        //TODO: implications of this
+        let (i, weak_keys) = be_u8(i)?;
+
+        let length_usize = len
+            .try_into()
+            .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+
+        // There must be at least `length_usize * 2` bytes (due to (key,val) pairs) to read this, this prevents OOM errors with v.large dicts
+        if i.len() < length_usize * 2 {
+            return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+        }
+
+        let (i, pairs) = many_m_n(
+            length_usize,
+            length_usize,
+            tuple((
+                |i| self.parse_single_element(i),
+                |i| self.parse_single_element(i),
+            )),
+        )(i)?;
+
+        Ok((i, SolValue::Dictionary(pairs, weak_keys == 1)))
+    }
+
+    fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+        let (i, type_) = be_u8(i)?;
+
+        match type_ {
+            TYPE_UNDEFINED => Ok((i, SolValue::Undefined)),
+            TYPE_NULL => Ok((i, SolValue::Null)),
+            TYPE_FALSE => Ok((i, SolValue::Bool(false))),
+            TYPE_TRUE => Ok((i, SolValue::Bool(true))),
+            TYPE_INTEGER => parse_element_int(i),
+            TYPE_NUMBER => parse_element_number(i),
+            TYPE_STRING => self.parse_element_string(i),
+            TYPE_XML => parse_element_xml(i),
+            TYPE_DATE => parse_element_date(i),
+            TYPE_ARRAY => self.parse_element_array(i),
+            TYPE_OBJECT => self.parse_element_object(i),
+            TYPE_XML_STRING => parse_element_xml(i),
+            TYPE_BYTE_ARRAY => parse_element_byte_array(i),
+            TYPE_VECTOR_OBJECT => self.parse_element_object_vector(i),
+            TYPE_VECTOR_INT => parse_element_vector_int(i),
+            TYPE_VECTOR_UINT => parse_element_vector_uint(i),
+            TYPE_VECTOR_DOUBLE => parse_element_vector_double(i),
+            TYPE_DICT => self.parse_element_dict(i),
+            _ => Err(Err::Error(make_error(i, ErrorKind::HexDigit))),
+        }
+    }
+
+    pub fn parse_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolElement> {
+        let (i, name) = self.parse_string(i)?;
+        map(
+            |i| self.parse_single_element(i),
+            move |v: SolValue| SolElement {
+                name: name.clone(),
+                value: v,
+            },
+        )(i)
+    }
+
+    pub fn parse_body<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Vec<SolElement>> {
+        separated_list(parse_padding, |i| self.parse_element(i))(i)
+    }
 }
 
-use crate::amf0::parse_element_number;
-use crate::types::{SolElement, SolValue};
-use nom::error::{make_error, ErrorKind};
-use nom::sequence::tuple;
-use nom::{call, named, switch, value};
-use std::convert::TryInto;
-named!(parse_single_element<&[u8], SolValue>,
-   switch!(be_u8,
-    TYPE_UNDEFINED => value!(SolValue::Undefined) |
-    TYPE_NULL => value!(SolValue::Null) |
-    TYPE_FALSE => value!(SolValue::Bool(false)) |
-    TYPE_TRUE => value!(SolValue::Bool(true)) |
-    TYPE_INTEGER => call!(parse_element_int) |
-    TYPE_NUMBER => call!(parse_element_number) |
-    TYPE_STRING => call!(parse_element_string) |
-    TYPE_XML => call!(parse_element_xml) |
-    TYPE_DATE => call!(parse_element_date) |
-    TYPE_ARRAY => call!(parse_element_array) |
-    TYPE_OBJECT => call!(parse_element_object) |
-    TYPE_XML_STRING => call!(parse_element_xml) |
-    TYPE_BYTE_ARRAY => call!(parse_element_byte_array) |
-    TYPE_VECTOR_OBJECT => call!(parse_element_object_vector) |
-    TYPE_VECTOR_INT => call!(parse_element_vector_int) |
-    TYPE_VECTOR_UINT => call!(parse_element_vector_uint) |
-    TYPE_VECTOR_DOUBLE => call!(parse_element_vector_double) |
-    TYPE_DICT => call!(parse_element_dict)
-   )
-);
-fn parse_element(i: &[u8]) -> IResult<&[u8], SolElement> {
-    let (i, name) = parse_string(i)?;
-    log::debug!("Got name {:?}", name);
+#[cfg(test)]
+mod test {
+    use crate::amf3::AMF3Decoder;
 
-    map(parse_single_element, move |v: SolValue| SolElement {
-        name: name.clone(),
-        value: v,
-    })(i)
-}
-
-pub fn parse_body(i: &[u8]) -> IResult<&[u8], Vec<SolElement>> {
-    separated_list(parse_padding, parse_element)(i)
+    #[test]
+    pub fn test_amf3_error() {
+        let _ = AMF3Decoder::default().parse_body(&[1, 15, 255, 255, 255, 255, 255, 255, 255, 255, 255]);
+    }
 }

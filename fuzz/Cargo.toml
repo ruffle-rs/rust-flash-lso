@@ -62,3 +62,19 @@ path = "fuzz_targets/fuzz_amf0_element_bool.rs"
 [[bin]]
 name = "fuzz_amf0_element_string"
 path = "fuzz_targets/fuzz_amf0_element_string.rs"
+
+[[bin]]
+name = "fuzz_amf3_int_signed"
+path = "fuzz_targets/fuzz_amf3_int_signed.rs"
+
+[[bin]]
+name = "fuzz_amf3_int_unsigned"
+path = "fuzz_targets/fuzz_amf3_int_unsigned.rs"
+
+[[bin]]
+name = "fuzz_amf3_string"
+path = "fuzz_targets/fuzz_amf3_string.rs"
+
+[[bin]]
+name = "fuzz_amf3_body"
+path = "fuzz_targets/fuzz_amf3_body.rs"

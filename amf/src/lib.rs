@@ -28,11 +28,6 @@ pub mod types;
 
 use crate::types::Sol;
 use nom::IResult;
-use nom::error::{make_error, ErrorKind};
-//TODO: look at do_parse!
-
-#[macro_use]
-extern crate lazy_static;
 
 pub fn parse_full(i: &[u8]) -> IResult<&[u8], Sol> {
     let (i, header) = amf0::parse_header(i)?;
@@ -42,7 +37,8 @@ pub fn parse_full(i: &[u8]) -> IResult<&[u8], Sol> {
             Ok((i, Sol { header, body }))
         }
         FORMAT_VERSION_AMF3 => {
-            let (i, body) = amf3::parse_body(i)?;
+            let decoder = amf3::AMF3Decoder::default();
+            let (i, body) = decoder.parse_body(i)?;
             Ok((i, Sol { header, body }))
         }
         _ => unimplemented!(),
