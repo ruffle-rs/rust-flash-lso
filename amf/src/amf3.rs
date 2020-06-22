@@ -254,7 +254,6 @@ impl AMF3Decoder {
     }
 
     fn parse_class_def<'a>(&self, length: u32, i: &'a [u8]) -> IResult<&'a [u8], ClassDefinition> {
-        // log::warn!("Parsing class def");
         if length & REFERENCE_FLAG == 0 {
             let len_usize: usize = (length >> 1)
                 .try_into()
@@ -273,7 +272,7 @@ impl AMF3Decoder {
 
         let (i, name) = self.parse_byte_stream(i)?;
         if name == [] {
-            log::warn!("No object default available");
+            log::info!("Object has no name");
         }
         let name_str =
             String::from_utf8(name).map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?;
@@ -362,8 +361,18 @@ impl AMF3Decoder {
         let (i, mut length) = read_int(i)?;
 
         if length & REFERENCE_FLAG == 0 {
-            log::warn!("Element references not yet impl");
-            return Ok((i, SolValue::Null));
+            let len_usize: usize = (length >> 1)
+                .try_into()
+                .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+
+            let obj = self
+                .object_reference_table
+                .borrow()
+                .get(len_usize)
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
+                .clone();
+
+            return Ok((i, obj));
         }
         length >>= 1;
 
@@ -385,7 +394,6 @@ impl AMF3Decoder {
 
             // Read dynamic
             let (mut j, mut attr) = self.parse_byte_stream(j)?;
-            // log::warn!("Got first dyn name {:?}", attr);
             while attr != [] {
                 let attr_str = String::from_utf8(attr)
                     .map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?;
@@ -402,14 +410,15 @@ impl AMF3Decoder {
             i = j;
         }
         if class_def.encoding == ENCODING_STATIC {
-            // log::warn!("Static encoding");
             let (j, x) = self.parse_object_static(i, &class_def)?;
             elements.extend(x);
 
             i = j;
         }
 
-        Ok((i, SolValue::Object(elements)))
+        let obj = SolValue::Object(elements);
+        self.object_reference_table.borrow_mut().push(obj.clone());
+        Ok((i, obj))
     }
 
     fn parse_element_object_vector<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
@@ -441,11 +450,21 @@ impl AMF3Decoder {
     }
 
     fn parse_element_array<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
-        // log::info!("Parse array");
         let (i, mut length) = read_int(i)?;
 
         if length & REFERENCE_FLAG == 0 {
-            log::warn!("Array reference not yet impl");
+            let len_usize: usize = (length >> 1)
+                .try_into()
+                .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+
+            let obj = self
+                .object_reference_table
+                .borrow()
+                .get(len_usize)
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
+                .clone();
+
+            return Ok((i, obj));
         }
         length >>= 1;
 
@@ -499,7 +518,9 @@ impl AMF3Decoder {
             .collect();
         elements.extend(el_elemt);
 
-        Ok((i, SolValue::ECMAArray(elements)))
+        let obj = SolValue::ECMAArray(elements);
+        self.object_reference_table.borrow_mut().push(obj.clone());
+        Ok((i, obj))
     }
 
     fn parse_element_dict<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
