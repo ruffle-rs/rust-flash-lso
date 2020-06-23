@@ -20,53 +20,9 @@ const TYPE_XML: u8 = 15;
 const TYPE_TYPED_OBJECT: u8 = 16;
 const TYPE_AMF3: u8 = 17;
 
-pub fn parse_version(i: &[u8]) -> IResult<&[u8], [u8; 2]> {
-    map(tag(HEADER_VERSION), |v: &[u8]| v.try_into().unwrap())(i)
-}
-
-pub fn parse_length(i: &[u8]) -> IResult<&[u8], u32> {
-    be_u32(i)
-}
-
-pub fn parse_signature(i: &[u8]) -> IResult<&[u8], [u8; 10]> {
-    map(tag(HEADER_SIGNATURE), |sig: &[u8]| sig.try_into().unwrap())(i)
-}
-
 pub fn parse_string(i: &[u8]) -> IResult<&[u8], &str> {
     let (i, length) = be_u16(i)?;
     take_str!(i, length)
-}
-
-pub(crate) fn parse_padding(i: &[u8]) -> IResult<&[u8], &[u8]> {
-    tag(PADDING)(i)
-}
-
-pub fn parse_header(i: &[u8]) -> IResult<&[u8], SolHeader> {
-    let (i, v) = parse_version(i)?;
-    let (i, l) = parse_length(i)?;
-    let (i, sig) = parse_signature(i)?;
-
-    let (i, name) = parse_string(i)?;
-
-    let (i, _) = parse_padding(i)?;
-    let (i, _) = parse_padding(i)?;
-    let (i, _) = parse_padding(i)?;
-
-    let (i, format_version) = map(
-        alt((tag(&[FORMAT_VERSION_AMF0]), tag(&[FORMAT_VERSION_AMF3]))),
-        |v: &[u8]| v[0],
-    )(i)?;
-
-    Ok((
-        i,
-        SolHeader {
-            version: v,
-            length: l,
-            signature: sig,
-            name: name.to_string(),
-            format_version,
-        },
-    ))
 }
 
 pub fn parse_element_number(i: &[u8]) -> IResult<&[u8], SolValue> {
@@ -120,8 +76,6 @@ pub fn parse_element_array(i: &[u8]) -> IResult<&[u8], SolValue> {
     }
 
     // This must parse length elements
-    //TODO: should this be single elem
-    // let (i, elements) = many_m_n(length as usize, length as usize, parse_element)(i)?;
     let (i, elements) = many_m_n(length_usize, length_usize, parse_single_element)(i)?;
 
     Ok((i, SolValue::StrictArray(elements)))
@@ -131,7 +85,7 @@ fn parse_element_date(i: &[u8]) -> IResult<&[u8], SolValue> {
     let (i, millis) = be_f64(i)?;
     let (i, time_zone) = be_u16(i)?;
 
-    Ok((i, SolValue::Date(millis, time_zone)))
+    Ok((i, SolValue::Date(millis, Some(time_zone))))
 }
 
 pub fn parse_element_long_string(i: &[u8]) -> IResult<&[u8], SolValue> {
@@ -148,33 +102,32 @@ fn parse_element_record_set(i: &[u8]) -> IResult<&[u8], SolValue> {
 
 fn parse_element_xml(i: &[u8]) -> IResult<&[u8], SolValue> {
     let (i, content) = parse_element_long_string(i)?;
-    let content_string = match content {
-        SolValue::String(s) => s,
-        _ => unimplemented!(), //TODO: better handling of this
-    };
-    Ok((i, SolValue::XML(content_string)))
+    if let SolValue::String(content_string) = content {
+        Ok((i, SolValue::XML(content_string)))
+    } else {
+        // Will never happen
+        Err(Err::Error(make_error(i, ErrorKind::Digit)))
+    }
 }
 
 fn parse_element_typed_object(i: &[u8]) -> IResult<&[u8], SolValue> {
     let (i, s) = parse_string(i)?;
     let (i, obj) = parse_element_object(i)?;
-    let obj_content = match obj {
-        SolValue::Object(x) => x,
-        _ => unimplemented!(),
-    };
-
-    Ok((i, SolValue::TypedObject(s.to_string(), obj_content)))
+    if let SolValue::Object(obj_content) = obj {
+        Ok((i, SolValue::TypedObject(s.to_string(), obj_content)))
+    } else {
+        // Will never happen
+        Err(Err::Error(make_error(i, ErrorKind::Digit)))
+    }
 }
 
 fn parse_element_amf3(i: &[u8]) -> IResult<&[u8], SolValue> {
+    // Hopefully amf3 objects wont have references
     amf3::AMF3Decoder::default().parse_element_object(i)
 }
 
-use crate::types::{SolElement, SolHeader, SolValue};
-use crate::{
-    amf3, FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, HEADER_SIGNATURE, HEADER_VERSION, PADDING,
-};
-use nom::branch::alt;
+use crate::types::{SolElement, SolValue};
+use crate::{amf3, PADDING};
 use nom::combinator::map;
 use nom::multi::{many0, many_m_n};
 use nom::number::complete::{be_f64, be_u16, be_u32, be_u8};
@@ -220,7 +173,7 @@ fn parse_element(i: &[u8]) -> IResult<&[u8], SolElement> {
 
 fn parse_element_and_padding(i: &[u8]) -> IResult<&[u8], SolElement> {
     let (i, e) = parse_element(i)?;
-    let (i, _) = parse_padding(i)?;
+    let (i, _) = tag(PADDING)(i)?;
 
     Ok((i, e))
 }

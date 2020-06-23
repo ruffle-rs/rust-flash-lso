@@ -1,20 +1,3 @@
-#![warn(
-clippy::all,
-clippy::restriction,
-// clippy::pedantic,
-// clippy::nursery,
-// clippy::cargo,
-)]
-#![allow(clippy::shadow_reuse)]
-#![allow(clippy::shadow_same)]
-#![allow(clippy::integer_arithmetic)]
-#![allow(clippy::missing_inline_in_public_items)]
-#![allow(clippy::unimplemented)]
-#![allow(clippy::unwrap)]
-#![allow(clippy::unwrap_used)]
-#![allow(clippy::expect_used)]
-#![allow(clippy::implicit_return, clippy::missing_docs_in_private_items)]
-
 const HEADER_VERSION: [u8; 2] = [0x00, 0xbf];
 const HEADER_SIGNATURE: [u8; 10] = [0x54, 0x43, 0x53, 0x4f, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00];
 const PADDING: [u8; 1] = [0x00];
@@ -26,23 +9,69 @@ pub mod amf0;
 pub mod amf3;
 pub mod types;
 
-use crate::types::Sol;
+use crate::types::{Sol, SolHeader};
+use nom::branch::alt;
+use nom::bytes::complete::tag;
+use nom::combinator::map;
+use nom::error::{make_error, ErrorKind};
+use nom::number::complete::be_u32;
+use nom::Err;
 use nom::IResult;
+use std::convert::TryInto;
 
-pub fn parse_full(i: &[u8]) -> IResult<&[u8], Sol> {
-    let (i, header) = amf0::parse_header(i)?;
-    match header.format_version {
-        FORMAT_VERSION_AMF0 => {
-            let (i, body) = amf0::parse_body(i)?;
-            Ok((i, Sol { header, body }))
+#[derive(Default)]
+pub struct SolDeserializer {}
+
+impl SolDeserializer {
+    pub fn parse_version<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], [u8; 2]> {
+        map(tag(HEADER_VERSION), |v: &[u8]| v.try_into().unwrap())(i)
+    }
+
+    pub fn parse_signature<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], [u8; 10]> {
+        map(tag(HEADER_SIGNATURE), |sig: &[u8]| sig.try_into().unwrap())(i)
+    }
+
+    pub fn parse_header<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolHeader> {
+        let (i, v) = self.parse_version(i)?;
+        let (i, l) = be_u32(i)?;
+        let (i, sig) = self.parse_signature(i)?;
+
+        let (i, name) = amf0::parse_string(i)?;
+
+        let (i, _) = tag(PADDING)(i)?;
+        let (i, _) = tag(PADDING)(i)?;
+        let (i, _) = tag(PADDING)(i)?;
+
+        let (i, format_version) = map(
+            alt((tag(&[FORMAT_VERSION_AMF0]), tag(&[FORMAT_VERSION_AMF3]))),
+            |v: &[u8]| v[0],
+        )(i)?;
+
+        Ok((
+            i,
+            SolHeader {
+                version: v,
+                length: l,
+                signature: sig,
+                name: name.to_string(),
+                format_version,
+            },
+        ))
+    }
+
+    pub fn parse_full<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Sol> {
+        let (i, header) = self.parse_header(i)?;
+        match header.format_version {
+            FORMAT_VERSION_AMF0 => {
+                let (i, body) = amf0::parse_body(i)?;
+                Ok((i, Sol { header, body }))
+            }
+            FORMAT_VERSION_AMF3 => {
+                let decoder = amf3::AMF3Decoder::default();
+                let (i, body) = decoder.parse_body(i)?;
+                Ok((i, Sol { header, body }))
+            }
+            _ => Err(Err::Error(make_error(i, ErrorKind::Digit))),
         }
-        FORMAT_VERSION_AMF3 => {
-            let decoder = amf3::AMF3Decoder::default();
-            let (i, body) = decoder.parse_body(i)?;
-            Ok((i, Sol { header, body }))
-        }
-        _ => unimplemented!(),
     }
 }
-#[cfg(test)]
-mod tests {}

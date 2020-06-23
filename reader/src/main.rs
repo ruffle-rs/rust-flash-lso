@@ -3,6 +3,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use amf::types::Sol;
+use amf::SolDeserializer;
 use clap::*;
 
 fn main() {
@@ -39,7 +40,7 @@ fn read_file(path: PathBuf) -> Option<Sol> {
     let mut x = File::open(path).unwrap();
     let mut data = Vec::new();
     let _ = x.read_to_end(&mut data).expect("Unable to read file");
-    let d = amf::parse_full(&data);
+    let d = SolDeserializer::default().parse_full(&data);
     // println!("{:#?}", d);
     d.map(|s| s.1).ok()
 }

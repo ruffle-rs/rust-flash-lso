@@ -31,7 +31,9 @@ pub enum SolValue {
     ECMAArray(Vec<SolElement>),
     ObjectEnd,
     StrictArray(Vec<SolValue>),
-    Date(f64, u16),
+    // (seconds since epoch, timezone)
+    // If timezone is missing, then epoch is in UTC
+    Date(f64, Option<u16>),
     Unsupported,
     XML(String),
     TypedObject(String, Vec<SolElement>),
