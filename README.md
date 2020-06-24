@@ -3,7 +3,7 @@
 [![GitHub license](https://img.shields.io/github/license/CUB3D/rust-sol)](https://github.com/CUB3D/rust-flash-lso/blob/master/LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/CUB3D/rust-sol)](https://github.com/CUB3D/rust-flash-lso/issues)
 
-A parser for Adobe LSO (.sol), AMF0 and AFM3 in 100% safe rust
+A parser for Adobe Local Shared Object (LSO) file format (.sol), AMF0 and AFM3 in 100% safe rust
 
 The primary goal of this crate is to be as safe as possible against malformed and invalid input and to fail cleanly when this is identified.
 
