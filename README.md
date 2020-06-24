@@ -1,13 +1,13 @@
-## [SOL](https://crates.io/crates/sol)
+## [flash-lso](https://crates.io/crates/flash-lso)
 
-[![GitHub license](https://img.shields.io/github/license/CUB3D/rust-sol)](https://github.com/CUB3D/rust-sol/blob/master/LICENSE)
-[![GitHub issues](https://img.shields.io/github/issues/CUB3D/rust-sol)](https://github.com/CUB3D/rust-sol/issues)
+[![GitHub license](https://img.shields.io/github/license/CUB3D/rust-sol)](https://github.com/CUB3D/rust-flash-lso/blob/master/LICENSE)
+[![GitHub issues](https://img.shields.io/github/issues/CUB3D/rust-sol)](https://github.com/CUB3D/rust-flash-lso/issues)
 
-A parser for Adobe SOL, AMF0 and AFM3 in 100% safe rust
+A parser for Adobe LSO (.sol), AMF0 and AFM3 in 100% safe rust
 
 The primary goal of this crate is to be as safe as possible against malformed and invalid input and to fail cleanly when this is identified.
 
-In future this crate also intends to support encoding of data to SOL/AMF0/AMF3
+In future this crate also intends to support encoding of data to LSO/AMF0/AMF3
 
 
 ## Example
@@ -19,7 +19,7 @@ fn main() {
     let mut x = File::open(path).expect("Couldn't open file");
     let mut data = Vec::new();
     let _ = x.read_to_end(&mut data).expect("Unable to read file");
-    let d = SolDeserializer::default().parse_full(&data).expect("Failed to parse sol file");
+    let d = LSODeserializer::default().parse_full(&data).expect("Failed to parse lso file");
     println!("{:#?}", d);
 }
 ``` 

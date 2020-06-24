@@ -28,20 +28,20 @@ extern crate serde;
 /// ```
 /// use std::fs::File;
 /// use std::io::Read;
-/// use amf::SolDeserializer;
+/// use amf::LSODeserializer;
 /// fn main() {
 ///     let mut x = File::open(path).expect("Couldn't open file");
 ///     let mut data = Vec::new();
 ///     let _ = x.read_to_end(&mut data).expect("Unable to read file");
-///     let d = SolDeserializer::default().parse_full(&data).expect("Failed to parse sol file");
+///     let d = LSODeserializer::default().parse_full(&data).expect("Failed to parse lso file");
 ///     println!("{:#?}", d);
 /// }
 /// ```
 /// }
 #[derive(Default)]
-pub struct SolDeserializer {}
+pub struct LSODeserializer {}
 
-impl SolDeserializer {
+impl LSODeserializer {
     pub fn parse_version<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], [u8; 2]> {
         map(tag(HEADER_VERSION), |v: &[u8]| v.try_into().unwrap())(i)
     }
