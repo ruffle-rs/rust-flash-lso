@@ -1,7 +1,5 @@
-use std::fmt;
-use nom::lib::std::fmt::Formatter;
-
 /// A container for sol files
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct Sol {
     pub header: SolHeader,
@@ -9,6 +7,7 @@ pub struct Sol {
 }
 
 /// The header of a sol file
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Eq, PartialEq)]
 pub struct SolHeader {
     pub version: [u8; 2],
@@ -20,6 +19,7 @@ pub struct SolHeader {
 }
 
 /// Represent a named element
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug)]
 pub struct SolElement {
     pub name: String,
@@ -28,6 +28,7 @@ pub struct SolElement {
 
 //TODO: should amf3 assoc arrays be their own type with a dense and assoc section
 /// A single or compound value
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub enum SolValue {
     /// Represent the type number (amf0) and double (amf3)
@@ -62,7 +63,10 @@ pub enum SolValue {
     /// Format is (values, is_fixed_length)
     VectorInt(Vec<i32>, bool),
     /// Represent the unsigned int vector type (amf3)
-    /// Format is (values, is_fixed_length)    VectorUInt(Vec<u32>, bool),
+    /// Format is (values, is_fixed_length)
+    VectorUInt(Vec<u32>, bool),
+    /// Represent the double vector type (amf3)
+    /// Format is (values, is_fixed_length)
     VectorDouble(Vec<f64>, bool),
     /// Represent the object vector type (amf3)
     /// Format is (values, is_fixed_length)
@@ -73,6 +77,7 @@ pub enum SolValue {
 }
 
 /// A class definition (trait) used in AMF3
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct ClassDefinition {
     pub name: String,

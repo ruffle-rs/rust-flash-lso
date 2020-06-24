@@ -19,6 +19,25 @@ use nom::Err;
 use nom::IResult;
 use std::convert::TryInto;
 
+#[cfg(feature = "serde")]
+#[macro_use]
+extern crate serde;
+
+/// The main entry point of decoding a SOL file
+/// Example of use
+/// ```
+/// use std::fs::File;
+/// use std::io::Read;
+/// use amf::SolDeserializer;
+/// fn main() {
+///     let mut x = File::open(path).expect("Couldn't open file");
+///     let mut data = Vec::new();
+///     let _ = x.read_to_end(&mut data).expect("Unable to read file");
+///     let d = SolDeserializer::default().parse_full(&data).expect("Failed to parse sol file");
+///     println!("{:#?}", d);
+/// }
+/// ```
+/// }
 #[derive(Default)]
 pub struct SolDeserializer {}
 

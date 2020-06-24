@@ -8,10 +8,13 @@ readme = "README.md"
 license = "MIT"
 keywords = ["sol", "amf0", "amf3", "parser"]
 edition = "2018"
+categories = ["data-structures", "encoding", "parser-implementations"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nom = "5"
+nom = "5.1.2"
 log = "0.4.8"
+
+serde = { version = "1.0", optional = true, features = ["derive"] }
 
