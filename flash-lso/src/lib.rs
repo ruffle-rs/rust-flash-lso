@@ -29,13 +29,11 @@ extern crate serde;
 /// use std::fs::File;
 /// use std::io::Read;
 /// use amf::LSODeserializer;
-/// fn main() {
-///     let mut x = File::open(path).expect("Couldn't open file");
-///     let mut data = Vec::new();
-///     let _ = x.read_to_end(&mut data).expect("Unable to read file");
-///     let d = LSODeserializer::default().parse_full(&data).expect("Failed to parse lso file");
-///     println!("{:#?}", d);
-/// }
+/// let mut x = File::open(path).expect("Couldn't open file");
+/// let mut data = Vec::new();
+/// let _ = x.read_to_end(&mut data).expect("Unable to read file");
+/// let d = LSODeserializer::default().parse_full(&data).expect("Failed to parse lso file");
+/// println!("{:#?}", d);
 /// ```
 /// }
 #[derive(Default)]

@@ -320,7 +320,7 @@ impl AMF3Decoder {
                 .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
                 .clone();
 
-            return Ok((i, obj));
+            Ok((i, obj))
         } else {
             let (i, bytes) = take!(i, len)?;
             let obj = SolValue::ByteArray(bytes.to_vec());
