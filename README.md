@@ -14,7 +14,7 @@ In future this crate also intends to support encoding of data to LSO/AMF0/AMF3
 ```rust
 use std::fs::File;
 use std::io::Read;
-use amf::SolDeserializer;
+use flash_lso::LSODeserializer;
 fn main() {
     let mut x = File::open(path).expect("Couldn't open file");
     let mut data = Vec::new();

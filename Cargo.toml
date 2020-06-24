@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "amf",
+    "flash-lso",
     "reader",
 ]
 

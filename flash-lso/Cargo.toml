@@ -1,5 +1,5 @@
 [package]
-name = "amf"
+name = "flash-lso"
 version = "0.1.0"
 authors = ["CUB3D <callumthom11@gmail.com>"]
 description = "Fast and safe SOL/AMF0/AMF3 format parsign"

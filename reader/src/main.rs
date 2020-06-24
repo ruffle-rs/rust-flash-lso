@@ -2,8 +2,8 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use amf::types::Sol;
-use amf::LSODeserializer;
+use flash_lso::types::Sol;
+use flash_lso::LSODeserializer;
 use clap::*;
 
 fn main() {
