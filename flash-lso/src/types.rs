@@ -1,3 +1,7 @@
+use std::io::Write;
+use nom::AsBytes;
+use cookie_factory::bytes::be_u32;
+
 /// A container for sol files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]

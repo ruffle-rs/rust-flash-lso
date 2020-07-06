@@ -41,6 +41,6 @@ fn read_file(path: PathBuf) -> Option<Sol> {
     let mut data = Vec::new();
     let _ = x.read_to_end(&mut data).expect("Unable to read file");
     let d = LSODeserializer::default().parse_full(&data);
-    // println!("{:#?}", d);
+    println!("{:#?}", d);
     d.map(|s| s.1).ok()
 }

@@ -1,5 +1,15 @@
 use nom::bytes::complete::tag;
 use nom::take_str;
+use crate::types::{SolElement, SolValue};
+use crate::{amf3, PADDING};
+use nom::combinator::map;
+use nom::multi::{many0, many_m_n};
+use nom::number::complete::{be_f64, be_u16, be_u32, be_u8};
+use nom::IResult;
+use std::convert::TryInto;
+
+use nom::error::{make_error, ErrorKind};
+use nom::Err;
 
 const TYPE_NUMBER: u8 = 0;
 const TYPE_BOOL: u8 = 1;
@@ -126,16 +136,6 @@ fn parse_element_amf3(i: &[u8]) -> IResult<&[u8], SolValue> {
     amf3::AMF3Decoder::default().parse_element_object(i)
 }
 
-use crate::types::{SolElement, SolValue};
-use crate::{amf3, PADDING};
-use nom::combinator::map;
-use nom::multi::{many0, many_m_n};
-use nom::number::complete::{be_f64, be_u16, be_u32, be_u8};
-use nom::IResult;
-use std::convert::TryInto;
-
-use nom::error::{make_error, ErrorKind};
-use nom::Err;
 fn parse_single_element(i: &[u8]) -> IResult<&[u8], SolValue> {
     let (i, type_) = be_u8(i)?;
 
@@ -199,6 +199,114 @@ fn parse_array_element(i: &[u8]) -> IResult<&[u8], Vec<SolElement>> {
 
 pub fn parse_body(i: &[u8]) -> IResult<&[u8], Vec<SolElement>> {
     many0(parse_element_and_padding)(i)
+}
+
+pub mod encoder {
+    use crate::types::{SolElement, SolValue};
+    use std::io::Write;
+    use crate::types::{SolHeader, Sol};
+    use cookie_factory::bytes::{be_u32, be_u8, be_u16, be_f64};
+    use crate::{PADDING, FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3};
+    use nom::lib::std::alloc::handle_alloc_error;
+    use cookie_factory::{SerializeFn, WriteContext};
+
+    use cookie_factory::combinator::slice;
+    use cookie_factory::multi::all;
+    use cookie_factory::combinator::string;
+    use cookie_factory::combinator::cond;
+    use cookie_factory::sequence::tuple;
+    use nom::error::ErrorKind::SeparatedList;
+    use crate::amf0::{TYPE_STRING, TYPE_NULL, TYPE_NUMBER, TYPE_BOOL, TYPE_OBJECT_END, TYPE_OBJECT, TYPE_UNDEFINED, TYPE_UNSUPPORTED, TYPE_XML, TYPE_ARRAY, TYPE_DATE, TYPE_TYPED_OBJECT, TYPE_LONG_STRING};
+    use crate::encoder::write_string;
+    
+    pub fn write_number_element<'a, 'b: 'a, W: Write + 'a>(s: f64) -> impl SerializeFn<W> + 'a {
+        tuple((be_u8(TYPE_NUMBER), be_f64(s)))
+    }
+
+    pub fn write_bool_element<'a, 'b: 'a, W: Write + 'a>(s: bool) -> impl SerializeFn<W> + 'a {
+        tuple((be_u8(TYPE_BOOL), be_u8(if s {1u8} else {0u8} )))
+    }
+
+    pub fn write_long_string_element<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
+        tuple((be_u8(TYPE_LONG_STRING), be_u32(s.len() as u32), string(s)))
+    }
+
+    pub fn write_string_element<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
+        tuple((be_u8(TYPE_STRING), write_string(s)))
+    }
+
+    pub fn write_object_element<'a, 'b: 'a, W: Write + 'a>(o: &'b[SolElement]) -> impl SerializeFn<W> + 'a {
+        tuple((be_u8(TYPE_OBJECT), all(o.iter().map(write_element)), be_u8(TYPE_OBJECT_END)))
+    }
+
+    pub fn write_null_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W> + 'a {
+        be_u8(TYPE_NULL)
+    }
+
+    pub fn write_undefined_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W> + 'a {
+        be_u8(TYPE_UNDEFINED)
+    }
+
+    pub fn write_object_end_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W> + 'a {
+        be_u8(TYPE_OBJECT_END)
+    }
+
+    pub fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(elements: &'b [SolValue]) -> impl SerializeFn<W> + 'a {
+        tuple((be_u8(TYPE_ARRAY), be_u32(elements.len() as u32), all(elements.iter().map(write_value))))
+    }
+
+    pub fn write_date_element<'a, 'b: 'a, W: Write + 'a>(date: f64, tz: Option<u16>) -> impl SerializeFn<W> + 'a {
+        tuple((be_u8(TYPE_DATE), be_f64(date), be_u16(tz.unwrap_or(0))))
+    }
+
+    pub fn write_unsupported_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W> + 'a {
+        be_u8(TYPE_UNSUPPORTED)
+    }
+
+    pub fn write_xml_element<'a, 'b: 'a, W: Write + 'a>(content: &'b str) -> impl SerializeFn<W> + 'a {
+        tuple((be_u8(TYPE_XML), write_string(content)))
+    }
+
+    pub fn write_typed_object_element<'a, 'b: 'a, W: Write + 'a>(name: &'b str, elements: &'b[SolElement]) -> impl SerializeFn<W> + 'a {
+        tuple((be_u8(TYPE_TYPED_OBJECT), write_string(name), all(elements.iter().map(write_element)), be_u8(TYPE_OBJECT_END)))
+    }
+
+    pub fn write_value<'a, 'b: 'a, W: Write + 'a>(element: &'b SolValue) -> impl SerializeFn<W> + 'a {
+        println!("Writing element: {:?}", element);
+        move |out: WriteContext<W>| match element {
+            SolValue::Number(n) => write_number_element(*n)(out),
+            SolValue::Bool(b) => write_bool_element(*b)(out),
+            SolValue::String(s) => {
+                if s.len() > 65535 {
+                    write_long_string_element(s)(out)
+                } else {
+                    write_string_element(s)(out)
+                }
+            },
+            SolValue::Object(o) => write_object_element(o)(out),
+            SolValue::Null => write_null_element()(out),
+            SolValue::Undefined => write_undefined_element()(out),
+            SolValue::ObjectEnd => write_object_end_element()(out),
+            SolValue::StrictArray(a) => write_strict_array_element(a)(out),
+            SolValue::Date(d, tz) => write_date_element(*d, *tz)(out),
+            SolValue::Unsupported => write_unsupported_element()(out),
+            SolValue::XML(x) => write_xml_element(x)(out),
+            SolValue::TypedObject(name, elements) => write_typed_object_element(name, elements)(out),
+            _ => { write_unsupported_element()(out) /* Not in amf0, TODO: use the amf3 embedding for every thing else */ }
+        }
+    }
+
+    pub fn write_element<'a, 'b: 'a, W: Write + 'a>(element: &'b SolElement) -> impl SerializeFn<W> + 'a {
+      tuple((write_string(&element.name), write_value(&element.value)))
+    }
+
+    pub fn write_element_and_padding<'a, 'b: 'a, W: Write + 'a>(element: &'b SolElement) -> impl SerializeFn<W> + 'a {
+        tuple((write_element(element), slice(PADDING)))
+    }
+
+    pub fn write_body<'a, 'b: 'a, W: Write + 'a>(elements: &'b [SolElement]) -> impl SerializeFn<W> + 'a {
+       all(elements.iter().map(write_element_and_padding))
+    }
 }
 
 #[cfg(test)]

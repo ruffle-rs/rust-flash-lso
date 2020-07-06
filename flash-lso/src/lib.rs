@@ -1,3 +1,5 @@
+#![feature(type_alias_impl_trait)]
+
 const HEADER_VERSION: [u8; 2] = [0x00, 0xbf];
 const HEADER_SIGNATURE: [u8; 10] = [0x54, 0x43, 0x53, 0x4f, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00];
 const PADDING: [u8; 1] = [0x00];
@@ -28,8 +30,8 @@ extern crate serde;
 /// ```
 /// use std::fs::File;
 /// use std::io::Read;
-/// use amf::LSODeserializer;
-/// let mut x = File::open(path).expect("Couldn't open file");
+/// use flash_lso::LSODeserializer;
+/// let mut x = File::open("tests/sol/2.sol").expect("Couldn't open file");
 /// let mut data = Vec::new();
 /// let _ = x.read_to_end(&mut data).expect("Unable to read file");
 /// let d = LSODeserializer::default().parse_full(&data).expect("Failed to parse lso file");
@@ -90,5 +92,50 @@ impl LSODeserializer {
             }
             _ => Err(Err::Error(make_error(i, ErrorKind::Digit))),
         }
+    }
+}
+
+pub mod encoder {
+    use std::io::Write;
+    use crate::types::{SolHeader, Sol};
+    use cookie_factory::bytes::{be_u32, be_u16, be_u8};
+    use crate::{PADDING, FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3};
+    use nom::lib::std::alloc::handle_alloc_error;
+    use cookie_factory::SerializeFn;
+
+    use cookie_factory::combinator::slice;
+    use cookie_factory::multi::all;
+    use cookie_factory::combinator::string;
+    use cookie_factory::combinator::cond;
+    use crate::amf0::encoder as amf0_encoder;
+    use cookie_factory::sequence::tuple;
+    use nom::AsBytes;
+    use cookie_factory::gen;
+
+    pub fn write_string<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
+        tuple((be_u16(s.len() as u16), string(s)))
+    }
+
+    pub fn write_header<'a, 'b: 'a, W: Write + 'a>(header: &'b SolHeader) -> impl SerializeFn<W> + 'a {
+        tuple((slice(header.version),
+             be_u32(header.length),
+             slice(header.signature),
+             write_string(&header.name),
+             slice(PADDING),
+             slice(PADDING),
+             slice(PADDING),
+             cond(header.format_version == 0, slice(&[FORMAT_VERSION_AMF0])),
+             cond(header.format_version == 3, slice(&[FORMAT_VERSION_AMF3])),
+        ))
+    }
+
+    pub fn write_full<'a, 'b: 'a, W: Write + 'a>(lso: &'b Sol) -> impl SerializeFn<W> +'a {
+       tuple((write_header(&lso.header), amf0_encoder::write_body(&lso.body)))
+    }
+
+    pub fn write_to_bytes(lso: &Sol) -> Vec<u8> {
+        let v = vec![];
+        let (buffer, size) = gen(write_full(lso), v).unwrap();
+        buffer
     }
 }
