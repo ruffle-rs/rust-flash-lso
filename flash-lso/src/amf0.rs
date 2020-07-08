@@ -61,7 +61,7 @@ fn parse_element_movie_clip(i: &[u8]) -> IResult<&[u8], SolValue> {
 fn parse_element_mixed_array(i: &[u8]) -> IResult<&[u8], SolValue> {
     let (i, _array_length) = be_u32(i)?;
     map(parse_array_element, |elms: Vec<SolElement>| {
-        SolValue::Object(elms)
+        SolValue::ECMAArray(elms)
     })(i)
 }
 
@@ -216,7 +216,7 @@ pub mod encoder {
     use cookie_factory::combinator::cond;
     use cookie_factory::sequence::tuple;
     use nom::error::ErrorKind::SeparatedList;
-    use crate::amf0::{TYPE_STRING, TYPE_NULL, TYPE_NUMBER, TYPE_BOOL, TYPE_OBJECT_END, TYPE_OBJECT, TYPE_UNDEFINED, TYPE_UNSUPPORTED, TYPE_XML, TYPE_ARRAY, TYPE_DATE, TYPE_TYPED_OBJECT, TYPE_LONG_STRING};
+    use crate::amf0::{TYPE_STRING, TYPE_NULL, TYPE_NUMBER, TYPE_BOOL, TYPE_OBJECT_END, TYPE_OBJECT, TYPE_UNDEFINED, TYPE_UNSUPPORTED, TYPE_XML, TYPE_ARRAY, TYPE_DATE, TYPE_TYPED_OBJECT, TYPE_LONG_STRING, TYPE_MIXED_ARRAY_START};
     use crate::encoder::write_string;
     
     pub fn write_number_element<'a, 'b: 'a, W: Write + 'a>(s: f64) -> impl SerializeFn<W> + 'a {
@@ -271,6 +271,19 @@ pub mod encoder {
         tuple((be_u8(TYPE_TYPED_OBJECT), write_string(name), all(elements.iter().map(write_element)), be_u8(TYPE_OBJECT_END)))
     }
 
+    pub fn write_mixed_array<'a, 'b: 'a, W: Write + 'a>(elements: &'b[SolElement]) -> impl SerializeFn<W> + 'a {
+        //TODO: what is the u16 padding
+        //TODO: sometimes array length is ignored (u32) sometimes its: elements.len() as u32
+
+        let length = if elements.len() == 2 {
+            0
+        } else {
+            elements.len() as u32
+        };
+
+        tuple((be_u8(TYPE_MIXED_ARRAY_START), be_u32(length), all(elements.iter().map(write_element)), be_u16(0), be_u8(TYPE_OBJECT_END)))
+    }
+
     pub fn write_value<'a, 'b: 'a, W: Write + 'a>(element: &'b SolValue) -> impl SerializeFn<W> + 'a {
         println!("Writing element: {:?}", element);
         move |out: WriteContext<W>| match element {
@@ -292,6 +305,7 @@ pub mod encoder {
             SolValue::Unsupported => write_unsupported_element()(out),
             SolValue::XML(x) => write_xml_element(x)(out),
             SolValue::TypedObject(name, elements) => write_typed_object_element(name, elements)(out),
+            SolValue::ECMAArray(elems) => write_mixed_array(elems)(out),
             _ => { write_unsupported_element()(out) /* Not in amf0, TODO: use the amf3 embedding for every thing else */ }
         }
     }

@@ -11,10 +11,10 @@ macro_rules! auto_test {
             let mut x = File::open(concat!("tests/sol/", $path, ".sol")).expect("Couldn't open file");
             let mut data = Vec::new();
             let _ = x.read_to_end(&mut data).expect("Unable to read file");
-            let d = LSODeserializer::default().parse_full(&data).expect("Failed to parse lso file");
-            let (_, sol) = d;
+            let (unparsed_bytes, sol) = LSODeserializer::default().parse_full(&data).expect("Failed to parse lso file");
 
             println!("{:?}", sol);
+            println!("Unparsed bytes: {:?}", unparsed_bytes);
 
             let bytes = encoder::write_to_bytes(&sol);
             assert_eq!(bytes, data)
@@ -24,11 +24,11 @@ macro_rules! auto_test {
 }
 
 auto_test! {
-    // [as2_array, "AS2-Array-Demo"],
+    [as2_array, "AS2-Array-Demo"],
     [as2_boolean, "AS2-Boolean-Demo"],
     [as2_date, "AS2-Date-Demo"],
     // [as2_demo, "AS2-Demo"]
-    // [as2_ecma_array, "AS2-ECMAArray-Demo"]
+    [as2_ecma_array, "AS2-ECMAArray-Demo"],
     [as2_integer, "AS2-Integer-Demo"],
     [as2_long_string, "AS2-LongString-Demo"],
     [as2_null, "AS2-Null-Demo"],
