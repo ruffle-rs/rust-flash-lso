@@ -1,7 +1,7 @@
+use flash_lso::encoder;
+use flash_lso::LSODeserializer;
 use std::fs::File;
 use std::io::Read;
-use flash_lso::LSODeserializer;
-use flash_lso::encoder;
 
 macro_rules! auto_test {
     ($([$name: ident, $path: expr]),*) => {
@@ -23,6 +23,7 @@ macro_rules! auto_test {
     }
 }
 
+// As2 / amf0
 auto_test! {
     [as2_array, "AS2-Array-Demo"],
     [as2_boolean, "AS2-Boolean-Demo"],
@@ -38,4 +39,15 @@ auto_test! {
     [as2_typed_object, "AS2-TypedObject-Demo"],
     [as2_undefined, "AS2-Undefined-Demo"],
     [as2_xml, "AS2-XML-Demo"]
+}
+
+// As3 / amf3
+auto_test! {
+    [as3_number, "AS3-Number-Demo"],
+    [as3_boolean, "AS3-Boolean-Demo"],
+    [as3_string, "AS3-String-Demo"],
+    // [as3_object, "AS3-Object-Demo"],
+    [as3_null, "AS3-Null-Demo"],
+    [as3_undefined, "AS3-Undefined-Demo"],
+    [as3_vector_int, "AS3-VectorInt-Demo"]
 }

@@ -11,6 +11,7 @@ pub mod amf0;
 pub mod amf3;
 pub mod types;
 
+use crate::amf3::AMF3Decoder;
 use crate::types::{Sol, SolHeader};
 use nom::branch::alt;
 use nom::bytes::complete::tag;
@@ -20,7 +21,6 @@ use nom::number::complete::be_u32;
 use nom::Err;
 use nom::IResult;
 use std::convert::TryInto;
-use crate::amf3::AMF3Decoder;
 
 #[cfg(feature = "serde")]
 #[macro_use]
@@ -41,7 +41,7 @@ extern crate serde;
 /// }
 #[derive(Default)]
 pub struct LSODeserializer {
-    amf3_decoder: AMF3Decoder
+    amf3_decoder: AMF3Decoder,
 }
 
 impl LSODeserializer {
@@ -98,43 +98,69 @@ impl LSODeserializer {
 }
 
 pub mod encoder {
-    use std::io::Write;
-    use crate::types::{SolHeader, Sol};
-    use cookie_factory::bytes::{be_u32, be_u16};
-    use crate::{PADDING, FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3};
+    use crate::types::{Sol, SolHeader};
+    use crate::{amf3, FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, PADDING};
+    use cookie_factory::bytes::{be_u16, be_u32};
     use cookie_factory::SerializeFn;
+    use std::io::Write;
 
+    use crate::amf0::encoder as amf0_encoder;
+    use crate::amf3::encoder::AMF3Encoder;
+    use cookie_factory::combinator::cond;
     use cookie_factory::combinator::slice;
     use cookie_factory::combinator::string;
-    use cookie_factory::combinator::cond;
-    use crate::amf0::encoder as amf0_encoder;
-    use cookie_factory::sequence::tuple;
     use cookie_factory::gen;
+    use cookie_factory::sequence::tuple;
+
+    #[derive(Default)]
+    pub struct LSOSerializer {
+        amf3_encoder: AMF3Encoder,
+    }
+
+    impl LSOSerializer {
+        pub fn write_full<'a, 'b: 'a, W: Write + 'a>(
+            &'a self,
+            lso: &'b Sol,
+        ) -> impl SerializeFn<W> + 'a {
+            let amf0 = cond(
+                lso.header.format_version == 0,
+                amf0_encoder::write_body(&lso.body),
+            );
+            let amf3 = cond(
+                lso.header.format_version == 3,
+                self.amf3_encoder.write_body(&lso.body),
+            );
+
+            tuple((write_header(&lso.header), amf0, amf3))
+        }
+    }
 
     pub fn write_string<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
         tuple((be_u16(s.len() as u16), string(s)))
     }
 
-    pub fn write_header<'a, 'b: 'a, W: Write + 'a>(header: &'b SolHeader) -> impl SerializeFn<W> + 'a {
-        tuple((slice(header.version),
-             be_u32(header.length),
-             slice(header.signature),
-             write_string(&header.name),
-             slice(PADDING),
-             slice(PADDING),
-             slice(PADDING),
-             cond(header.format_version == 0, slice(&[FORMAT_VERSION_AMF0])),
-             cond(header.format_version == 3, slice(&[FORMAT_VERSION_AMF3])),
+    pub fn write_header<'a, 'b: 'a, W: Write + 'a>(
+        header: &'b SolHeader,
+    ) -> impl SerializeFn<W> + 'a {
+        tuple((
+            slice(header.version),
+            be_u32(header.length),
+            slice(header.signature),
+            write_string(&header.name),
+            slice(PADDING),
+            slice(PADDING),
+            slice(PADDING),
+            cond(header.format_version == 0, slice(&[FORMAT_VERSION_AMF0])),
+            cond(header.format_version == 3, slice(&[FORMAT_VERSION_AMF3])),
         ))
-    }
-
-    pub fn write_full<'a, 'b: 'a, W: Write + 'a>(lso: &'b Sol) -> impl SerializeFn<W> +'a {
-       tuple((write_header(&lso.header), amf0_encoder::write_body(&lso.body)))
     }
 
     pub fn write_to_bytes(lso: &Sol) -> Vec<u8> {
         let v = vec![];
-        let (buffer, _size) = gen(write_full(lso), v).unwrap();
+
+        let s = LSOSerializer::default();
+
+        let (buffer, _size) = gen(s.write_full(lso), v).unwrap();
         buffer
     }
 }
