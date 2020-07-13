@@ -27,7 +27,7 @@ auto_test! {
     [as2_array, "AS2-Array-Demo"],
     [as2_boolean, "AS2-Boolean-Demo"],
     [as2_date, "AS2-Date-Demo"],
-    // [as2_demo, "AS2-Demo"]
+    [as2_demo, "AS2-Demo"],
     [as2_ecma_array, "AS2-ECMAArray-Demo"],
     [as2_integer, "AS2-Integer-Demo"],
     [as2_long_string, "AS2-LongString-Demo"],
@@ -35,7 +35,7 @@ auto_test! {
     [as2_number, "AS2-Number-Demo"],
     [as2_object, "AS2-Object-Demo"],
     [as2_string, "AS2-String-Demo"],
-    // [as2_typed_object, "AS2-TypedObject-Demo"]
+    [as2_typed_object, "AS2-TypedObject-Demo"],
     [as2_undefined, "AS2-Undefined-Demo"],
     [as2_xml, "AS2-XML-Demo"]
 }

@@ -272,7 +272,7 @@ pub mod encoder {
     }
 
     pub fn write_typed_object_element<'a, 'b: 'a, W: Write + 'a>(name: &'b str, elements: &'b[SolElement]) -> impl SerializeFn<W> + 'a {
-        tuple((be_u8(TYPE_TYPED_OBJECT), write_string(name), all(elements.iter().map(write_element)), be_u8(TYPE_OBJECT_END)))
+        tuple((be_u8(TYPE_TYPED_OBJECT), write_string(name), all(elements.iter().map(write_element)), be_u16(0), be_u8(TYPE_OBJECT_END)))
     }
 
     pub fn write_mixed_array<'a, 'b: 'a, W: Write + 'a>(elements: &'b[SolElement]) -> impl SerializeFn<W> + 'a {
