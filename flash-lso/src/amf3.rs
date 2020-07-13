@@ -879,6 +879,17 @@ pub mod encoder {
             ))
         }
 
+        pub fn write_xml_element<'a, 'b: 'a, W: Write + 'a>(
+            &self,
+            bytes: &'b str
+        ) -> impl SerializeFn<W> + 'a {
+            tuple((
+                self.write_type_marker(TypeMarker::XML),
+                self.write_length(Length::Size(bytes.len() as u32)),
+                slice(bytes.as_bytes())
+            ))
+        }
+
         //TODO: add _element to vectors
 
         //TODO: eventually remove
@@ -902,7 +913,7 @@ pub mod encoder {
                 SolValue::ECMAArray(_) => self.write_unsupported_element()(out),
                 SolValue::StrictArray(_) => self.write_unsupported_element()(out),
                 SolValue::Date(time, _tz) => self.write_date_element(*time)(out),
-                SolValue::XML(_) => self.write_unsupported_element()(out),
+                SolValue::XML(content) => self.write_xml_element(content)(out),
                 SolValue::TypedObject(_, _) => self.write_unsupported_element()(out),
                 SolValue::Integer(i) => self.write_integer_element(*i)(out),
                 SolValue::ByteArray(bytes) => self.write_byte_array_element(bytes)(out),

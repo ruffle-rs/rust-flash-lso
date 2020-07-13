@@ -52,7 +52,7 @@ auto_test! {
     // [as3_ecma_array, "AS3--Demo"],
     // [as3_strict_array, "AS3--Demo"],
     [as3_date, "AS3-Date-Demo"],
-    // [as3_xml, "AS3-XML-Demo"],
+    // [as3_xml, "AS3-XML-Demo"], TODO: broken
     // [as3_typed_object, "AS3--Demo"],
     [as3_integer, "AS3-Integer-Demo"],
     [as3_byte_array, "AS3-ByteArray-Demo"],
