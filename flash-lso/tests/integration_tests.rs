@@ -49,5 +49,16 @@ auto_test! {
     // [as3_object, "AS3-Object-Demo"],
     [as3_null, "AS3-Null-Demo"],
     [as3_undefined, "AS3-Undefined-Demo"],
-    [as3_vector_int, "AS3-VectorInt-Demo"]
+    // [as3_ecma_array, "AS3--Demo"],
+    // [as3_strict_array, "AS3--Demo"],
+    [as3_date, "AS3-Date-Demo"],
+    // [as3_xml, "AS3-XML-Demo"],
+    // [as3_typed_object, "AS3--Demo"],
+    [as3_integer, "AS3-Integer-Demo"],
+    [as3_byte_array, "AS3-ByteArray-Demo"],
+    [as3_vector_int, "AS3-VectorInt-Demo"],
+    [as3_vector_unsigned_int, "AS3-VectorUint-Demo"],
+    [as3_vector_number, "AS3-VectorNumber-Demo"]
+    // [as3_vector_object, "AS3-VectorObject-Demo"]
+    // [as3_dictionary, "AS3-Dictionary-Demo"]
 }

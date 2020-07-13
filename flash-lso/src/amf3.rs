@@ -682,7 +682,7 @@ pub mod encoder {
     use crate::amf3::{Length, TypeMarker};
     use crate::types::{SolElement, SolValue};
     use crate::PADDING;
-    use cookie_factory::bytes::{be_f64, be_i32, be_u8};
+    use cookie_factory::bytes::{be_f64, be_i32, be_u8, be_u32};
     use cookie_factory::combinator::slice;
     use cookie_factory::multi::all;
     use cookie_factory::sequence::tuple;
@@ -694,7 +694,7 @@ pub mod encoder {
     pub struct AMF3Encoder {}
 
     impl AMF3Encoder {
-        fn write_int<'a, 'b: 'a, W: Write + 'a>(&self, i: u32) -> impl SerializeFn<W> + 'a {
+        fn write_int<'a, 'b: 'a, W: Write + 'a>(&self, i: i32) -> impl SerializeFn<W> + 'a {
             let mut n = i;
             if n < 0 {
                 n += 0x20000000;
@@ -741,9 +741,9 @@ pub mod encoder {
             match s {
                 Length::Size(x) => {
                     // With the last bit set
-                    self.write_int((x << 1) | 0b1)
+                    self.write_int(((x << 1) | 0b1) as i32)
                 }
-                Length::Reference(x) => self.write_int(x << 1),
+                Length::Reference(x) => self.write_int((x << 1) as i32),
             }
         }
 
@@ -821,6 +821,66 @@ pub mod encoder {
             ))
         }
 
+        pub fn write_uint_vector<'a, 'b: 'a, W: Write + 'a>(
+            &self,
+            items: &'b [u32],
+            fixed_length: bool,
+        ) -> impl SerializeFn<W> + 'a {
+            tuple((
+                self.write_type_marker(TypeMarker::VectorUInt),
+                self.write_length(Length::Size(items.len() as u32)),
+                be_u8(fixed_length as u8),
+                all(items.iter().copied().map(be_u32)),
+            ))
+        }
+
+        pub fn write_number_vector<'a, 'b: 'a, W: Write + 'a>(
+            &self,
+            items: &'b [f64],
+            fixed_length: bool,
+        ) -> impl SerializeFn<W> + 'a {
+            tuple((
+                self.write_type_marker(TypeMarker::VectorDouble),
+                self.write_length(Length::Size(items.len() as u32)),
+                be_u8(fixed_length as u8),
+                all(items.iter().copied().map(be_f64)),
+            ))
+        }
+
+        pub fn write_date_element<'a, 'b: 'a, W: Write + 'a>(
+            &self,
+            time: f64,
+        ) -> impl SerializeFn<W> + 'a {
+            tuple((
+                self.write_type_marker(TypeMarker::Date),
+                self.write_length(Length::Size(0)),
+                be_f64(time)
+            ))
+        }
+
+        pub fn write_integer_element<'a, 'b: 'a, W: Write + 'a>(
+            &self,
+            i: i32
+        ) -> impl SerializeFn<W> + 'a {
+            tuple((
+                self.write_type_marker(TypeMarker::Integer),
+                self.write_int(i)
+            ))
+        }
+
+        pub fn write_byte_array_element<'a, 'b: 'a, W: Write + 'a>(
+            &self,
+            bytes: &'b [u8]
+        ) -> impl SerializeFn<W> + 'a {
+            tuple((
+                self.write_type_marker(TypeMarker::ByteArray),
+                self.write_length(Length::Size(bytes.len() as u32)),
+                slice(bytes)
+            ))
+        }
+
+        //TODO: add _element to vectors
+
         //TODO: eventually remove
         pub fn write_unsupported_element<'a, 'b: 'a, W: Write + 'a>(
             &self,
@@ -841,16 +901,14 @@ pub mod encoder {
                 SolValue::Undefined => self.write_undefined_element()(out),
                 SolValue::ECMAArray(_) => self.write_unsupported_element()(out),
                 SolValue::StrictArray(_) => self.write_unsupported_element()(out),
-                SolValue::Date(_, _) => self.write_unsupported_element()(out),
+                SolValue::Date(time, _tz) => self.write_date_element(*time)(out),
                 SolValue::XML(_) => self.write_unsupported_element()(out),
                 SolValue::TypedObject(_, _) => self.write_unsupported_element()(out),
-                SolValue::Integer(_) => self.write_unsupported_element()(out),
-                SolValue::ByteArray(_) => self.write_unsupported_element()(out),
-                SolValue::VectorInt(items, fixed_length) => {
-                    self.write_int_vector(items, *fixed_length)(out)
-                }
-                SolValue::VectorUInt(_, _) => self.write_unsupported_element()(out),
-                SolValue::VectorDouble(_, _) => self.write_unsupported_element()(out),
+                SolValue::Integer(i) => self.write_integer_element(*i)(out),
+                SolValue::ByteArray(bytes) => self.write_byte_array_element(bytes)(out),
+                SolValue::VectorInt(items, fixed_length) => self.write_int_vector(items, *fixed_length)(out),
+                SolValue::VectorUInt(items, fixed_length) => self.write_uint_vector(items, *fixed_length)(out),
+                SolValue::VectorDouble(items, fixed_length) => self.write_number_vector(items, *fixed_length)(out),
                 SolValue::VectorObject(_, _, _) => self.write_unsupported_element()(out),
                 SolValue::Dictionary(_, _) => self.write_unsupported_element()(out),
 
