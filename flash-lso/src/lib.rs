@@ -58,7 +58,7 @@ impl LSODeserializer {
         let (i, l) = be_u32(i)?;
         let (i, sig) = self.parse_signature(i)?;
 
-        let (i, name) = amf0::parse_string(i)?;
+        let (i, name) = amf0::decoder::parse_string(i)?;
 
         let (i, _) = tag(PADDING)(i)?;
         let (i, _) = tag(PADDING)(i)?;
@@ -85,7 +85,7 @@ impl LSODeserializer {
         let (i, header) = self.parse_header(i)?;
         match header.format_version {
             FORMAT_VERSION_AMF0 => {
-                let (i, body) = amf0::parse_body(i)?;
+                let (i, body) = amf0::decoder::parse_body(i)?;
                 Ok((i, Sol { header, body }))
             }
             FORMAT_VERSION_AMF3 => {

@@ -1,222 +1,190 @@
-use nom::bytes::complete::tag;
-use nom::take_str;
-use crate::types::{SolElement, SolValue};
-use crate::{amf3, PADDING};
-use nom::combinator::map;
-use nom::multi::{many0, many_m_n};
-use nom::number::complete::{be_f64, be_u16, be_u32, be_u8};
-use nom::IResult;
-use std::convert::{TryInto, TryFrom};
+pub mod decoder {
+    use nom::bytes::complete::tag;
+    use nom::take_str;
+    use crate::types::{SolElement, SolValue, TypeMarker};
+    use crate::{amf3, PADDING};
+    use nom::combinator::map;
+    use nom::multi::{many0, many_m_n};
+    use nom::number::complete::{be_f64, be_u16, be_u32, be_u8};
+    use nom::IResult;
+    use std::convert::{TryInto, TryFrom};
+    use nom::error::{make_error, ErrorKind};
+    use nom::Err;
 
-use nom::error::{make_error, ErrorKind};
-use nom::Err;
-use derive_try_from_primitive::TryFromPrimitive;
-
-//TODO: camel case
-#[derive(TryFromPrimitive)]
-#[repr(u8)]
-pub enum TypeMarker {
- Number = 0,
- Boolean = 1,
- String = 2,
- Object = 3,
- MovieClip = 4,
- Null = 5,
- Undefined = 6,
- Reference = 7,
- MixedArrayStart = 8,
- ObjectEnd = 9,
- Array = 10,
- Date = 11,
- LongString = 12,
- Unsupported = 13,
- RecordSet = 14,
- XML = 15,
- TypedObject = 16,
- AMF3 = 17,
-}
-
-#[derive(Default)]
-struct AMF0Decoder {}
-
-impl AMF0Decoder {
-
-}
-
-
-pub fn parse_string(i: &[u8]) -> IResult<&[u8], &str> {
-    let (i, length) = be_u16(i)?;
-    take_str!(i, length)
-}
-
-pub fn parse_element_number(i: &[u8]) -> IResult<&[u8], SolValue> {
-    map(be_f64, SolValue::Number)(i)
-}
-
-pub fn parse_element_bool(i: &[u8]) -> IResult<&[u8], SolValue> {
-    map(be_u8, |num: u8| SolValue::Bool(num > 0))(i)
-}
-
-pub fn parse_element_string(i: &[u8]) -> IResult<&[u8], SolValue> {
-    map(parse_string, |s: &str| SolValue::String(s.to_string()))(i)
-}
-
-fn parse_element_object(i: &[u8]) -> IResult<&[u8], SolValue> {
-    map(parse_array_element, |elms: Vec<SolElement>| {
-        SolValue::Object(elms)
-    })(i)
-}
-
-fn parse_element_movie_clip(i: &[u8]) -> IResult<&[u8], SolValue> {
-    log::warn!("Found movie clip, but type is reserved and unused?");
-    Ok((i, SolValue::Unsupported))
-}
-
-fn parse_element_mixed_array(i: &[u8]) -> IResult<&[u8], SolValue> {
-    let (i, _array_length) = be_u32(i)?;
-    map(parse_array_element, |elms: Vec<SolElement>| {
-        SolValue::ECMAArray(elms)
-    })(i)
-}
-
-fn parse_element_reference(i: &[u8]) -> IResult<&[u8], SolValue> {
-    log::warn!("Reference resolution is not currently supported");
-    let (i, _ref) = be_u16(i)?;
-
-    Ok((i, SolValue::Unsupported))
-}
-
-pub fn parse_element_array(i: &[u8]) -> IResult<&[u8], SolValue> {
-    log::warn!("Reference resolution is not currently supported");
-    let (i, length) = be_u32(i)?;
-
-    let length_usize = length
-        .try_into()
-        .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
-
-    // There must be at least `length_usize` bytes (u8) to read this, this prevents OOM errors with v.large arrays
-    if i.len() < length_usize {
-        return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+    pub fn parse_string(i: &[u8]) -> IResult<&[u8], &str> {
+        let (i, length) = be_u16(i)?;
+        take_str!(i, length)
     }
 
-    // This must parse length elements
-    let (i, elements) = many_m_n(length_usize, length_usize, parse_single_element)(i)?;
-
-    Ok((i, SolValue::StrictArray(elements)))
-}
-
-fn parse_element_date(i: &[u8]) -> IResult<&[u8], SolValue> {
-    let (i, millis) = be_f64(i)?;
-    let (i, time_zone) = be_u16(i)?;
-
-    Ok((i, SolValue::Date(millis, Some(time_zone))))
-}
-
-pub fn parse_element_long_string(i: &[u8]) -> IResult<&[u8], SolValue> {
-    let (i, length) = be_u32(i)?;
-    let (i, str) = take_str!(i, length)?;
-
-    Ok((i, SolValue::String(str.to_string())))
-}
-
-fn parse_element_record_set(i: &[u8]) -> IResult<&[u8], SolValue> {
-    log::warn!("Found record set, but type is reserved and unused?");
-    Ok((i, SolValue::Unsupported))
-}
-
-fn parse_element_xml(i: &[u8]) -> IResult<&[u8], SolValue> {
-    let (i, content) = parse_element_long_string(i)?;
-    if let SolValue::String(content_string) = content {
-        Ok((i, SolValue::XML(content_string)))
-    } else {
-        // Will never happen
-        Err(Err::Error(make_error(i, ErrorKind::Digit)))
+    pub fn parse_element_number(i: &[u8]) -> IResult<&[u8], SolValue> {
+        map(be_f64, SolValue::Number)(i)
     }
-}
 
-fn parse_element_typed_object(i: &[u8]) -> IResult<&[u8], SolValue> {
-    let (i, s) = parse_string(i)?;
-    let (i, obj) = parse_element_object(i)?;
-    if let SolValue::Object(obj_content) = obj {
-        Ok((i, SolValue::TypedObject(s.to_string(), obj_content)))
-    } else {
-        // Will never happen
-        Err(Err::Error(make_error(i, ErrorKind::Digit)))
+    pub fn parse_element_bool(i: &[u8]) -> IResult<&[u8], SolValue> {
+        map(be_u8, |num: u8| SolValue::Bool(num > 0))(i)
     }
-}
 
-fn parse_element_amf3(i: &[u8]) -> IResult<&[u8], SolValue> {
-    // Hopefully amf3 objects wont have references
-    amf3::AMF3Decoder::default().parse_element_object(i)
-}
-
-fn parse_single_element(i: &[u8]) -> IResult<&[u8], SolValue> {
-    let (i, type_) = be_u8(i)?;
-
-
-    match TypeMarker::try_from(type_).unwrap_or(TypeMarker::Unsupported) {
-        TypeMarker::Number => parse_element_number(i),
-        TypeMarker::Boolean => parse_element_bool(i),
-        TypeMarker::String => parse_element_string(i),
-        TypeMarker::Object => parse_element_object(i),
-        TypeMarker::MovieClip => parse_element_movie_clip(i),
-        TypeMarker::Null => Ok((i, SolValue::Null)),
-        TypeMarker::Undefined => Ok((i, SolValue::Undefined)),
-        TypeMarker::Reference => parse_element_reference(i),
-        TypeMarker::MixedArrayStart => parse_element_mixed_array(i),
-        TypeMarker::ObjectEnd => Ok((i, SolValue::ObjectEnd)),
-        TypeMarker::Array => parse_element_array(i),
-        TypeMarker::Date => parse_element_date(i),
-        TypeMarker::LongString => parse_element_long_string(i),
-        TypeMarker::Unsupported => Ok((i, SolValue::Unsupported)),
-        TypeMarker::RecordSet => parse_element_record_set(i),
-        TypeMarker::XML => parse_element_xml(i),
-        TypeMarker::TypedObject => parse_element_typed_object(i),
-        TypeMarker::AMF3 => parse_element_amf3(i),
+    pub fn parse_element_string(i: &[u8]) -> IResult<&[u8], SolValue> {
+        map(parse_string, |s: &str| SolValue::String(s.to_string()))(i)
     }
-}
 
-fn parse_element(i: &[u8]) -> IResult<&[u8], SolElement> {
-    let (i, name) = parse_string(i)?;
+    fn parse_element_object(i: &[u8]) -> IResult<&[u8], SolValue> {
+        map(parse_array_element, |elms: Vec<SolElement>| {
+            SolValue::Object(elms)
+        })(i)
+    }
 
-    map(parse_single_element, move |v: SolValue| SolElement {
-        name: name.to_string(),
-        value: v,
-    })(i)
-}
+    fn parse_element_movie_clip(i: &[u8]) -> IResult<&[u8], SolValue> {
+        log::warn!("Found movie clip, but type is reserved and unused?");
+        Ok((i, SolValue::Unsupported))
+    }
 
-fn parse_element_and_padding(i: &[u8]) -> IResult<&[u8], SolElement> {
-    let (i, e) = parse_element(i)?;
-    let (i, _) = tag(PADDING)(i)?;
+    fn parse_element_mixed_array(i: &[u8]) -> IResult<&[u8], SolValue> {
+        let (i, _array_length) = be_u32(i)?;
+        map(parse_array_element, |elms: Vec<SolElement>| {
+            SolValue::ECMAArray(elms)
+        })(i)
+    }
 
-    Ok((i, e))
-}
+    fn parse_element_reference(i: &[u8]) -> IResult<&[u8], SolValue> {
+        log::warn!("Reference resolution is not currently supported");
+        let (i, _ref) = be_u16(i)?;
 
-//TODO: can this be done better somehow??
-fn parse_array_element(i: &[u8]) -> IResult<&[u8], Vec<SolElement>> {
-    let mut out = Vec::new();
+        Ok((i, SolValue::Unsupported))
+    }
 
-    let mut i = i;
-    loop {
-        let (j, e) = parse_element(i)?;
-        i = j;
+    pub fn parse_element_array(i: &[u8]) -> IResult<&[u8], SolValue> {
+        log::warn!("Reference resolution is not currently supported");
+        let (i, length) = be_u32(i)?;
 
-        if let SolValue::ObjectEnd = e.value {
-            break;
+        let length_usize = length
+            .try_into()
+            .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+
+        // There must be at least `length_usize` bytes (u8) to read this, this prevents OOM errors with v.large arrays
+        if i.len() < length_usize {
+            return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
         }
 
-        out.push(e.clone());
+        // This must parse length elements
+        let (i, elements) = many_m_n(length_usize, length_usize, parse_single_element)(i)?;
+
+        Ok((i, SolValue::StrictArray(elements)))
     }
 
-    Ok((i, out))
-}
+    fn parse_element_date(i: &[u8]) -> IResult<&[u8], SolValue> {
+        let (i, millis) = be_f64(i)?;
+        let (i, time_zone) = be_u16(i)?;
 
-pub fn parse_body(i: &[u8]) -> IResult<&[u8], Vec<SolElement>> {
-    many0(parse_element_and_padding)(i)
+        Ok((i, SolValue::Date(millis, Some(time_zone))))
+    }
+
+    pub fn parse_element_long_string(i: &[u8]) -> IResult<&[u8], SolValue> {
+        let (i, length) = be_u32(i)?;
+        let (i, str) = take_str!(i, length)?;
+
+        Ok((i, SolValue::String(str.to_string())))
+    }
+
+    fn parse_element_record_set(i: &[u8]) -> IResult<&[u8], SolValue> {
+        log::warn!("Found record set, but type is reserved and unused?");
+        Ok((i, SolValue::Unsupported))
+    }
+
+    fn parse_element_xml(i: &[u8]) -> IResult<&[u8], SolValue> {
+        let (i, content) = parse_element_long_string(i)?;
+        if let SolValue::String(content_string) = content {
+            Ok((i, SolValue::XML(content_string)))
+        } else {
+            // Will never happen
+            Err(Err::Error(make_error(i, ErrorKind::Digit)))
+        }
+    }
+
+    fn parse_element_typed_object(i: &[u8]) -> IResult<&[u8], SolValue> {
+        let (i, s) = parse_string(i)?;
+        let (i, obj) = parse_element_object(i)?;
+        if let SolValue::Object(obj_content) = obj {
+            Ok((i, SolValue::TypedObject(s.to_string(), obj_content)))
+        } else {
+            // Will never happen
+            Err(Err::Error(make_error(i, ErrorKind::Digit)))
+        }
+    }
+
+    fn parse_element_amf3(i: &[u8]) -> IResult<&[u8], SolValue> {
+        // Hopefully amf3 objects wont have references
+        amf3::AMF3Decoder::default().parse_element_object(i)
+    }
+
+    fn parse_single_element(i: &[u8]) -> IResult<&[u8], SolValue> {
+        let (i, type_) = be_u8(i)?;
+
+
+        match TypeMarker::try_from(type_).unwrap_or(TypeMarker::Unsupported) {
+            TypeMarker::Number => parse_element_number(i),
+            TypeMarker::Boolean => parse_element_bool(i),
+            TypeMarker::String => parse_element_string(i),
+            TypeMarker::Object => parse_element_object(i),
+            TypeMarker::MovieClip => parse_element_movie_clip(i),
+            TypeMarker::Null => Ok((i, SolValue::Null)),
+            TypeMarker::Undefined => Ok((i, SolValue::Undefined)),
+            TypeMarker::Reference => parse_element_reference(i),
+            TypeMarker::MixedArrayStart => parse_element_mixed_array(i),
+            TypeMarker::ObjectEnd => Ok((i, SolValue::ObjectEnd)),
+            TypeMarker::Array => parse_element_array(i),
+            TypeMarker::Date => parse_element_date(i),
+            TypeMarker::LongString => parse_element_long_string(i),
+            TypeMarker::Unsupported => Ok((i, SolValue::Unsupported)),
+            TypeMarker::RecordSet => parse_element_record_set(i),
+            TypeMarker::XML => parse_element_xml(i),
+            TypeMarker::TypedObject => parse_element_typed_object(i),
+            TypeMarker::AMF3 => parse_element_amf3(i),
+        }
+    }
+
+    fn parse_element(i: &[u8]) -> IResult<&[u8], SolElement> {
+        let (i, name) = parse_string(i)?;
+
+        map(parse_single_element, move |v: SolValue| SolElement {
+            name: name.to_string(),
+            value: v,
+        })(i)
+    }
+
+    fn parse_element_and_padding(i: &[u8]) -> IResult<&[u8], SolElement> {
+        let (i, e) = parse_element(i)?;
+        let (i, _) = tag(PADDING)(i)?;
+
+        Ok((i, e))
+    }
+
+    //TODO: can this be done better somehow??
+    fn parse_array_element(i: &[u8]) -> IResult<&[u8], Vec<SolElement>> {
+        let mut out = Vec::new();
+
+        let mut i = i;
+        loop {
+            let (j, e) = parse_element(i)?;
+            i = j;
+
+            if let SolValue::ObjectEnd = e.value {
+                break;
+            }
+
+            out.push(e.clone());
+        }
+
+        Ok((i, out))
+    }
+
+    pub fn parse_body(i: &[u8]) -> IResult<&[u8], Vec<SolElement>> {
+        many0(parse_element_and_padding)(i)
+    }
 }
 
 pub mod encoder {
-    use crate::types::{SolElement, SolValue};
+    use crate::types::{SolElement, SolValue, TypeMarker};
     use std::io::Write;
     use cookie_factory::bytes::{be_u32, be_u8, be_u16, be_f64};
     use crate::{PADDING};
@@ -227,7 +195,6 @@ pub mod encoder {
     use cookie_factory::combinator::string;
     use cookie_factory::sequence::tuple;
     use crate::encoder::write_string;
-    use crate::amf0::TypeMarker;
 
     pub fn write_type_marker<'a, 'b: 'a, W: Write + 'a>(type_: TypeMarker) -> impl SerializeFn<W> + 'a {
         be_u8(type_ as u8)

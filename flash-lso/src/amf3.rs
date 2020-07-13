@@ -1,4 +1,4 @@
-use crate::amf0::parse_element_number;
+use crate::amf0::decoder::parse_element_number;
 use crate::types::*;
 use crate::types::{SolElement, SolValue};
 use crate::PADDING;

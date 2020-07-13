@@ -1,3 +1,4 @@
+use derive_try_from_primitive::TryFromPrimitive;
 
 /// A container for sol files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -86,4 +87,28 @@ pub struct ClassDefinition {
     pub attribute_count: u32,
     pub static_properties: Vec<String>,
     pub externalizable: bool,
+}
+
+/// Type markers used in AMF0
+#[derive(TryFromPrimitive)]
+#[repr(u8)]
+pub enum TypeMarker {
+    Number = 0,
+    Boolean = 1,
+    String = 2,
+    Object = 3,
+    MovieClip = 4,
+    Null = 5,
+    Undefined = 6,
+    Reference = 7,
+    MixedArrayStart = 8,
+    ObjectEnd = 9,
+    Array = 10,
+    Date = 11,
+    LongString = 12,
+    Unsupported = 13,
+    RecordSet = 14,
+    XML = 15,
+    TypedObject = 16,
+    AMF3 = 17,
 }
