@@ -20,6 +20,7 @@ use nom::number::complete::be_u32;
 use nom::Err;
 use nom::IResult;
 use std::convert::TryInto;
+use crate::amf3::AMF3Decoder;
 
 #[cfg(feature = "serde")]
 #[macro_use]
@@ -39,7 +40,9 @@ extern crate serde;
 /// ```
 /// }
 #[derive(Default)]
-pub struct LSODeserializer {}
+pub struct LSODeserializer {
+    amf3_decoder: AMF3Decoder
+}
 
 impl LSODeserializer {
     pub fn parse_version<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], [u8; 2]> {
@@ -86,8 +89,7 @@ impl LSODeserializer {
                 Ok((i, Sol { header, body }))
             }
             FORMAT_VERSION_AMF3 => {
-                let decoder = amf3::AMF3Decoder::default();
-                let (i, body) = decoder.parse_body(i)?;
+                let (i, body) = self.amf3_decoder.parse_body(i)?;
                 Ok((i, Sol { header, body }))
             }
             _ => Err(Err::Error(make_error(i, ErrorKind::Digit))),
@@ -98,18 +100,15 @@ impl LSODeserializer {
 pub mod encoder {
     use std::io::Write;
     use crate::types::{SolHeader, Sol};
-    use cookie_factory::bytes::{be_u32, be_u16, be_u8};
+    use cookie_factory::bytes::{be_u32, be_u16};
     use crate::{PADDING, FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3};
-    use nom::lib::std::alloc::handle_alloc_error;
     use cookie_factory::SerializeFn;
 
     use cookie_factory::combinator::slice;
-    use cookie_factory::multi::all;
     use cookie_factory::combinator::string;
     use cookie_factory::combinator::cond;
     use crate::amf0::encoder as amf0_encoder;
     use cookie_factory::sequence::tuple;
-    use nom::AsBytes;
     use cookie_factory::gen;
 
     pub fn write_string<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
@@ -135,7 +134,7 @@ pub mod encoder {
 
     pub fn write_to_bytes(lso: &Sol) -> Vec<u8> {
         let v = vec![];
-        let (buffer, size) = gen(write_full(lso), v).unwrap();
+        let (buffer, _size) = gen(write_full(lso), v).unwrap();
         buffer
     }
 }
