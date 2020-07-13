@@ -240,7 +240,7 @@ pub mod encoder {
     }
 
     pub fn write_object_element<'a, 'b: 'a, W: Write + 'a>(o: &'b[SolElement]) -> impl SerializeFn<W> + 'a {
-        tuple((be_u8(TYPE_OBJECT), all(o.iter().map(write_element)), be_u8(TYPE_OBJECT_END)))
+        tuple((be_u8(TYPE_OBJECT), all(o.iter().map(write_element)), be_u16(0), be_u8(TYPE_OBJECT_END)))
     }
 
     pub fn write_null_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W> + 'a {

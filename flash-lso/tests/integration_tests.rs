@@ -17,7 +17,7 @@ macro_rules! auto_test {
             println!("Unparsed bytes: {:?}", unparsed_bytes);
 
             let bytes = encoder::write_to_bytes(&sol);
-            assert_eq!(bytes, data)
+            assert_eq!(bytes, data, "library output != input")
         }
         )*
     }
@@ -33,7 +33,7 @@ auto_test! {
     [as2_long_string, "AS2-LongString-Demo"],
     [as2_null, "AS2-Null-Demo"],
     [as2_number, "AS2-Number-Demo"],
-    // [as2_object, "AS2-Object-Demo"],
+    [as2_object, "AS2-Object-Demo"],
     [as2_string, "AS2-String-Demo"],
     // [as2_typed_object, "AS2-TypedObject-Demo"]
     [as2_undefined, "AS2-Undefined-Demo"],
