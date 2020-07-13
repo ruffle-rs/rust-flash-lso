@@ -227,8 +227,12 @@ pub mod encoder {
         tuple((be_u8(TYPE_BOOL), be_u8(if s {1u8} else {0u8} )))
     }
 
+    pub fn write_long_string_content<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
+        tuple((be_u32(s.len() as u32), string(s)))
+    }
+
     pub fn write_long_string_element<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
-        tuple((be_u8(TYPE_LONG_STRING), be_u32(s.len() as u32), string(s)))
+        tuple((be_u8(TYPE_LONG_STRING), write_long_string_content(s)))
     }
 
     pub fn write_string_element<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
@@ -264,7 +268,7 @@ pub mod encoder {
     }
 
     pub fn write_xml_element<'a, 'b: 'a, W: Write + 'a>(content: &'b str) -> impl SerializeFn<W> + 'a {
-        tuple((be_u8(TYPE_XML), write_string(content)))
+        tuple((be_u8(TYPE_XML), write_long_string_content(content)))
     }
 
     pub fn write_typed_object_element<'a, 'b: 'a, W: Write + 'a>(name: &'b str, elements: &'b[SolElement]) -> impl SerializeFn<W> + 'a {
