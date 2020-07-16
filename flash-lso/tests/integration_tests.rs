@@ -13,7 +13,7 @@ macro_rules! auto_test {
             let _ = x.read_to_end(&mut data).expect("Unable to read file");
             let (unparsed_bytes, sol) = LSODeserializer::default().parse_full(&data).expect("Failed to parse lso file");
 
-            println!("{:?}", sol);
+            println!("{:#?}", sol);
             println!("Unparsed bytes: {:?}", unparsed_bytes);
 
             let bytes = encoder::write_to_bytes(&sol);
@@ -46,19 +46,20 @@ auto_test! {
     [as3_number, "AS3-Number-Demo"],
     [as3_boolean, "AS3-Boolean-Demo"],
     [as3_string, "AS3-String-Demo"],
-    // [as3_object, "AS3-Object-Demo"],
+    [as3_object, "AS3-Object-Demo"],
     [as3_null, "AS3-Null-Demo"],
     [as3_undefined, "AS3-Undefined-Demo"],
-    // [as3_ecma_array, "AS3--Demo"],
-    // [as3_strict_array, "AS3--Demo"],
+    [as3_strict_array, "AS3-Array-Demo"],
     [as3_date, "AS3-Date-Demo"],
-    // [as3_xml, "AS3-XML-Demo"], TODO: broken
-    // [as3_typed_object, "AS3--Demo"],
+    [as3_xml, "AS3-XML-Demo"],
+    [as3_xml_doc, "AS3-XMLDoc-Demo"],
+    [as3_typed_object, "AS3-TypedObject-Demo"],
     [as3_integer, "AS3-Integer-Demo"],
     [as3_byte_array, "AS3-ByteArray-Demo"],
     [as3_vector_int, "AS3-VectorInt-Demo"],
     [as3_vector_unsigned_int, "AS3-VectorUint-Demo"],
-    [as3_vector_number, "AS3-VectorNumber-Demo"]
-    // [as3_vector_object, "AS3-VectorObject-Demo"]
-    // [as3_dictionary, "AS3-Dictionary-Demo"]
+    [as3_vector_number, "AS3-VectorNumber-Demo"],
+    [as3_vector_object, "AS3-VectorObject-Demo"],
+    [as3_vector_typed_object, "AS3-VectorTypedObject-Demo"],
+    [as3_dictionary, "AS3-Dictionary-Demo"]
 }

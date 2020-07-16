@@ -14,6 +14,60 @@ use nom::Err;
 use nom::IResult;
 use std::cell::RefCell;
 use std::convert::TryInto;
+use std::fmt::Debug;
+
+pub struct ElementCache<T> {
+    cache: RefCell<Vec<T>>,
+}
+
+impl<T> Default for ElementCache<T> {
+    fn default() -> Self {
+        ElementCache {
+            cache: RefCell::new(Vec::new()),
+        }
+    }
+}
+
+impl<T: PartialEq + Clone + Debug> ElementCache<T> {
+    pub fn has(&self, val: &T) -> bool {
+        self.cache.borrow().contains(val)
+    }
+
+    pub fn store(&self, val: T) {
+        if !self.has(&val) {
+            self.cache.borrow_mut().push(val);
+        }
+    }
+
+    pub fn get_element(&self, index: usize) -> Option<T> {
+        self.cache.borrow().get(index).cloned()
+    }
+
+    pub fn get_index(&self, val: T) -> Option<usize> {
+        self.cache.borrow().iter().position(|i| *i == val)
+    }
+
+    pub fn to_length(&self, val: T, length: u32) -> Length {
+        println!("Convert {:?}", val);
+
+        if let Some(i) = self.get_index(val) {
+            Length::Reference(i)
+        } else {
+            Length::Size(length)
+        }
+    }
+}
+
+//tOdo: remove
+impl<T: PartialEq + Clone + Debug> ElementCache<Vec<T>> {
+    pub fn store_slice(&self, val: &[T]) {
+        self.store(val.to_vec());
+    }
+
+    pub fn get_slice_index(&self, val: &[T]) -> Option<usize> {
+        self.get_index(val.to_vec())
+    }
+}
 
 #[repr(u8)]
 pub enum TypeMarker {
@@ -61,7 +115,23 @@ const REFERENCE_FLAG: u32 = 0x01;
 #[derive(Copy, Clone, Debug, Eq, Ord, PartialOrd, PartialEq)]
 pub enum Length {
     Size(u32),
-    Reference(u32),
+    Reference(usize),
+}
+
+impl Length {
+    fn is_reference(&self) -> bool {
+        match self {
+            Length::Reference(_) => true,
+            _ => false,
+        }
+    }
+
+    fn to_position(&self) -> Option<usize> {
+        match self {
+            Length::Reference(x) => Some(*x),
+            _ => None,
+        }
+    }
 }
 
 const ENCODING_STATIC: u8 = 0;
@@ -211,7 +281,6 @@ impl AMF3Decoder {
             encoding,
             attribute_count: attributes_count,
             static_properties: static_props,
-            externalizable: false,
         };
 
         self.trait_reference_table
@@ -273,6 +342,7 @@ impl AMF3Decoder {
         let (i, mut length) = read_int(i)?;
 
         if length & REFERENCE_FLAG == 0 {
+            println!("Loading reference object {}", length);
             let len_usize: usize = (length >> 1)
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
@@ -328,7 +398,7 @@ impl AMF3Decoder {
             i = j;
         }
 
-        let obj = SolValue::Object(elements);
+        let obj = SolValue::Object(elements, Some(class_def));
         self.object_reference_table.borrow_mut().push(obj.clone());
         Ok((i, obj))
     }
@@ -611,7 +681,7 @@ impl AMF3Decoder {
         Ok((i, obj))
     }
 
-    fn parse_element_xml<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_xml<'a>(&self, i: &'a [u8], string: bool) -> IResult<&'a [u8], SolValue> {
         let (i, reference) = read_int(i)?;
 
         if reference & REFERENCE_FLAG == 0 {
@@ -630,7 +700,7 @@ impl AMF3Decoder {
         }
 
         let (i, data) = take_str!(i, reference >> 1)?;
-        let obj = SolValue::XML(data.into());
+        let obj = SolValue::XML(data.into(), string);
         self.object_reference_table.borrow_mut().push(obj.clone());
         Ok((i, obj))
     }
@@ -646,11 +716,11 @@ impl AMF3Decoder {
             TYPE_INTEGER => parse_element_int(i),
             TYPE_NUMBER => parse_element_number(i),
             TYPE_STRING => self.parse_element_string(i),
-            TYPE_XML => self.parse_element_xml(i),
+            TYPE_XML => self.parse_element_xml(i, false),
             TYPE_DATE => self.parse_element_date(i),
             TYPE_ARRAY => self.parse_element_array(i),
             TYPE_OBJECT => self.parse_element_object(i),
-            TYPE_XML_STRING => self.parse_element_xml(i),
+            TYPE_XML_STRING => self.parse_element_xml(i, true),
             TYPE_BYTE_ARRAY => self.parse_element_byte_array(i),
             TYPE_VECTOR_OBJECT => self.parse_element_object_vector(i),
             TYPE_VECTOR_INT => self.parse_element_vector_int(i),
@@ -678,20 +748,23 @@ impl AMF3Decoder {
 }
 
 pub mod encoder {
-    use crate::amf0::encoder::write_type_marker;
-    use crate::amf3::{Length, TypeMarker};
-    use crate::types::{SolElement, SolValue};
+    use crate::amf3::{ElementCache, Length, TypeMarker, ENCODING_DYNAMIC, ENCODING_STATIC};
+    use crate::types::{ClassDefinition, SolElement, SolValue};
     use crate::PADDING;
-    use cookie_factory::bytes::{be_f64, be_i32, be_u8, be_u32};
-    use cookie_factory::combinator::slice;
+    use cookie_factory::bytes::{be_f64, be_i32, be_u32, be_u8};
+    use cookie_factory::combinator::{cond, slice};
     use cookie_factory::multi::all;
-    use cookie_factory::sequence::tuple;
+    use cookie_factory::sequence::{tuple, Tuple};
     use cookie_factory::{SerializeFn, WriteContext};
-    use nom::combinator::cond;
+    use std::cell::RefCell;
     use std::io::Write;
 
     #[derive(Default)]
-    pub struct AMF3Encoder {}
+    pub struct AMF3Encoder {
+        pub string_reference_table: ElementCache<Vec<u8>>,
+        pub trait_reference_table: RefCell<Vec<ClassDefinition>>,
+        pub object_reference_table: ElementCache<SolValue>,
+    }
 
     impl AMF3Encoder {
         fn write_int<'a, 'b: 'a, W: Write + 'a>(&self, i: i32) -> impl SerializeFn<W> + 'a {
@@ -727,8 +800,6 @@ pub mod encoder {
                 bytes.push((n & 0x7f) as u8);
             }
 
-            println!("bytes = {:?}", bytes);
-
             //TODO: cache
 
             //TODO: must be a better way
@@ -751,8 +822,27 @@ pub mod encoder {
             &self,
             s: &'b [u8],
         ) -> impl SerializeFn<W> + 'a {
-            //TODO: reference
-            tuple((self.write_length(Length::Size(s.len() as u32)), slice(s)))
+            let len = if s != [] {
+                self
+                    .string_reference_table
+                    .to_length(s.to_vec(), s.len() as u32)
+            } else {
+                Length::Size(0)
+            };
+
+            self.string_reference_table.store_slice(s);
+
+            println!("Write byte string {:?} = {:?}", s, len);
+
+            let only_length = len.is_reference() && s != [];
+
+            tuple((
+                cond(only_length, self.write_length(len)),
+                cond(
+                    !only_length,
+                    tuple((self.write_length(len), slice(s))),
+                ),
+            ))
         }
 
         pub fn write_string<'a, 'b: 'a, W: Write + 'a>(
@@ -854,39 +944,237 @@ pub mod encoder {
             tuple((
                 self.write_type_marker(TypeMarker::Date),
                 self.write_length(Length::Size(0)),
-                be_f64(time)
+                be_f64(time),
             ))
         }
 
         pub fn write_integer_element<'a, 'b: 'a, W: Write + 'a>(
             &self,
-            i: i32
+            i: i32,
         ) -> impl SerializeFn<W> + 'a {
             tuple((
                 self.write_type_marker(TypeMarker::Integer),
-                self.write_int(i)
+                self.write_int(i),
             ))
         }
 
         pub fn write_byte_array_element<'a, 'b: 'a, W: Write + 'a>(
             &self,
-            bytes: &'b [u8]
+            bytes: &'b [u8],
         ) -> impl SerializeFn<W> + 'a {
             tuple((
                 self.write_type_marker(TypeMarker::ByteArray),
                 self.write_length(Length::Size(bytes.len() as u32)),
-                slice(bytes)
+                slice(bytes),
             ))
         }
 
         pub fn write_xml_element<'a, 'b: 'a, W: Write + 'a>(
             &self,
-            bytes: &'b str
+            bytes: &'b str,
+            string: bool,
         ) -> impl SerializeFn<W> + 'a {
             tuple((
-                self.write_type_marker(TypeMarker::XML),
+                cond(string, self.write_type_marker(TypeMarker::XmlString)),
+                cond(!string, self.write_type_marker(TypeMarker::XML)),
                 self.write_length(Length::Size(bytes.len() as u32)),
-                slice(bytes.as_bytes())
+                slice(bytes.as_bytes()),
+            ))
+        }
+
+        pub fn write_class_definition<'a, 'b: 'a, W: Write + 'a>(
+            &'a self,
+            class_def: &'b ClassDefinition,
+        ) -> impl SerializeFn<W> + 'a {
+            tuple((
+                self.write_byte_string(class_def.name.as_bytes()),
+                all(class_def
+                    .static_properties
+                    .iter()
+                    .map(move |p| self.write_string(p))),
+            ))
+        }
+
+        //TODO: conds should be common somehwere
+        pub fn write_trait_reference<'a, 'b: 'a, W: Write + 'a>(
+            &'a self,
+            index: u32,
+            children: &'b [SolElement],
+            def: &'b ClassDefinition
+        ) -> impl SerializeFn<W> + 'a {
+            let size = (((index << 1) | 0u32) << 1) | 1u32;
+            println!("Write trait ref {}", size);
+
+            tuple((
+                    self.write_int(size as i32),
+                   cond(
+                       def.encoding == ENCODING_STATIC,
+                       all(children
+                           .iter()
+                           .filter(move |c| def.static_properties.contains(&c.name))
+                           .map(move |e| &e.value)
+                           .map(move |e| self.write_value(e))),
+                   ),
+                   cond(
+                       def.encoding == ENCODING_DYNAMIC,
+                       tuple((
+                           all(children
+                               .iter()
+                               .filter(move |c| def.static_properties.contains(&c.name))
+                               .map(move |e| &e.value)
+                               .map(move |e| self.write_value(e))),
+                           all(children
+                               .iter()
+                               .filter(move |c| !def.static_properties.contains(&c.name))
+                               .map(move |e| {
+                                   tuple((
+                                       self.write_byte_string(e.name.as_bytes()),
+                                       self.write_value(&e.value),
+                                   ))
+                               })),
+                           self.write_byte_string(&[]),
+                       )),
+                   )))
+        }
+
+        pub fn write_object_reference<'a, 'b: 'a, W: Write + 'a>(
+            &'a self,
+            index: u32,
+        ) -> impl SerializeFn<W> + 'a {
+            let size = (index << 1) | 0u32;
+            tuple((self.write_int(size as i32), ))
+        }
+
+        pub fn write_object_full<'a, 'b: 'a, W: Write + 'a>(
+            &'a self,
+            children: &'b [SolElement],
+            def: &'b ClassDefinition,
+        ) -> impl SerializeFn<W> + 'a {
+            //TODO: object references (not just traits)
+
+            self.trait_reference_table.borrow_mut().push(def.clone());
+
+            // Format attribute_count[:4] | encoding[4:2] | class_def_ref flag (1 bit) | class_ref flag (1 bit)
+            let size =
+                (((((def.attribute_count << 2) | (def.encoding & 0xff) as u32) << 1) | 1u32) << 1)
+                    | 1u32;
+
+            println!("object full: {}", size);
+
+            tuple((
+                self.write_int(size as i32),
+                self.write_class_definition(def),
+                cond(
+                    def.encoding == ENCODING_STATIC,
+                    all(children
+                        .iter()
+                        .filter(move |c| def.static_properties.contains(&c.name))
+                        .map(move |e| &e.value)
+                        .map(move |e| self.write_value(e))),
+                ),
+                cond(
+                    def.encoding == ENCODING_DYNAMIC,
+                    tuple((
+                        all(children
+                            .iter()
+                            .filter(move |c| def.static_properties.contains(&c.name))
+                            .map(move |e| &e.value)
+                            .map(move |e| self.write_value(e))),
+                        all(children
+                            .iter()
+                            .filter(move |c| !def.static_properties.contains(&c.name))
+                            // .map(move |e| &e.value)
+                            .map(move |e| {
+                                tuple((
+                                    self.write_byte_string(e.name.as_bytes()),
+                                    self.write_value(&e.value),
+                                ))
+                            })),
+                        self.write_byte_string(&[]),
+                    )),
+                ),
+            ))
+        }
+
+        pub fn write_object_element<'a, 'b: 'a, W: Write + 'a>(
+            &'a self,
+            children: &'b [SolElement],
+            class_def: &'b Option<ClassDefinition>,
+        ) -> impl SerializeFn<W> + 'a {
+            let had_object = self
+                .object_reference_table
+                .to_length(SolValue::Object(children.to_vec(), class_def.clone()), 0);
+            self.object_reference_table
+                .store(SolValue::Object(children.to_vec(), class_def.clone()));
+
+            if let Some(def) = class_def {
+                let has_trait = self
+                    .trait_reference_table
+                    .borrow()
+                    .iter()
+                    .position(|cd| *cd == *def);
+
+                tuple((
+                          self.write_type_marker(TypeMarker::Object),
+                    cond(
+                        had_object.is_reference(),
+                        move |out| self.write_object_reference(had_object.to_position().unwrap() as u32)(out),
+                    ),
+                    cond(
+                        !had_object.is_reference(),
+                        tuple((
+                            cond(has_trait.is_some(), move |out| {
+                                self.write_trait_reference(has_trait.unwrap() as u32, children, def)(out)
+                            }),
+                            cond(has_trait.is_none(), self.write_object_full(children, def)),
+                        )),
+                    ),
+                ))
+            } else {
+                //TODO: errors
+                unimplemented!()
+            }
+        }
+
+        pub fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(
+            &'a self,
+            children: &'b [SolValue],
+        ) -> impl SerializeFn<W> + 'a {
+            tuple((
+                self.write_type_marker(TypeMarker::Array),
+                self.write_length(Length::Size(children.len() as u32)),
+                self.write_byte_string(&[]), // Empty key
+                all(children.iter().map(move |v| self.write_value(v))),
+            ))
+        }
+
+        pub fn write_object_vector_element<'a, 'b: 'a, W: Write + 'a>(
+            &'a self,
+            items: &'b [SolValue],
+            type_name: &'b str,
+            fixed_length: bool,
+        ) -> impl SerializeFn<W> + 'a {
+            tuple((
+                self.write_type_marker(TypeMarker::VectorObject),
+                self.write_length(Length::Size(items.len() as u32)),
+                be_u8(fixed_length as u8),
+                self.write_string(type_name),
+                all(items.iter().map(move |i| self.write_value(i))),
+            ))
+        }
+
+        pub fn write_dictionary_element<'a, 'b: 'a, W: Write + 'a>(
+            &'a self,
+            items: &'b [(SolValue, SolValue)],
+            weak_keys: bool,
+        ) -> impl SerializeFn<W> + 'a {
+            tuple((
+                self.write_type_marker(TypeMarker::Dictionary),
+                self.write_length(Length::Size(items.len() as u32)),
+                be_u8(weak_keys as u8),
+                all(items
+                    .iter()
+                    .map(move |i| tuple((self.write_value(&i.0), self.write_value(&i.1))))),
             ))
         }
 
@@ -896,6 +1184,7 @@ pub mod encoder {
         pub fn write_unsupported_element<'a, 'b: 'a, W: Write + 'a>(
             &self,
         ) -> impl SerializeFn<W> + 'a {
+            unimplemented!();
             self.write_type_marker(TypeMarker::Undefined)
         }
 
@@ -907,22 +1196,34 @@ pub mod encoder {
                 SolValue::Number(x) => self.write_number_element(*x)(out),
                 SolValue::Bool(b) => self.write_boolean_element(*b)(out),
                 SolValue::String(s) => self.write_string_element(s)(out),
-                SolValue::Object(_) => self.write_unsupported_element()(out),
+                SolValue::Object(children, class_def) => {
+                    self.write_object_element(children, class_def)(out)
+                }
                 SolValue::Null => self.write_null_element()(out),
                 SolValue::Undefined => self.write_undefined_element()(out),
                 SolValue::ECMAArray(_) => self.write_unsupported_element()(out),
-                SolValue::StrictArray(_) => self.write_unsupported_element()(out),
+                SolValue::StrictArray(children) => self.write_strict_array_element(children)(out),
                 SolValue::Date(time, _tz) => self.write_date_element(*time)(out),
-                SolValue::XML(content) => self.write_xml_element(content)(out),
-                SolValue::TypedObject(_, _) => self.write_unsupported_element()(out),
+                SolValue::XML(content, string) => self.write_xml_element(content, *string)(out),
                 SolValue::Integer(i) => self.write_integer_element(*i)(out),
                 SolValue::ByteArray(bytes) => self.write_byte_array_element(bytes)(out),
-                SolValue::VectorInt(items, fixed_length) => self.write_int_vector(items, *fixed_length)(out),
-                SolValue::VectorUInt(items, fixed_length) => self.write_uint_vector(items, *fixed_length)(out),
-                SolValue::VectorDouble(items, fixed_length) => self.write_number_vector(items, *fixed_length)(out),
-                SolValue::VectorObject(_, _, _) => self.write_unsupported_element()(out),
-                SolValue::Dictionary(_, _) => self.write_unsupported_element()(out),
+                SolValue::VectorInt(items, fixed_length) => {
+                    self.write_int_vector(items, *fixed_length)(out)
+                }
+                SolValue::VectorUInt(items, fixed_length) => {
+                    self.write_uint_vector(items, *fixed_length)(out)
+                }
+                SolValue::VectorDouble(items, fixed_length) => {
+                    self.write_number_vector(items, *fixed_length)(out)
+                }
+                SolValue::VectorObject(items, type_name, fixed_length) => {
+                    self.write_object_vector_element(items, type_name, *fixed_length)(out)
+                }
+                SolValue::Dictionary(kv, weak_keys) => {
+                    self.write_dictionary_element(kv, *weak_keys)(out)
+                }
 
+                SolValue::TypedObject(_, _) => self.write_unsupported_element()(out),
                 SolValue::ObjectEnd => self.write_unsupported_element()(out),
                 SolValue::Unsupported => self.write_unsupported_element()(out),
             }

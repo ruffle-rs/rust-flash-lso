@@ -30,7 +30,7 @@ pub mod decoder {
 
     fn parse_element_object(i: &[u8]) -> IResult<&[u8], SolValue> {
         map(parse_array_element, |elms: Vec<SolElement>| {
-            SolValue::Object(elms)
+            SolValue::Object(elms, None)
         })(i)
     }
 
@@ -94,7 +94,7 @@ pub mod decoder {
     fn parse_element_xml(i: &[u8]) -> IResult<&[u8], SolValue> {
         let (i, content) = parse_element_long_string(i)?;
         if let SolValue::String(content_string) = content {
-            Ok((i, SolValue::XML(content_string)))
+            Ok((i, SolValue::XML(content_string, true)))
         } else {
             // Will never happen
             Err(Err::Error(make_error(i, ErrorKind::Digit)))
@@ -104,7 +104,7 @@ pub mod decoder {
     fn parse_element_typed_object(i: &[u8]) -> IResult<&[u8], SolValue> {
         let (i, s) = parse_string(i)?;
         let (i, obj) = parse_element_object(i)?;
-        if let SolValue::Object(obj_content) = obj {
+        if let SolValue::Object(obj_content, _class_def) = obj {
             Ok((i, SolValue::TypedObject(s.to_string(), obj_content)))
         } else {
             // Will never happen
@@ -336,14 +336,14 @@ pub mod encoder {
                     write_string_element(s)(out)
                 }
             }
-            SolValue::Object(o) => write_object_element(o)(out),
+            SolValue::Object(o, _class_def) => write_object_element(o)(out),
             SolValue::Null => write_null_element()(out),
             SolValue::Undefined => write_undefined_element()(out),
             SolValue::ObjectEnd => write_object_end_element()(out),
             SolValue::StrictArray(a) => write_strict_array_element(a)(out),
             SolValue::Date(d, tz) => write_date_element(*d, *tz)(out),
             SolValue::Unsupported => write_unsupported_element()(out),
-            SolValue::XML(x) => write_xml_element(x)(out),
+            SolValue::XML(x, _string) => write_xml_element(x)(out),
             SolValue::TypedObject(name, elements) => {
                 write_typed_object_element(name, elements)(out)
             }

@@ -22,7 +22,7 @@ pub struct SolHeader {
 
 /// Represent a named element
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SolElement {
     pub name: String,
     pub value: SolValue,
@@ -31,7 +31,7 @@ pub struct SolElement {
 //TODO: should amf3 assoc arrays be their own type with a dense and assoc section
 /// A single or compound value
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SolValue {
     /// Represent the type number (amf0) and double (amf3)
     Number(f64),
@@ -39,7 +39,7 @@ pub enum SolValue {
     Bool(bool),
     /// Represent both the string (amf0/3) and long string type (amf0)
     String(String),
-    Object(Vec<SolElement>),
+    Object(Vec<SolElement>, Option<ClassDefinition>),
     /// Represent the null type
     Null,
     /// Represent the undefined type
@@ -54,7 +54,7 @@ pub enum SolValue {
     Date(f64, Option<u16>),
     /// Represent the unsupported type
     Unsupported,
-    XML(String),
+    XML(String, bool),
     TypedObject(String, Vec<SolElement>),
     // AMF3
     /// Represent the integer type (u29) (amf3)
@@ -86,10 +86,10 @@ pub struct ClassDefinition {
     pub encoding: u8,
     pub attribute_count: u32,
     pub static_properties: Vec<String>,
-    pub externalizable: bool,
 }
 
 /// Type markers used in AMF0
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(TryFromPrimitive)]
 #[repr(u8)]
 pub enum TypeMarker {

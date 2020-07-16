@@ -99,7 +99,7 @@ impl LSODeserializer {
 
 pub mod encoder {
     use crate::types::{Sol, SolHeader};
-    use crate::{amf3, FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, PADDING};
+    use crate::{FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, PADDING};
     use cookie_factory::bytes::{be_u16, be_u32};
     use cookie_factory::SerializeFn;
     use std::io::Write;
