@@ -903,6 +903,8 @@ pub mod encoder {
             items: &'b [i32],
             fixed_length: bool,
         ) -> impl SerializeFn<W> + 'a {
+            self.object_reference_table.store(SolValue::VectorInt(items.to_vec(), fixed_length));
+
             tuple((
                 self.write_type_marker(TypeMarker::VectorInt),
                 self.write_length(Length::Size(items.len() as u32)),
@@ -916,6 +918,7 @@ pub mod encoder {
             items: &'b [u32],
             fixed_length: bool,
         ) -> impl SerializeFn<W> + 'a {
+            self.object_reference_table.store(SolValue::VectorUInt(items.to_vec(), fixed_length));
             tuple((
                 self.write_type_marker(TypeMarker::VectorUInt),
                 self.write_length(Length::Size(items.len() as u32)),
@@ -929,6 +932,7 @@ pub mod encoder {
             items: &'b [f64],
             fixed_length: bool,
         ) -> impl SerializeFn<W> + 'a {
+            self.object_reference_table.store(SolValue::VectorDouble(items.to_vec(), fixed_length));
             tuple((
                 self.write_type_marker(TypeMarker::VectorDouble),
                 self.write_length(Length::Size(items.len() as u32)),
@@ -941,6 +945,8 @@ pub mod encoder {
             &self,
             time: f64,
         ) -> impl SerializeFn<W> + 'a {
+            self.object_reference_table.store(SolValue::Date(time, None));
+
             tuple((
                 self.write_type_marker(TypeMarker::Date),
                 self.write_length(Length::Size(0)),
@@ -962,6 +968,8 @@ pub mod encoder {
             &self,
             bytes: &'b [u8],
         ) -> impl SerializeFn<W> + 'a {
+            self.object_reference_table.store(SolValue::ByteArray(bytes.to_vec()));
+
             tuple((
                 self.write_type_marker(TypeMarker::ByteArray),
                 self.write_length(Length::Size(bytes.len() as u32)),
@@ -974,6 +982,9 @@ pub mod encoder {
             bytes: &'b str,
             string: bool,
         ) -> impl SerializeFn<W> + 'a {
+
+            self.object_reference_table.store(SolValue::XML(bytes.to_string(), string));
+
             tuple((
                 cond(string, self.write_type_marker(TypeMarker::XmlString)),
                 cond(!string, self.write_type_marker(TypeMarker::XML)),
@@ -1140,6 +1151,8 @@ pub mod encoder {
             &'a self,
             children: &'b [SolValue],
         ) -> impl SerializeFn<W> + 'a {
+            self.object_reference_table.store(SolValue::StrictArray(children.to_vec()));
+
             tuple((
                 self.write_type_marker(TypeMarker::Array),
                 self.write_length(Length::Size(children.len() as u32)),
@@ -1154,6 +1167,7 @@ pub mod encoder {
             type_name: &'b str,
             fixed_length: bool,
         ) -> impl SerializeFn<W> + 'a {
+            self.object_reference_table.store(SolValue::VectorObject(items.to_vec(), type_name.to_string(), fixed_length));
             tuple((
                 self.write_type_marker(TypeMarker::VectorObject),
                 self.write_length(Length::Size(items.len() as u32)),
@@ -1168,13 +1182,19 @@ pub mod encoder {
             items: &'b [(SolValue, SolValue)],
             weak_keys: bool,
         ) -> impl SerializeFn<W> + 'a {
+            let len = self.object_reference_table.to_length(SolValue::Dictionary(items.to_vec(), weak_keys), items.len() as u32);
+            self.object_reference_table.store(SolValue::Dictionary(items.to_vec(), weak_keys));
+
             tuple((
                 self.write_type_marker(TypeMarker::Dictionary),
-                self.write_length(Length::Size(items.len() as u32)),
-                be_u8(weak_keys as u8),
-                all(items
-                    .iter()
-                    .map(move |i| tuple((self.write_value(&i.0), self.write_value(&i.1))))),
+                cond(len.is_reference(), self.write_length(len)),
+                cond(!len.is_reference(), tuple((
+                    self.write_length(len),
+                    be_u8(weak_keys as u8),
+                    all(items
+                        .iter()
+                        .map(move |i| tuple((self.write_value(&i.0), self.write_value(&i.1))))),
+                )))
             ))
         }
 

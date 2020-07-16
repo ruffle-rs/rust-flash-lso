@@ -63,3 +63,46 @@ auto_test! {
     [as3_vector_typed_object, "AS3-VectorTypedObject-Demo"],
     [as3_dictionary, "AS3-Dictionary-Demo"]
 }
+
+
+// Other tests, mixed
+auto_test! {
+    // [two, "2"],
+    // [zero_four, "00000004"],
+    // [akamai_enterprise_player, "AkamaiEnterprisePlayer.userData"],
+    // [areana_madness_game_two, "arenaMadnessGame2"]
+    [canvas, "canvas"],
+    // [clarence_save_slot_1, "ClarenceSave_SLOT1"],
+    // [CoC_8, "CoC_8"],
+    // [com_jeroenwijering, "com.jeroenwijering"]
+    [cramjs, "cramjs"],
+    // [dolphin_show_1, "dolphin_show(1)"],
+    // [flagstaff_1, "flagstaff(1)"],
+    // [flagstaff, "flagstaff"],
+    // [flash_viewer, "flash.viewer"],
+    [hiro_network_capping_cookie, "HIRO_NETWORK_CAPPING_COOKIE"],
+    // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
+    // [jy1, "JY1"],
+    // [labrat_2, "Labrat2"],
+    // [mardek_v3_sg_1, "MARDEKv3__sg_1"],
+    [media_player_user_settings, "mediaPlayerUserSettings"],
+    // [metadata_history, "MetadataHistory"],
+    [minimal, "Minimal"],
+    [minimal_2, "Minimalv2"],
+    // [opp_detail_prefs, "oppDetailPrefs"],
+    // [party_1, "Party1"],
+    // [previous_video, "previousVideo"],
+    // [robokill, "robokill"],
+    [settings, "settings"],
+    // [slot_1, "slot1"],
+    // [slow_1_party, "slot1_party"],
+    [sound_data, "soundData"],
+    [sound_data_level_0, "soundData_level0"],
+    [space, "Space"],
+    // [string_test, "StringTest"],
+
+
+    [time_display_config, "timeDisplayConfig"]
+    // [user_1, "user(1)"],
+    // [user, "user"]
+}
