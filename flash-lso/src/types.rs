@@ -47,6 +47,7 @@ pub enum SolValue {
     /// Represent ECMA-Arrays (amf0) and associative arrays (amf3, even if they contain a dense part)
     ECMAArray(Vec<SolElement>),
     /// Represent the end of a list of object elements (amf0)
+    //TODO: remove, not actually a value that will ever appear to end user
     ObjectEnd,
     /// Represent a strict array (amf0) or a dense array (amf3)
     StrictArray(Vec<SolValue>),
@@ -55,6 +56,7 @@ pub enum SolValue {
     /// Represent the unsupported type
     Unsupported,
     XML(String, bool),
+    // TODo can this just be an object with the name in class def
     TypedObject(String, Vec<SolElement>),
     // AMF3
     /// Represent the integer type (u29) (amf3)

@@ -13,8 +13,8 @@ macro_rules! auto_test {
             let _ = x.read_to_end(&mut data).expect("Unable to read file");
             let (unparsed_bytes, sol) = LSODeserializer::default().parse_full(&data).expect("Failed to parse lso file");
 
-            println!("{:#?}", sol);
-            println!("Unparsed bytes: {:?}", unparsed_bytes);
+            // println!("{:#?}", sol);
+            // println!("Unparsed bytes: {:?}", unparsed_bytes);
 
             let bytes = encoder::write_to_bytes(&sol);
             assert_eq!(bytes, data, "library output != input")
@@ -64,7 +64,6 @@ auto_test! {
     [as3_dictionary, "AS3-Dictionary-Demo"]
 }
 
-
 // Other tests, mixed
 auto_test! {
     // [two, "2"],
@@ -106,3 +105,35 @@ auto_test! {
     // [user_1, "user(1)"],
     // [user, "user"]
 }
+
+// Other tests, failing
+// auto_test! {
+//     [two, "2"],
+//     [zero_four, "00000004"],
+//     [akamai_enterprise_player, "AkamaiEnterprisePlayer.userData"],
+//     [areana_madness_game_two, "arenaMadnessGame2"],
+//     [clarence_save_slot_1, "ClarenceSave_SLOT1"],
+//     [CoC_8, "CoC_8"],
+//     [com_jeroenwijering, "com.jeroenwijering"],
+//     [dolphin_show_1, "dolphin_show(1)"],
+//     [flagstaff_1, "flagstaff(1)"],
+//     [flagstaff, "flagstaff"],
+//     [flash_viewer, "flash.viewer"],
+//     [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
+//     [jy1, "JY1"],
+//     [labrat_2, "Labrat2"],
+//     [mardek_v3_sg_1, "MARDEKv3__sg_1"],
+//     [metadata_history, "MetadataHistory"],
+//     [opp_detail_prefs, "oppDetailPrefs"],
+//     [party_1, "Party1"],
+//     [previous_video, "previousVideo"],
+//     [robokill, "robokill"],
+//     [slot_1, "slot1"],
+//     [slow_1_party, "slot1_party"],
+//     [string_test, "StringTest"],
+//     [user_1, "user(1)"],
+//     [user, "user"]
+// }
+//24
+
+
