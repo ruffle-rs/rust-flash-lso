@@ -21,3 +21,6 @@ serde = { version = "1.0", optional = true, features = ["derive"] }
 
 derive-try-from-primitive = "1.0.0"
 
+[dev-dependencies]
+pretty_assertions = "0.6.1"
+

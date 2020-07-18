@@ -2,6 +2,23 @@ use flash_lso::encoder;
 use flash_lso::LSODeserializer;
 use std::fs::File;
 use std::io::Read;
+#[cfg(test)]
+use pretty_assertions::{assert_eq, assert_ne};
+use core::fmt;
+
+/// Wrapper around Vec<u8> that makes `{:#?}` the same as `{:?}`
+/// Used in `assert*!` macros in combination with `pretty_assertions` crate to make
+/// test failures to show nice diffs.
+#[derive(PartialEq, Eq)]
+#[doc(hidden)]
+pub struct PrettyArray<'a>(pub &'a Vec<u8>);
+
+/// Make diff to display string as single-line string
+impl<'a> fmt::Debug for PrettyArray<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&format!("{:?}", self.0))
+    }
+}
 
 macro_rules! auto_test {
     ($([$name: ident, $path: expr]),*) => {
@@ -13,11 +30,11 @@ macro_rules! auto_test {
             let _ = x.read_to_end(&mut data).expect("Unable to read file");
             let (unparsed_bytes, sol) = LSODeserializer::default().parse_full(&data).expect("Failed to parse lso file");
 
-            // println!("{:#?}", sol);
-            // println!("Unparsed bytes: {:?}", unparsed_bytes);
+            println!("{:#?}", sol);
+            println!("Unparsed bytes: {:?}", unparsed_bytes);
 
             let bytes = encoder::write_to_bytes(&sol);
-            assert_eq!(bytes, data, "library output != input")
+            assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input")
         }
         )*
     }
@@ -68,17 +85,17 @@ auto_test! {
 auto_test! {
     // [two, "2"],
     // [zero_four, "00000004"],
-    // [akamai_enterprise_player, "AkamaiEnterprisePlayer.userData"],
+    [akamai_enterprise_player, "AkamaiEnterprisePlayer.userData"],
     // [areana_madness_game_two, "arenaMadnessGame2"]
     [canvas, "canvas"],
     // [clarence_save_slot_1, "ClarenceSave_SLOT1"],
     // [CoC_8, "CoC_8"],
-    // [com_jeroenwijering, "com.jeroenwijering"]
+    [com_jeroenwijering, "com.jeroenwijering"],
     [cramjs, "cramjs"],
-    // [dolphin_show_1, "dolphin_show(1)"],
-    // [flagstaff_1, "flagstaff(1)"],
+    [dolphin_show_1, "dolphin_show(1)"],
+    [flagstaff_1, "flagstaff(1)"],
     // [flagstaff, "flagstaff"],
-    // [flash_viewer, "flash.viewer"],
+    [flash_viewer, "flash.viewer"],
     [hiro_network_capping_cookie, "HIRO_NETWORK_CAPPING_COOKIE"],
     // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
     // [jy1, "JY1"],
@@ -90,50 +107,40 @@ auto_test! {
     [minimal_2, "Minimalv2"],
     // [opp_detail_prefs, "oppDetailPrefs"],
     // [party_1, "Party1"],
-    // [previous_video, "previousVideo"],
+    [previous_video, "previousVideo"],
     // [robokill, "robokill"],
     [settings, "settings"],
     // [slot_1, "slot1"],
-    // [slow_1_party, "slot1_party"],
+    [slot_1_party, "slot1_party"],
     [sound_data, "soundData"],
     [sound_data_level_0, "soundData_level0"],
     [space, "Space"],
-    // [string_test, "StringTest"],
-
-
+    [string_test, "StringTest"],
     [time_display_config, "timeDisplayConfig"]
     // [user_1, "user(1)"],
     // [user, "user"]
 }
 
 // Other tests, failing
-// auto_test! {
-//     [two, "2"],
-//     [zero_four, "00000004"],
-//     [akamai_enterprise_player, "AkamaiEnterprisePlayer.userData"],
-//     [areana_madness_game_two, "arenaMadnessGame2"],
-//     [clarence_save_slot_1, "ClarenceSave_SLOT1"],
-//     [CoC_8, "CoC_8"],
-//     [com_jeroenwijering, "com.jeroenwijering"],
-//     [dolphin_show_1, "dolphin_show(1)"],
-//     [flagstaff_1, "flagstaff(1)"],
-//     [flagstaff, "flagstaff"],
-//     [flash_viewer, "flash.viewer"],
-//     [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
-//     [jy1, "JY1"],
-//     [labrat_2, "Labrat2"],
-//     [mardek_v3_sg_1, "MARDEKv3__sg_1"],
-//     [metadata_history, "MetadataHistory"],
-//     [opp_detail_prefs, "oppDetailPrefs"],
-//     [party_1, "Party1"],
-//     [previous_video, "previousVideo"],
-//     [robokill, "robokill"],
-//     [slot_1, "slot1"],
-//     [slow_1_party, "slot1_party"],
-//     [string_test, "StringTest"],
-//     [user_1, "user(1)"],
-//     [user, "user"]
-// }
+auto_test! {
+    // [two, "2"] // TODO: fails to parse fully,
+    // [zero_four, "00000004"] //TODO: also fails to parse fully
+    // [areana_madness_game_two, "arenaMadnessGame2"], //Huge
+    // [clarence_save_slot_1, "ClarenceSave_SLOT1"], // Many issues
+    // [CoC_8, "CoC_8"], // Times out ????
+    // [flagstaff, "flagstaff"]
+    // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"] // malloc too big
+    // [jy1, "JY1"] // Malloc too big
+        // [labrat_2, "Labrat2"],
+    // [mardek_v3_sg_1, "MARDEKv3__sg_1"]
+    // [metadata_history, "MetadataHistory"]
+    // [opp_detail_prefs, "oppDetailPrefs"]
+    // [party_1, "Party1"] - timeout
+    // [robokill, "robokill"]
+    // [slot_1, "slot1"]
+    // [user_1, "user(1)"]
+    // [user, "user"]
+}
 //24
 
 

@@ -367,7 +367,6 @@ impl AMF3Decoder {
         let (i, mut length) = read_int(i)?;
 
         if length & REFERENCE_FLAG == 0 {
-            println!("Loading reference object {}", length);
             let len_usize: usize = (length >> 1)
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
@@ -828,9 +827,15 @@ pub mod encoder {
             //TODO: cache
 
             //TODO: must be a better way
-            be_u8(*bytes.get(0).unwrap())
+            // be_u8(*bytes.get(0).unwrap())
+
+
 
             // slice(&bytes.as_slice())
+
+            move |out| {
+                all(bytes.iter().copied().map(be_u8))(out)
+            }
         }
 
         fn write_length<'a, 'b: 'a, W: Write + 'a>(&self, s: Length) -> impl SerializeFn<W> + 'a {
@@ -854,10 +859,12 @@ pub mod encoder {
                 Length::Size(0)
             };
 
-            self.string_reference_table.store_slice(s);
-
-
             let only_length = len.is_reference() && s != [];
+
+            if s != [] {
+                self.string_reference_table.store_slice(s);
+            }
+
 
             either(only_length, self.write_length(len), tuple((self.write_length(len), slice(s))))
         }
@@ -1034,7 +1041,6 @@ pub mod encoder {
             def: &'b ClassDefinition,
         ) -> impl SerializeFn<W> + 'a {
             let size = (((index << 1) | 0u32) << 1) | 1u32;
-            println!("Write trait ref {}", size);
 
             tuple((
                 self.write_int(size as i32),
@@ -1090,8 +1096,6 @@ pub mod encoder {
             let size =
                 (((((def.attribute_count << 2) | (def.encoding & 0xff) as u32) << 1) | 1u32) << 1)
                     | 1u32;
-
-            println!("object full: {}", size);
 
             tuple((
                 self.write_int(size as i32),
@@ -1185,6 +1189,25 @@ pub mod encoder {
             ))
         }
 
+        pub fn write_ecma_array_element<'a, 'b: 'a, W: Write + 'a>(
+            &'a self,
+            elements: &'b [SolElement],
+        ) -> impl SerializeFn<W> + 'a {
+            println!("Writing ecma array");
+
+            // let len = self.object_reference_table.to_length_store(SolValue::ECMAArray(elements.to_vec()), elements.len() as u32);
+
+            // tuple((
+            //     self.write_type_marker(TypeMarker::Array),
+            //     self.write_length(len),
+            //     cond(len.is_size(), tuple((
+            //         self.write_byte_string(&[]), // Empty key
+            //         all(children.iter().map(move |v| self.write_value(v))),
+            //     )))
+            // ))
+            self.write_type_marker(TypeMarker::Array)
+        }
+
         pub fn write_object_vector_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             items: &'b [SolValue],
@@ -1257,7 +1280,7 @@ pub mod encoder {
                 }
                 SolValue::Null => self.write_null_element()(out),
                 SolValue::Undefined => self.write_undefined_element()(out),
-                SolValue::ECMAArray(_) => self.write_unsupported_element()(out),
+                SolValue::ECMAArray(elements) => self.write_ecma_array_element(elements)(out),
                 SolValue::StrictArray(children) => self.write_strict_array_element(children)(out),
                 SolValue::Date(time, _tz) => self.write_date_element(*time)(out),
                 SolValue::XML(content, string) => self.write_xml_element(content, *string)(out),
