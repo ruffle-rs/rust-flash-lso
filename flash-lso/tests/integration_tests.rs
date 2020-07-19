@@ -1,9 +1,8 @@
 use core::fmt;
 use flash_lso::encoder;
 use flash_lso::LSODeserializer;
-use nom::IResult;
 #[cfg(test)]
-use pretty_assertions::{assert_eq, assert_ne};
+use pretty_assertions::assert_eq;
 use std::fs::File;
 use std::io::Read;
 
@@ -33,18 +32,45 @@ macro_rules! auto_test {
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
 
-            // println!("{:#?}", sol);
+            println!("{:#?}", sol);
             // println!("Unparsed bytes: {:?}", unparsed_bytes);
 
             let empty: Vec<u8> = vec![];
-            assert_eq!(empty, unparsed_bytes.to_vec());
+            if unparsed_bytes.len() > 0 {
+                assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
+            }
 
             let bytes = encoder::write_to_bytes(&sol);
+            // assert_eq!(bytes.len(), data.len(), "library size != input size");
             assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
             } else {
                 println!("Input: {:?}", data);
                println!("parse failed: {:?}", parse_res);
                assert_eq!(false, true)
+            }
+        }
+        )*
+    }
+}
+use nom::error::make_error;
+use nom::Err::Error;
+use nom::Err::Incomplete;
+
+macro_rules! should_fail {
+    ($([$name: ident, $path: expr, $error_enum: ident, $error: expr]),*) => {
+        $(
+        #[test]
+        pub fn $name() {
+            let mut x = File::open(concat!("tests/sol/", $path, ".sol")).expect("Couldn't open file");
+            let mut data = Vec::new();
+            let _ = x.read_to_end(&mut data).expect("Unable to read file");
+            let parse_res = LSODeserializer::default().parse_full(&data);
+
+            if let Err(x) = parse_res {
+                assert_eq!(x, $error_enum($error));
+            } else {
+                println!("error: {:?}", parse_res);
+                assert_eq!("Correct error type", "Wrong error type");
             }
         }
         )*
@@ -134,23 +160,37 @@ auto_test! {
 
 // Other tests, failing
 auto_test! {
-    // [two, "2"] // TODO: fails to parse fully, may be invalid
-    // [zero_four, "00000004"] //TODO: also fails to parse fully, attempts to do an invalid read
     // [flagstaff, "flagstaff"] // TODO: external class, probably wont parse
     // [metadata_history, "MetadataHistory"] // External class, probably wont parse
     // [opp_detail_prefs, "oppDetailPrefs"] //TODO: uses flex, probably wont parse for a while
-    // [slot_1, "slot1"] // WE have unparsed bytes
-    // [mardek_v3_sg_1, "MARDEKv3__sg_1"], // memory error
-    // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"], // malloc too big
-    // [jy1, "JY1"], // Malloc too big
+
+    // [slot_1_asf, "slot1"] // malloc error
+    // [mardek_v3_sg_1, "MARDEKv3__sg_1"] // memory error - amf3? maybe
+    // [jy1, "JY1"] // Malloc too big - amf0
+        // [CoC_8, "CoC_8"] // Gets SIGKILLED? memory error
+
+
+    // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"] // unparsed data
+    // [clarence_save_slot_1, "ClarenceSave_SLOT1"] //TODO: Get this and user parsing
+
 
     // [areana_madness_game_two, "arenaMadnessGame2"], //Huge
+    // [labrat_2, "Labrat2"] // huge
+        //     [party_1, "Party1"] // huge
 
-    // [clarence_save_slot_1, "ClarenceSave_SLOT1"], //TODO: Get this and user parsing
 
-    // [CoC_8, "CoC_8"], // Times out ????
-        // [labrat_2, "Labrat2"],
-    // [party_1, "Party1"],// - timeout
-    // [robokill, "robokill"],
+
+
+    // Invalid write
+    // [robokill, "robokill"]
 }
 //24
+
+use nom::error::ErrorKind::Tag;
+use nom::Needed;
+should_fail! {
+    // Corrupt/invalid file
+    [two, "2", Error, (vec![17, 112, 99, 95, 112, 97, 114, 116, 121, 10, 130, 51, 21, 80, 97, 114, 116, 121, 65, 108, 105, 97, 115, 0, 13, 98, 97, 116, 116, 108, 101, 2, 0].as_slice(), Tag)],
+    // OOB read
+    [zero_four, "00000004", Incomplete, Needed::Size(255)]
+}

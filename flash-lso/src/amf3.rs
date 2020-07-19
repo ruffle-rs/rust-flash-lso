@@ -270,7 +270,6 @@ impl AMF3Decoder {
     }
 
     fn parse_class_def<'a>(&self, length: u32, i: &'a [u8]) -> IResult<&'a [u8], ClassDefinition> {
-        println!("Parse class def");
         if length & REFERENCE_FLAG == 0 {
             let len_usize: usize = (length >> 1)
                 .try_into()
@@ -286,18 +285,14 @@ impl AMF3Decoder {
             return Ok((i, class_def));
         }
         let length = length >> 1;
-        println!("Class def flags = {}", length);
 
         //TODO: should name be Option<String>
         let (i, name) = self.parse_byte_stream(i)?;
-        let name_str =
-            if name == [] {
-                "".to_string()
-            } else {
-                String::from_utf8(name).map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?
-            };
-        println!("Parse name = {}", name_str);
-
+        let name_str = if name == [] {
+            "".to_string()
+        } else {
+            String::from_utf8(name).map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?
+        };
 
         let encoding = (length & 0x03) as u8;
 
@@ -316,7 +311,7 @@ impl AMF3Decoder {
             //TODO: encodings should be an enumset
             encoding,
             attribute_count: attributes_count,
-            static_properties: static_props
+            static_properties: static_props,
         };
 
         self.trait_reference_table
@@ -596,7 +591,6 @@ impl AMF3Decoder {
     }
 
     fn parse_element_array<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
-        println!("Parsing an array");
 
         let (i, mut length) = read_int(i)?;
 
@@ -612,6 +606,7 @@ impl AMF3Decoder {
                 .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
                 .clone();
 
+
             return Ok((i, obj));
         }
         length >>= 1;
@@ -625,12 +620,18 @@ impl AMF3Decoder {
             return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
         }
 
+        let old_len = self.object_reference_table.borrow().len();
+        self.object_reference_table.borrow_mut().push(SolValue::Null);
+
+
         let (i, mut key) = self.parse_byte_stream(i)?;
 
         if key == [] {
             let (i, elements) =
                 many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
-            return Ok((i, SolValue::StrictArray(elements)));
+            let obj = SolValue::StrictArray(elements);
+            self.object_reference_table.borrow_mut()[old_len] = obj.clone();
+            return Ok((i, obj));
         }
 
         let mut elements = Vec::with_capacity(length_usize);
@@ -660,11 +661,10 @@ impl AMF3Decoder {
                 value: val.clone(),
             })
             .collect();
-        println!("el_elemt: {:?}", el_elemt);
         elements.extend(el_elemt);
 
         let obj = SolValue::ECMAArray(elements);
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        self.object_reference_table.borrow_mut()[old_len] = obj.clone();
         Ok((i, obj))
     }
 
@@ -696,7 +696,9 @@ impl AMF3Decoder {
             )),
         )(i)?;
 
-        Ok((i, SolValue::Dictionary(pairs, weak_keys == 1)))
+        let obj =SolValue::Dictionary(pairs, weak_keys == 1);
+        self.object_reference_table.borrow_mut().push(obj.clone());
+        Ok((i, obj))
     }
     fn parse_element_date<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
         let (i, reference) = read_int(i)?;
@@ -750,6 +752,8 @@ impl AMF3Decoder {
     fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
         let (i, type_) = be_u8(i)?;
 
+        println!("Parsing element of type {}", type_);
+
         match type_ {
             TYPE_UNDEFINED => Ok((i, SolValue::Undefined)),
             TYPE_NULL => Ok((i, SolValue::Null)),
@@ -775,6 +779,7 @@ impl AMF3Decoder {
 
     pub fn parse_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolElement> {
         let (i, name) = self.parse_string(i)?;
+        println!("Parsing element {}", name);
 
         map(
             |i| self.parse_single_element(i),
@@ -1233,23 +1238,31 @@ pub mod encoder {
             &'a self,
             children: &'b [SolValue],
         ) -> impl SerializeFn<W> + 'a {
-            let len = self.object_reference_table.to_length_store(SolValue::StrictArray(children.to_vec()), children.len() as u32);
-
+            let len = self.object_reference_table.to_length_store(
+                SolValue::StrictArray(children.to_vec()),
+                children.len() as u32,
+            );
 
             //TODO: why does this not offset the cache if StrictArray([]) is saved but always written as Size(0) instead of Ref(n)
-            either(children == [], tuple((
-                self.write_type_marker(TypeMarker::Array),
-                self.write_length(Length::Size(0)),
-                self.write_byte_string(&[]), // Empty key
-            )),
-                   tuple((
-                       self.write_type_marker(TypeMarker::Array),
-                       self.write_length(len),
-                       cond(len.is_size(), tuple((
-                           self.write_byte_string(&[]), // Empty key
-                           all(children.iter().map(move |v| self.write_value(v))),
-                       )))
-                   )))
+            either(
+                children == [],
+                tuple((
+                    self.write_type_marker(TypeMarker::Array),
+                    self.write_length(Length::Size(0)),
+                    self.write_byte_string(&[]), // Empty key
+                )),
+                tuple((
+                    self.write_type_marker(TypeMarker::Array),
+                    self.write_length(len),
+                    cond(
+                        len.is_size(),
+                        tuple((
+                            self.write_byte_string(&[]), // Empty key
+                            all(children.iter().map(move |v| self.write_value(v))),
+                        )),
+                    ),
+                )),
+            )
         }
 
         pub fn write_ecma_array_element<'a, 'b: 'a, W: Write + 'a>(

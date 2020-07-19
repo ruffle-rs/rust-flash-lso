@@ -119,7 +119,10 @@ pub mod decoder {
 
     fn read_type_marker(i: &[u8]) -> IResult<&[u8], TypeMarker> {
         let (i, type_) = be_u8(i)?;
-        Ok((i, TypeMarker::try_from(type_).unwrap_or(TypeMarker::Unsupported)))
+        Ok((
+            i,
+            TypeMarker::try_from(type_).unwrap_or(TypeMarker::Unsupported),
+        ))
     }
 
     fn parse_single_element(i: &[u8]) -> IResult<&[u8], SolValue> {
@@ -143,7 +146,7 @@ pub mod decoder {
             TypeMarker::XML => parse_element_xml(i),
             TypeMarker::TypedObject => parse_element_typed_object(i),
             TypeMarker::AMF3 => parse_element_amf3(i),
-            TypeMarker::ObjectEnd => Err(Err::Error(make_error(i, ErrorKind::Digit)))
+            TypeMarker::ObjectEnd => Err(Err::Error(make_error(i, ErrorKind::Digit))),
         }
     }
 
@@ -181,7 +184,6 @@ pub mod decoder {
 
             out.push(e.clone());
         }
-
 
         Ok((i, out))
     }
@@ -334,7 +336,6 @@ pub mod encoder {
     pub fn write_value<'a, 'b: 'a, W: Write + 'a>(
         element: &'b SolValue,
     ) -> impl SerializeFn<W> + 'a {
-        println!("Writing element: {:?}", element);
         move |out: WriteContext<W>| match element {
             SolValue::Number(n) => write_number_element(*n)(out),
             SolValue::Bool(b) => write_bool_element(*b)(out),
