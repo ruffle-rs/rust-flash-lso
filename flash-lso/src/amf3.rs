@@ -4,7 +4,7 @@ use crate::types::{SolElement, SolValue};
 use crate::PADDING;
 use cookie_factory::SerializeFn;
 use nom::bytes::complete::tag;
-use nom::combinator::{map, opt};
+use nom::combinator::map;
 use nom::error::{make_error, ErrorKind};
 use nom::multi::{many_m_n, separated_list};
 use nom::number::complete::{be_f64, be_i32, be_u32, be_u8};
@@ -389,7 +389,9 @@ impl AMF3Decoder {
         length >>= 1;
 
         let old_len = self.object_reference_table.borrow().len();
-        self.object_reference_table.borrow_mut().push(SolValue::Null);
+        self.object_reference_table
+            .borrow_mut()
+            .push(SolValue::Null);
 
         // Class def
         let (i, class_def) = self.parse_class_def(length, i)?;
@@ -596,7 +598,6 @@ impl AMF3Decoder {
     }
 
     fn parse_element_array<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
-
         let (i, mut length) = read_int(i)?;
 
         if length & REFERENCE_FLAG == 0 {
@@ -610,7 +611,6 @@ impl AMF3Decoder {
                 .get(len_usize)
                 .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
                 .clone();
-
 
             return Ok((i, obj));
         }
@@ -626,8 +626,9 @@ impl AMF3Decoder {
         }
 
         let old_len = self.object_reference_table.borrow().len();
-        self.object_reference_table.borrow_mut().push(SolValue::Null);
-
+        self.object_reference_table
+            .borrow_mut()
+            .push(SolValue::Null);
 
         let (i, mut key) = self.parse_byte_stream(i)?;
 
@@ -658,17 +659,8 @@ impl AMF3Decoder {
 
         // Must parse `length` elements
         let (i, el) = many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
-        let el_elemt: Vec<SolElement> = el
-            .iter()
-            .enumerate()
-            .map(|(pos, val)| SolElement {
-                name: format!("{}", pos),
-                value: val.clone(),
-            })
-            .collect();
-        elements.extend(el_elemt);
 
-        let obj = SolValue::ECMAArray(elements);
+        let obj = SolValue::ECMAArray(el, elements);
         self.object_reference_table.borrow_mut()[old_len] = obj.clone();
         Ok((i, obj))
     }
@@ -677,7 +669,18 @@ impl AMF3Decoder {
         let (i, (len, reference)) = read_length(i)?;
 
         if reference {
-            log::warn!("Not impl ref dict");
+            let len_usize: usize = len
+                .try_into()
+                .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+
+            let obj_ref = self
+                .object_reference_table
+                .borrow()
+                .get(len_usize)
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
+                .clone();
+
+            return Ok((i, obj_ref));
         }
 
         //TODO: implications of this
@@ -701,7 +704,7 @@ impl AMF3Decoder {
             )),
         )(i)?;
 
-        let obj =SolValue::Dictionary(pairs, weak_keys == 1);
+        let obj = SolValue::Dictionary(pairs, weak_keys == 1);
         self.object_reference_table.borrow_mut().push(obj.clone());
         Ok((i, obj))
     }
@@ -811,7 +814,7 @@ pub mod encoder {
     use cookie_factory::bytes::{be_f64, be_i32, be_u32, be_u8};
     use cookie_factory::combinator::{cond, slice};
     use cookie_factory::multi::all;
-    use cookie_factory::sequence::{tuple, Tuple};
+    use cookie_factory::sequence::tuple;
     use cookie_factory::{SerializeFn, WriteContext};
     use std::cell::RefCell;
     use std::io::Write;
@@ -1272,20 +1275,27 @@ pub mod encoder {
 
         pub fn write_ecma_array_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
-            elements: &'b [SolElement],
+            dense: &'b [SolValue],
+            assoc: &'b [SolElement],
         ) -> impl SerializeFn<W> + 'a {
             println!("ECMA array");
-            // let len = self.object_reference_table.to_length_store(SolValue::ECMAArray(elements.to_vec()), elements.len() as u32);
+            let len = self.object_reference_table.to_length_store(
+                SolValue::ECMAArray(dense.to_vec(), assoc.to_vec()),
+                dense.len() as u32,
+            );
 
-            // tuple((
-            //     self.write_type_marker(TypeMarker::Array),
-            //     self.write_length(len),
-            //     cond(len.is_size(), tuple((
-            //         self.write_byte_string(&[]), // Empty key
-            //         all(children.iter().map(move |v| self.write_value(v))),
-            //     )))
-            // ))
-            self.write_type_marker(TypeMarker::Array)
+            //TODO: would this also work for strict arrays if they have [] for assoc part?
+            tuple((
+                self.write_type_marker(TypeMarker::Array),
+                self.write_length(len),
+                cond(
+                    len.is_size(),
+                    tuple((
+                        all(assoc.iter().map(move |out| self.write_element(out))),
+                        all(dense.iter().map(move |out| self.write_value(out))),
+                    )),
+                ),
+            ))
         }
 
         pub fn write_object_vector_element<'a, 'b: 'a, W: Write + 'a>(
@@ -1342,6 +1352,7 @@ pub mod encoder {
         }
 
         //TODO: eventually remove
+        #[allow(unreachable_code)]
         pub fn write_unsupported_element<'a, 'b: 'a, W: Write + 'a>(
             &self,
         ) -> impl SerializeFn<W> + 'a {
@@ -1362,7 +1373,9 @@ pub mod encoder {
                 }
                 SolValue::Null => self.write_null_element()(out),
                 SolValue::Undefined => self.write_undefined_element()(out),
-                SolValue::ECMAArray(elements) => self.write_ecma_array_element(elements)(out),
+                SolValue::ECMAArray(dense, elements) => {
+                    self.write_ecma_array_element(dense, elements)(out)
+                }
                 SolValue::StrictArray(children) => self.write_strict_array_element(children)(out),
                 SolValue::Date(time, _tz) => self.write_date_element(*time)(out),
                 SolValue::XML(content, string) => self.write_xml_element(content, *string)(out),

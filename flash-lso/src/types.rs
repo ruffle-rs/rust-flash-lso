@@ -1,5 +1,3 @@
-use derive_try_from_primitive::TryFromPrimitive;
-
 /// A container for sol files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
@@ -45,7 +43,7 @@ pub enum SolValue {
     /// Represent the undefined type
     Undefined,
     /// Represent ECMA-Arrays (amf0) and associative arrays (amf3, even if they contain a dense part)
-    ECMAArray(Vec<SolElement>),
+    ECMAArray(Vec<SolValue>, Vec<SolElement>),
     /// Represent a strict array (amf0) or a dense array (amf3)
     StrictArray(Vec<SolValue>),
     /// Represent a timezone in the format (seconds since epoch, timezone or UTC if missing (amf3) )
@@ -87,27 +85,31 @@ pub struct ClassDefinition {
     pub static_properties: Vec<String>,
 }
 
-/// Type markers used in AMF0
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(TryFromPrimitive, Eq, PartialEq)]
-#[repr(u8)]
-pub enum TypeMarker {
-    Number = 0,
-    Boolean = 1,
-    String = 2,
-    Object = 3,
-    MovieClip = 4,
-    Null = 5,
-    Undefined = 6,
-    Reference = 7,
-    MixedArrayStart = 8,
-    ObjectEnd = 9,
-    Array = 10,
-    Date = 11,
-    LongString = 12,
-    Unsupported = 13,
-    RecordSet = 14,
-    XML = 15,
-    TypedObject = 16,
-    AMF3 = 17,
+pub mod amf0 {
+    use derive_try_from_primitive::TryFromPrimitive;
+
+    /// Type markers used in AMF0
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    #[derive(TryFromPrimitive, Eq, PartialEq)]
+    #[repr(u8)]
+    pub enum TypeMarker {
+        Number = 0,
+        Boolean = 1,
+        String = 2,
+        Object = 3,
+        MovieClip = 4,
+        Null = 5,
+        Undefined = 6,
+        Reference = 7,
+        MixedArrayStart = 8,
+        ObjectEnd = 9,
+        Array = 10,
+        Date = 11,
+        LongString = 12,
+        Unsupported = 13,
+        RecordSet = 14,
+        XML = 15,
+        TypedObject = 16,
+        AMF3 = 17,
+    }
 }

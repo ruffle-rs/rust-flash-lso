@@ -1,8 +1,9 @@
 pub mod decoder {
-    use crate::types::{SolElement, SolValue, TypeMarker};
+    use crate::types::amf0::TypeMarker;
+    use crate::types::{SolElement, SolValue};
     use crate::{amf3, PADDING};
     use nom::bytes::complete::tag;
-    use nom::combinator::{map, peek};
+    use nom::combinator::map;
     use nom::error::{make_error, ErrorKind};
     use nom::multi::{many0, many_m_n};
     use nom::number::complete::{be_f64, be_u16, be_u32, be_u8};
@@ -42,7 +43,7 @@ pub mod decoder {
     fn parse_element_mixed_array(i: &[u8]) -> IResult<&[u8], SolValue> {
         let (i, _array_length) = be_u32(i)?;
         map(parse_array_element, |elms: Vec<SolElement>| {
-            SolValue::ECMAArray(elms)
+            SolValue::ECMAArray(Vec::new(), elms)
         })(i)
     }
 
@@ -194,7 +195,8 @@ pub mod decoder {
 }
 
 pub mod encoder {
-    use crate::types::{SolElement, SolValue, TypeMarker};
+    use crate::types::amf0::TypeMarker;
+    use crate::types::{SolElement, SolValue};
     use crate::PADDING;
     use cookie_factory::bytes::{be_f64, be_u16, be_u32, be_u8};
     use cookie_factory::{SerializeFn, WriteContext};
@@ -356,7 +358,7 @@ pub mod encoder {
             SolValue::TypedObject(name, elements) => {
                 write_typed_object_element(name, elements)(out)
             }
-            SolValue::ECMAArray(elems) => write_mixed_array(elems)(out),
+            SolValue::ECMAArray(_dense, elems) => write_mixed_array(elems)(out),
             _ => {
                 write_unsupported_element()(out) /* Not in amf0, TODO: use the amf3 embedding for every thing else */
             }

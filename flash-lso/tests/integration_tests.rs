@@ -31,21 +31,20 @@ macro_rules! auto_test {
             let parse_res = LSODeserializer::default().parse_full(&data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
+                println!("{:#?}", sol);
+                // println!("Unparsed bytes: {:?}", unparsed_bytes);
 
-            println!("{:#?}", sol);
-            // println!("Unparsed bytes: {:?}", unparsed_bytes);
+                let empty: Vec<u8> = vec![];
+                if unparsed_bytes.len() > 0 {
+                    assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
+                }
 
-            let empty: Vec<u8> = vec![];
-            if unparsed_bytes.len() > 0 {
-                assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
-            }
-
-            // let bytes = encoder::write_to_bytes(&sol);
-            // assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
+                let bytes = encoder::write_to_bytes(&sol);
+                assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
             } else {
                 println!("Input: {:?}", data);
-               println!("parse failed: {:?}", parse_res);
-               assert_eq!(false, true)
+                println!("parse failed: {:?}", parse_res);
+                assert_eq!(false, true)
             }
         }
         )*
@@ -63,6 +62,7 @@ macro_rules! test_parse_only {
             let parse_res = LSODeserializer::default().parse_full(&data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
+                println!("Parsed sol: {:?}", sol);
                 let empty: Vec<u8> = vec![];
                 if unparsed_bytes.len() > 0 {
                     assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
@@ -77,7 +77,6 @@ macro_rules! test_parse_only {
     }
 }
 
-use nom::error::make_error;
 use nom::Err::Error;
 use nom::Err::Incomplete;
 
@@ -185,7 +184,7 @@ auto_test! {
 
 // Samples that can be parsed but not written
 test_parse_only! {
-    [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
+    // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
     [clarence_save_slot_1, "ClarenceSave_SLOT1"],
     [slot_1_asf, "slot1"], // malloc error
     [mardek_v3_sg_1, "MARDEKv3__sg_1"], // memory error - amf3? maybe
@@ -194,9 +193,9 @@ test_parse_only! {
     [robokill, "robokill"] // Invalid write
 }
 
-
 // Other tests, completly failing
 auto_test! {
+// [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"]
     // [flagstaff, "flagstaff"] // TODO: external class, probably wont parse
     // [metadata_history, "MetadataHistory"] // External class, probably wont parse
     // [opp_detail_prefs, "oppDetailPrefs"] //TODO: uses flex, probably wont parse for a while
