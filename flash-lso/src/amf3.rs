@@ -388,6 +388,9 @@ impl AMF3Decoder {
         }
         length >>= 1;
 
+        let old_len = self.object_reference_table.borrow().len();
+        self.object_reference_table.borrow_mut().push(SolValue::Null);
+
         // Class def
         let (i, class_def) = self.parse_class_def(length, i)?;
 
@@ -433,7 +436,9 @@ impl AMF3Decoder {
         }
 
         let obj = SolValue::Object(elements, Some(class_def));
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        println!("Parsed obj: {:?}", obj);
+        // self.object_reference_table.borrow_mut().push(obj.clone());
+        self.object_reference_table.borrow_mut()[old_len] = obj.clone();
         Ok((i, obj))
     }
 
