@@ -2,7 +2,7 @@ pub mod decoder {
     use crate::types::{SolElement, SolValue, TypeMarker};
     use crate::{amf3, PADDING};
     use nom::bytes::complete::tag;
-    use nom::combinator::map;
+    use nom::combinator::{map, peek};
     use nom::error::{make_error, ErrorKind};
     use nom::multi::{many0, many_m_n};
     use nom::number::complete::{be_f64, be_u16, be_u32, be_u8};
@@ -117,10 +117,15 @@ pub mod decoder {
         amf3::AMF3Decoder::default().parse_element_object(i)
     }
 
-    fn parse_single_element(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn read_type_marker(i: &[u8]) -> IResult<&[u8], TypeMarker> {
         let (i, type_) = be_u8(i)?;
+        Ok((i, TypeMarker::try_from(type_).unwrap_or(TypeMarker::Unsupported)))
+    }
 
-        match TypeMarker::try_from(type_).unwrap_or(TypeMarker::Unsupported) {
+    fn parse_single_element(i: &[u8]) -> IResult<&[u8], SolValue> {
+        let (i, type_) = read_type_marker(i)?;
+
+        match type_ {
             TypeMarker::Number => parse_element_number(i),
             TypeMarker::Boolean => parse_element_bool(i),
             TypeMarker::String => parse_element_string(i),
@@ -130,7 +135,6 @@ pub mod decoder {
             TypeMarker::Undefined => Ok((i, SolValue::Undefined)),
             TypeMarker::Reference => parse_element_reference(i),
             TypeMarker::MixedArrayStart => parse_element_mixed_array(i),
-            TypeMarker::ObjectEnd => Ok((i, SolValue::ObjectEnd)),
             TypeMarker::Array => parse_element_array(i),
             TypeMarker::Date => parse_element_date(i),
             TypeMarker::LongString => parse_element_long_string(i),
@@ -139,6 +143,7 @@ pub mod decoder {
             TypeMarker::XML => parse_element_xml(i),
             TypeMarker::TypedObject => parse_element_typed_object(i),
             TypeMarker::AMF3 => parse_element_amf3(i),
+            TypeMarker::ObjectEnd => Err(Err::Error(make_error(i, ErrorKind::Digit)))
         }
     }
 
@@ -164,15 +169,19 @@ pub mod decoder {
 
         let mut i = i;
         loop {
-            let (j, e) = parse_element(i)?;
-            i = j;
-
-            if let SolValue::ObjectEnd = e.value {
+            let (k, _) = parse_string(i)?;
+            let (k, next_type) = read_type_marker(k)?;
+            if next_type == TypeMarker::ObjectEnd {
+                i = k;
                 break;
             }
 
+            let (j, e) = parse_element(i)?;
+            i = j;
+
             out.push(e.clone());
         }
+
 
         Ok((i, out))
     }
@@ -339,7 +348,6 @@ pub mod encoder {
             SolValue::Object(o, _class_def) => write_object_element(o)(out),
             SolValue::Null => write_null_element()(out),
             SolValue::Undefined => write_undefined_element()(out),
-            SolValue::ObjectEnd => write_object_end_element()(out),
             SolValue::StrictArray(a) => write_strict_array_element(a)(out),
             SolValue::Date(d, tz) => write_date_element(*d, *tz)(out),
             SolValue::Unsupported => write_unsupported_element()(out),

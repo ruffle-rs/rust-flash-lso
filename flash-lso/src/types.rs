@@ -46,9 +46,6 @@ pub enum SolValue {
     Undefined,
     /// Represent ECMA-Arrays (amf0) and associative arrays (amf3, even if they contain a dense part)
     ECMAArray(Vec<SolElement>),
-    /// Represent the end of a list of object elements (amf0)
-    //TODO: remove, not actually a value that will ever appear to end user
-    ObjectEnd,
     /// Represent a strict array (amf0) or a dense array (amf3)
     StrictArray(Vec<SolValue>),
     /// Represent a timezone in the format (seconds since epoch, timezone or UTC if missing (amf3) )
@@ -92,7 +89,7 @@ pub struct ClassDefinition {
 
 /// Type markers used in AMF0
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(TryFromPrimitive)]
+#[derive(TryFromPrimitive, Eq, PartialEq)]
 #[repr(u8)]
 pub enum TypeMarker {
     Number = 0,

@@ -1,10 +1,11 @@
+use core::fmt;
 use flash_lso::encoder;
 use flash_lso::LSODeserializer;
-use std::fs::File;
-use std::io::Read;
+use nom::IResult;
 #[cfg(test)]
 use pretty_assertions::{assert_eq, assert_ne};
-use core::fmt;
+use std::fs::File;
+use std::io::Read;
 
 /// Wrapper around Vec<u8> that makes `{:#?}` the same as `{:?}`
 /// Used in `assert*!` macros in combination with `pretty_assertions` crate to make
@@ -28,13 +29,23 @@ macro_rules! auto_test {
             let mut x = File::open(concat!("tests/sol/", $path, ".sol")).expect("Couldn't open file");
             let mut data = Vec::new();
             let _ = x.read_to_end(&mut data).expect("Unable to read file");
-            let (unparsed_bytes, sol) = LSODeserializer::default().parse_full(&data).expect("Failed to parse lso file");
+            let parse_res = LSODeserializer::default().parse_full(&data);
 
-            println!("{:#?}", sol);
-            println!("Unparsed bytes: {:?}", unparsed_bytes);
+            if let Ok((unparsed_bytes, sol)) =  parse_res {
+
+            // println!("{:#?}", sol);
+            // println!("Unparsed bytes: {:?}", unparsed_bytes);
+
+            let empty: Vec<u8> = vec![];
+            assert_eq!(empty, unparsed_bytes.to_vec());
 
             let bytes = encoder::write_to_bytes(&sol);
-            assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input")
+            assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
+            } else {
+                println!("Input: {:?}", data);
+               println!("parse failed: {:?}", parse_res);
+               assert_eq!(false, true)
+            }
         }
         )*
     }
@@ -96,7 +107,7 @@ auto_test! {
     [flagstaff_1, "flagstaff(1)"],
     // [flagstaff, "flagstaff"],
     [flash_viewer, "flash.viewer"],
-    [hiro_network_capping_cookie, "HIRO_NETWORK_CAPPING_COOKIE"],
+    // [hiro_network_capping_cookie, "HIRO_NETWORK_CAPPING_COOKIE"],
     // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
     // [jy1, "JY1"],
     // [labrat_2, "Labrat2"],
@@ -116,31 +127,30 @@ auto_test! {
     [sound_data_level_0, "soundData_level0"],
     [space, "Space"],
     [string_test, "StringTest"],
-    [time_display_config, "timeDisplayConfig"]
-    // [user_1, "user(1)"],
-    // [user, "user"]
+    [time_display_config, "timeDisplayConfig"],
+    [user_1, "user(1)"],
+    [user, "user"]
 }
 
 // Other tests, failing
 auto_test! {
-    // [two, "2"] // TODO: fails to parse fully,
-    // [zero_four, "00000004"] //TODO: also fails to parse fully
+    // [two, "2"] // TODO: fails to parse fully, may be invalid
+    // [zero_four, "00000004"] //TODO: also fails to parse fully, attempts to do an invalid read
+    // [flagstaff, "flagstaff"] // TODO: external class, probably wont parse
+    // [metadata_history, "MetadataHistory"] // External class, probably wont parse
+    // [opp_detail_prefs, "oppDetailPrefs"] //TODO: uses flex, probably wont parse for a while
+    // [slot_1, "slot1"] // WE have unparsed bytes
+    // [mardek_v3_sg_1, "MARDEKv3__sg_1"], // memory error
+    // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"], // malloc too big
+    // [jy1, "JY1"], // Malloc too big
+
     // [areana_madness_game_two, "arenaMadnessGame2"], //Huge
-    // [clarence_save_slot_1, "ClarenceSave_SLOT1"], // Many issues
+
+    // [clarence_save_slot_1, "ClarenceSave_SLOT1"], //TODO: Get this and user parsing
+
     // [CoC_8, "CoC_8"], // Times out ????
-    // [flagstaff, "flagstaff"]
-    // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"] // malloc too big
-    // [jy1, "JY1"] // Malloc too big
         // [labrat_2, "Labrat2"],
-    // [mardek_v3_sg_1, "MARDEKv3__sg_1"]
-    // [metadata_history, "MetadataHistory"]
-    // [opp_detail_prefs, "oppDetailPrefs"]
-    // [party_1, "Party1"] - timeout
-    // [robokill, "robokill"]
-    // [slot_1, "slot1"]
-    // [user_1, "user(1)"]
-    // [user, "user"]
+    // [party_1, "Party1"],// - timeout
+    // [robokill, "robokill"],
 }
 //24
-
-

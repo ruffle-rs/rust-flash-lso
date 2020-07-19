@@ -2,8 +2,9 @@ use crate::amf0::decoder::parse_element_number;
 use crate::types::*;
 use crate::types::{SolElement, SolValue};
 use crate::PADDING;
+use cookie_factory::SerializeFn;
 use nom::bytes::complete::tag;
-use nom::combinator::map;
+use nom::combinator::{map, opt};
 use nom::error::{make_error, ErrorKind};
 use nom::multi::{many_m_n, separated_list};
 use nom::number::complete::{be_f64, be_i32, be_u32, be_u8};
@@ -16,10 +17,12 @@ use std::cell::RefCell;
 use std::convert::TryInto;
 use std::fmt::Debug;
 use std::io::Write;
-use cookie_factory::SerializeFn;
 
 pub fn either<Fa, Fb, W: Write>(b: bool, t: Fa, f: Fb) -> impl SerializeFn<W>
-    where Fa: SerializeFn<W>, Fb: SerializeFn<W>, {
+where
+    Fa: SerializeFn<W>,
+    Fb: SerializeFn<W>,
+{
     move |out| {
         if b {
             t(out)
@@ -267,6 +270,7 @@ impl AMF3Decoder {
     }
 
     fn parse_class_def<'a>(&self, length: u32, i: &'a [u8]) -> IResult<&'a [u8], ClassDefinition> {
+        println!("Parse class def");
         if length & REFERENCE_FLAG == 0 {
             let len_usize: usize = (length >> 1)
                 .try_into()
@@ -282,15 +286,21 @@ impl AMF3Decoder {
             return Ok((i, class_def));
         }
         let length = length >> 1;
+        println!("Class def flags = {}", length);
 
+        //TODO: should name be Option<String>
         let (i, name) = self.parse_byte_stream(i)?;
-        if name == [] {
-            log::info!("Object has no name");
-        }
         let name_str =
-            String::from_utf8(name).map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?;
+            if name == [] {
+                "".to_string()
+            } else {
+                String::from_utf8(name).map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?
+            };
+        println!("Parse name = {}", name_str);
+
 
         let encoding = (length & 0x03) as u8;
+
         let attributes_count = length >> 2;
 
         let attr_count_usize: usize = attributes_count
@@ -303,9 +313,10 @@ impl AMF3Decoder {
 
         let class_def = ClassDefinition {
             name: name_str,
+            //TODO: encodings should be an enumset
             encoding,
             attribute_count: attributes_count,
-            static_properties: static_props,
+            static_properties: static_props
         };
 
         self.trait_reference_table
@@ -386,8 +397,12 @@ impl AMF3Decoder {
         let (i, class_def) = self.parse_class_def(length, i)?;
 
         // TODO: rest of object loding
-        if class_def.encoding == ENCODING_EXTERNAL || class_def.encoding == ENCODING_PROXY {
-            log::warn!("Proxy objects not yet supported");
+        if class_def.encoding == ENCODING_PROXY {
+            println!("Proxy objects not yet supported");
+        }
+
+        if class_def.encoding == ENCODING_EXTERNAL {
+            println!("External");
         }
 
         let mut elements = Vec::new();
@@ -581,6 +596,8 @@ impl AMF3Decoder {
     }
 
     fn parse_element_array<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+        println!("Parsing an array");
+
         let (i, mut length) = read_int(i)?;
 
         if length & REFERENCE_FLAG == 0 {
@@ -643,6 +660,7 @@ impl AMF3Decoder {
                 value: val.clone(),
             })
             .collect();
+        println!("el_elemt: {:?}", el_elemt);
         elements.extend(el_elemt);
 
         let obj = SolValue::ECMAArray(elements);
@@ -757,6 +775,7 @@ impl AMF3Decoder {
 
     pub fn parse_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolElement> {
         let (i, name) = self.parse_string(i)?;
+
         map(
             |i| self.parse_single_element(i),
             move |v: SolValue| SolElement {
@@ -767,12 +786,16 @@ impl AMF3Decoder {
     }
 
     pub fn parse_body<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Vec<SolElement>> {
-        separated_list(tag(PADDING), |i| self.parse_element(i))(i)
+        let (i, elements) = separated_list(tag(PADDING), |i| self.parse_element(i))(i)?;
+        let (i, _) = tag(PADDING)(i)?;
+        Ok((i, elements))
     }
 }
 
 pub mod encoder {
-    use crate::amf3::{ElementCache, Length, TypeMarker, ENCODING_DYNAMIC, ENCODING_STATIC, either};
+    use crate::amf3::{
+        either, ElementCache, Length, TypeMarker, ENCODING_DYNAMIC, ENCODING_STATIC,
+    };
     use crate::types::{ClassDefinition, SolElement, SolValue};
     use crate::PADDING;
     use cookie_factory::bytes::{be_f64, be_i32, be_u32, be_u8};
@@ -829,13 +852,9 @@ pub mod encoder {
             //TODO: must be a better way
             // be_u8(*bytes.get(0).unwrap())
 
-
-
             // slice(&bytes.as_slice())
 
-            move |out| {
-                all(bytes.iter().copied().map(be_u8))(out)
-            }
+            move |out| all(bytes.iter().copied().map(be_u8))(out)
         }
 
         fn write_length<'a, 'b: 'a, W: Write + 'a>(&self, s: Length) -> impl SerializeFn<W> + 'a {
@@ -865,8 +884,11 @@ pub mod encoder {
                 self.string_reference_table.store_slice(s);
             }
 
-
-            either(only_length, self.write_length(len), tuple((self.write_length(len), slice(s))))
+            either(
+                only_length,
+                self.write_length(len),
+                tuple((self.write_length(len), slice(s))),
+            )
         }
 
         pub fn write_string<'a, 'b: 'a, W: Write + 'a>(
@@ -895,7 +917,11 @@ pub mod encoder {
             &self,
             b: bool,
         ) -> impl SerializeFn<W> + 'a {
-            either(b, self.write_type_marker(TypeMarker::True), self.write_type_marker(TypeMarker::False))
+            either(
+                b,
+                self.write_type_marker(TypeMarker::True),
+                self.write_type_marker(TypeMarker::False),
+            )
         }
 
         pub fn write_string_element<'a, 'b: 'a, W: Write + 'a>(
@@ -923,15 +949,22 @@ pub mod encoder {
             items: &'b [i32],
             fixed_length: bool,
         ) -> impl SerializeFn<W> + 'a {
-            let len = self.object_reference_table.to_length_store(SolValue::VectorInt(items.to_vec(), fixed_length), items.len() as u32);
+            let len = self.object_reference_table.to_length_store(
+                SolValue::VectorInt(items.to_vec(), fixed_length),
+                items.len() as u32,
+            );
 
             tuple((
                 self.write_type_marker(TypeMarker::VectorInt),
-                either(len.is_reference(), self.write_length(len), tuple((
-                    self.write_length(Length::Size(items.len() as u32)),
-                    be_u8(fixed_length as u8),
-                    all(items.iter().copied().map(be_i32))
-                )))
+                either(
+                    len.is_reference(),
+                    self.write_length(len),
+                    tuple((
+                        self.write_length(Length::Size(items.len() as u32)),
+                        be_u8(fixed_length as u8),
+                        all(items.iter().copied().map(be_i32)),
+                    )),
+                ),
             ))
         }
 
@@ -940,15 +973,22 @@ pub mod encoder {
             items: &'b [u32],
             fixed_length: bool,
         ) -> impl SerializeFn<W> + 'a {
-            let len = self.object_reference_table.to_length_store(SolValue::VectorUInt(items.to_vec(), fixed_length), items.len() as u32);
+            let len = self.object_reference_table.to_length_store(
+                SolValue::VectorUInt(items.to_vec(), fixed_length),
+                items.len() as u32,
+            );
 
             tuple((
                 self.write_type_marker(TypeMarker::VectorUInt),
-                either(len.is_reference(), self.write_length(len), tuple((
-                    self.write_length(Length::Size(items.len() as u32)),
-                    be_u8(fixed_length as u8),
-                    all(items.iter().copied().map(be_u32))
-                )))
+                either(
+                    len.is_reference(),
+                    self.write_length(len),
+                    tuple((
+                        self.write_length(Length::Size(items.len() as u32)),
+                        be_u8(fixed_length as u8),
+                        all(items.iter().copied().map(be_u32)),
+                    )),
+                ),
             ))
         }
 
@@ -957,15 +997,22 @@ pub mod encoder {
             items: &'b [f64],
             fixed_length: bool,
         ) -> impl SerializeFn<W> + 'a {
-            let len = self.object_reference_table.to_length_store(SolValue::VectorDouble(items.to_vec(), fixed_length), items.len() as u32);
+            let len = self.object_reference_table.to_length_store(
+                SolValue::VectorDouble(items.to_vec(), fixed_length),
+                items.len() as u32,
+            );
 
             tuple((
                 self.write_type_marker(TypeMarker::VectorDouble),
-                either(len.is_reference(), self.write_length(len), tuple((
-                    self.write_length(Length::Size(items.len() as u32)),
-                    be_u8(fixed_length as u8),
-                    all(items.iter().copied().map(be_f64))
-                )))
+                either(
+                    len.is_reference(),
+                    self.write_length(len),
+                    tuple((
+                        self.write_length(Length::Size(items.len() as u32)),
+                        be_u8(fixed_length as u8),
+                        all(items.iter().copied().map(be_f64)),
+                    )),
+                ),
             ))
         }
 
@@ -973,7 +1020,9 @@ pub mod encoder {
             &self,
             time: f64,
         ) -> impl SerializeFn<W> + 'a {
-            let len = self.object_reference_table.to_length_store(SolValue::Date(time, None), 0);
+            let len = self
+                .object_reference_table
+                .to_length_store(SolValue::Date(time, None), 0);
 
             tuple((
                 self.write_type_marker(TypeMarker::Date),
@@ -996,7 +1045,9 @@ pub mod encoder {
             &self,
             bytes: &'b [u8],
         ) -> impl SerializeFn<W> + 'a {
-            let len = self.object_reference_table.to_length_store(SolValue::ByteArray(bytes.to_vec()), bytes.len() as u32);
+            let len = self
+                .object_reference_table
+                .to_length_store(SolValue::ByteArray(bytes.to_vec()), bytes.len() as u32);
 
             tuple((
                 self.write_type_marker(TypeMarker::ByteArray),
@@ -1010,11 +1061,16 @@ pub mod encoder {
             bytes: &'b str,
             string: bool,
         ) -> impl SerializeFn<W> + 'a {
-            let len = self.object_reference_table.to_length_store(SolValue::XML(bytes.to_string(), string), bytes.len() as u32);
-
+            let len = self
+                .object_reference_table
+                .to_length_store(SolValue::XML(bytes.to_string(), string), bytes.len() as u32);
 
             tuple((
-                either(string, self.write_type_marker(TypeMarker::XmlString), self.write_type_marker(TypeMarker::XML)),
+                either(
+                    string,
+                    self.write_type_marker(TypeMarker::XmlString),
+                    self.write_type_marker(TypeMarker::XML),
+                ),
                 self.write_length(len),
                 cond(len.is_size(), slice(bytes.as_bytes())),
             ))
@@ -1179,22 +1235,28 @@ pub mod encoder {
         ) -> impl SerializeFn<W> + 'a {
             let len = self.object_reference_table.to_length_store(SolValue::StrictArray(children.to_vec()), children.len() as u32);
 
-            tuple((
+
+            //TODO: why does this not offset the cache if StrictArray([]) is saved but always written as Size(0) instead of Ref(n)
+            either(children == [], tuple((
                 self.write_type_marker(TypeMarker::Array),
-                self.write_length(len),
-                cond(len.is_size(), tuple((
-                    self.write_byte_string(&[]), // Empty key
-                    all(children.iter().map(move |v| self.write_value(v))),
-                )))
-            ))
+                self.write_length(Length::Size(0)),
+                self.write_byte_string(&[]), // Empty key
+            )),
+                   tuple((
+                       self.write_type_marker(TypeMarker::Array),
+                       self.write_length(len),
+                       cond(len.is_size(), tuple((
+                           self.write_byte_string(&[]), // Empty key
+                           all(children.iter().map(move |v| self.write_value(v))),
+                       )))
+                   )))
         }
 
         pub fn write_ecma_array_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             elements: &'b [SolElement],
         ) -> impl SerializeFn<W> + 'a {
-            println!("Writing ecma array");
-
+            println!("ECMA array");
             // let len = self.object_reference_table.to_length_store(SolValue::ECMAArray(elements.to_vec()), elements.len() as u32);
 
             // tuple((
@@ -1214,20 +1276,22 @@ pub mod encoder {
             type_name: &'b str,
             fixed_length: bool,
         ) -> impl SerializeFn<W> + 'a {
-            let len = self.object_reference_table.to_length_store(SolValue::VectorObject(
-                items.to_vec(),
-                type_name.to_string(),
-                fixed_length,
-            ), items.len() as u32);
+            let len = self.object_reference_table.to_length_store(
+                SolValue::VectorObject(items.to_vec(), type_name.to_string(), fixed_length),
+                items.len() as u32,
+            );
 
             tuple((
                 self.write_type_marker(TypeMarker::VectorObject),
                 self.write_length(len),
-                cond(len.is_size(), tuple((
-                    be_u8(fixed_length as u8),
-                    self.write_string(type_name),
-                    all(items.iter().map(move |i| self.write_value(i))),
-                )))
+                cond(
+                    len.is_size(),
+                    tuple((
+                        be_u8(fixed_length as u8),
+                        self.write_string(type_name),
+                        all(items.iter().map(move |i| self.write_value(i))),
+                    )),
+                ),
             ))
         }
 
@@ -1303,7 +1367,6 @@ pub mod encoder {
                 }
 
                 SolValue::TypedObject(_, _) => self.write_unsupported_element()(out),
-                SolValue::ObjectEnd => self.write_unsupported_element()(out),
                 SolValue::Unsupported => self.write_unsupported_element()(out),
             }
         }
