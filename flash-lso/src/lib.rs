@@ -111,6 +111,7 @@ pub mod encoder {
     use cookie_factory::combinator::string;
     use cookie_factory::gen;
     use cookie_factory::sequence::tuple;
+    use cookie_factory::gen_simple;
 
     #[derive(Default)]
     pub struct LSOSerializer {
@@ -159,8 +160,8 @@ pub mod encoder {
         let v = vec![];
 
         let s = LSOSerializer::default();
-
-        let (buffer, _size) = gen(s.write_full(lso), v).unwrap();
+        let serialise = s.write_full(lso);
+        let (buffer, _size) = gen(serialise, v).unwrap();
         buffer
     }
 }

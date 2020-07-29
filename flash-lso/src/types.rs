@@ -43,7 +43,8 @@ pub enum SolValue {
     /// Represent the undefined type
     Undefined,
     /// Represent ECMA-Arrays (amf0) and associative arrays (amf3, even if they contain a dense part)
-    ECMAArray(Vec<SolValue>, Vec<SolElement>),
+    /// Final value represents the length of the array in amf0, this can differ from the actual number of elements
+    ECMAArray(Vec<SolValue>, Vec<SolElement>, u32),
     /// Represent a strict array (amf0) or a dense array (amf3)
     StrictArray(Vec<SolValue>),
     /// Represent a timezone in the format (seconds since epoch, timezone or UTC if missing (amf3) )
@@ -90,7 +91,7 @@ pub mod amf0 {
 
     /// Type markers used in AMF0
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-    #[derive(TryFromPrimitive, Eq, PartialEq)]
+    #[derive(TryFromPrimitive, Eq, PartialEq, Debug, Copy, Clone)]
     #[repr(u8)]
     pub enum TypeMarker {
         Number = 0,

@@ -32,7 +32,6 @@ macro_rules! auto_test {
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
                 println!("{:#?}", sol);
-                // println!("Unparsed bytes: {:?}", unparsed_bytes);
 
                 let empty: Vec<u8> = vec![];
                 if unparsed_bytes.len() > 0 {
@@ -40,6 +39,8 @@ macro_rules! auto_test {
                 }
 
                 let bytes = encoder::write_to_bytes(&sol);
+                // assert_eq!(bytes.len(), data.len());
+                // assert_eq!(bytes, data, "library output != input");
                 assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
             } else {
                 println!("Input: {:?}", data);
@@ -147,7 +148,7 @@ auto_test! {
     // [two, "2"],
     // [zero_four, "00000004"],
     [akamai_enterprise_player, "AkamaiEnterprisePlayer.userData"],
-    // [areana_madness_game_two, "arenaMadnessGame2"]
+    [areana_madness_game_two, "arenaMadnessGame2"],
     [canvas, "canvas"],
     // [clarence_save_slot_1, "ClarenceSave_SLOT1"],
     // [CoC_8, "CoC_8"],
@@ -159,9 +160,9 @@ auto_test! {
     [flash_viewer, "flash.viewer"],
     // [hiro_network_capping_cookie, "HIRO_NETWORK_CAPPING_COOKIE"],
     // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
-    // [jy1, "JY1"],
+    [jy1, "JY1"],
     // [labrat_2, "Labrat2"],
-    // [mardek_v3_sg_1, "MARDEKv3__sg_1"],
+    [mardek_v3_sg_1, "MARDEKv3__sg_1"],
     [media_player_user_settings, "mediaPlayerUserSettings"],
     // [metadata_history, "MetadataHistory"],
     [minimal, "Minimal"],
@@ -184,25 +185,31 @@ auto_test! {
 
 // Samples that can be parsed but not written
 test_parse_only! {
-    // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
+    [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
     [clarence_save_slot_1, "ClarenceSave_SLOT1"],
     [slot_1_asf, "slot1"], // malloc error
-    [mardek_v3_sg_1, "MARDEKv3__sg_1"], // memory error - amf3? maybe
-    [jy1, "JY1"], // Malloc too big - amf0
     [CoC_8, "CoC_8"], // Gets SIGKILLED? memory error
     [robokill, "robokill"] // Invalid write
 }
 
 // Other tests, completly failing
 auto_test! {
-// [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"]
     // [flagstaff, "flagstaff"] // TODO: external class, probably wont parse
     // [metadata_history, "MetadataHistory"] // External class, probably wont parse
     // [opp_detail_prefs, "oppDetailPrefs"] //TODO: uses flex, probably wont parse for a while
 
-    // [areana_madness_game_two, "arenaMadnessGame2"], //Huge
     // [labrat_2, "Labrat2"] // huge
         //     [party_1, "Party1"] // huge
+
+
+            // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
+    // small
+    // [clarence_save_slot_1_write, "ClarenceSave_SLOT1"]
+    // [slot_1, "slot1"]
+
+
+    // [CoC_8, "CoC_8"], // Gets SIGKILLED? memory error
+    // [robokill, "robokill"] // Invalid write
 }
 //24
 

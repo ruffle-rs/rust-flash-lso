@@ -41,10 +41,12 @@ pub mod decoder {
     }
 
     fn parse_element_mixed_array(i: &[u8]) -> IResult<&[u8], SolValue> {
-        let (i, _array_length) = be_u32(i)?;
-        map(parse_array_element, |elms: Vec<SolElement>| {
-            SolValue::ECMAArray(Vec::new(), elms)
-        })(i)
+        let (i, array_length) = be_u32(i)?;
+        let x = map(parse_array_element, |elms: Vec<SolElement>| {
+            SolValue::ECMAArray(Vec::new(), elms, array_length)
+        })(i);
+
+        x
     }
 
     fn parse_element_reference(i: &[u8]) -> IResult<&[u8], SolValue> {
@@ -316,15 +318,10 @@ pub mod encoder {
 
     pub fn write_mixed_array<'a, 'b: 'a, W: Write + 'a>(
         elements: &'b [SolElement],
+        length: u32
     ) -> impl SerializeFn<W> + 'a {
         //TODO: what is the u16 padding
         //TODO: sometimes array length is ignored (u32) sometimes its: elements.len() as u32
-
-        let length = if elements.len() == 2 {
-            0
-        } else {
-            elements.len() as u32
-        };
 
         tuple((
             write_type_marker(TypeMarker::MixedArrayStart),
@@ -358,7 +355,7 @@ pub mod encoder {
             SolValue::TypedObject(name, elements) => {
                 write_typed_object_element(name, elements)(out)
             }
-            SolValue::ECMAArray(_dense, elems) => write_mixed_array(elems)(out),
+            SolValue::ECMAArray(_dense, elems, elems_length) => write_mixed_array(elems, *elems_length)(out),
             _ => {
                 write_unsupported_element()(out) /* Not in amf0, TODO: use the amf3 embedding for every thing else */
             }

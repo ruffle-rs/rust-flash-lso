@@ -384,6 +384,10 @@ impl AMF3Decoder {
                 .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
                 .clone();
 
+            if obj == SolValue::Null {
+                unimplemented!();
+            }
+
             return Ok((i, obj));
         }
         length >>= 1;
@@ -438,7 +442,6 @@ impl AMF3Decoder {
         }
 
         let obj = SolValue::Object(elements, Some(class_def));
-        println!("Parsed obj: {:?}", obj);
         // self.object_reference_table.borrow_mut().push(obj.clone());
         self.object_reference_table.borrow_mut()[old_len] = obj.clone();
         Ok((i, obj))
@@ -612,6 +615,10 @@ impl AMF3Decoder {
                 .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
                 .clone();
 
+            if obj == SolValue::Null {
+                unimplemented!();
+            }
+
             return Ok((i, obj));
         }
         length >>= 1;
@@ -660,7 +667,8 @@ impl AMF3Decoder {
         // Must parse `length` elements
         let (i, el) = many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
 
-        let obj = SolValue::ECMAArray(el, elements);
+        let elements_len = elements.len() as u32;
+        let obj = SolValue::ECMAArray(el, elements, elements_len);
         self.object_reference_table.borrow_mut()[old_len] = obj.clone();
         Ok((i, obj))
     }
@@ -760,8 +768,6 @@ impl AMF3Decoder {
     fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
         let (i, type_) = be_u8(i)?;
 
-        println!("Parsing element of type {}", type_);
-
         match type_ {
             TYPE_UNDEFINED => Ok((i, SolValue::Undefined)),
             TYPE_NULL => Ok((i, SolValue::Null)),
@@ -787,7 +793,6 @@ impl AMF3Decoder {
 
     pub fn parse_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolElement> {
         let (i, name) = self.parse_string(i)?;
-        println!("Parsing element {}", name);
 
         map(
             |i| self.parse_single_element(i),
@@ -1278,9 +1283,8 @@ pub mod encoder {
             dense: &'b [SolValue],
             assoc: &'b [SolElement],
         ) -> impl SerializeFn<W> + 'a {
-            println!("ECMA array");
             let len = self.object_reference_table.to_length_store(
-                SolValue::ECMAArray(dense.to_vec(), assoc.to_vec()),
+                SolValue::ECMAArray(dense.to_vec(), assoc.clone().to_vec(), assoc.len() as u32),
                 dense.len() as u32,
             );
 
@@ -1292,6 +1296,7 @@ pub mod encoder {
                     len.is_size(),
                     tuple((
                         all(assoc.iter().map(move |out| self.write_element(out))),
+                        self.write_byte_string(&[]),
                         all(dense.iter().map(move |out| self.write_value(out))),
                     )),
                 ),
@@ -1337,11 +1342,10 @@ pub mod encoder {
 
             tuple((
                 self.write_type_marker(TypeMarker::Dictionary),
-                cond(len.is_reference(), self.write_length(len)),
+                self.write_length(len),
                 cond(
-                    !len.is_reference(),
+                    len.is_size(),
                     tuple((
-                        self.write_length(len),
                         be_u8(weak_keys as u8),
                         all(items
                             .iter()
@@ -1373,7 +1377,7 @@ pub mod encoder {
                 }
                 SolValue::Null => self.write_null_element()(out),
                 SolValue::Undefined => self.write_undefined_element()(out),
-                SolValue::ECMAArray(dense, elements) => {
+                SolValue::ECMAArray(dense, elements, _) => {
                     self.write_ecma_array_element(dense, elements)(out)
                 }
                 SolValue::StrictArray(children) => self.write_strict_array_element(children)(out),
