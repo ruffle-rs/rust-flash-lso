@@ -1,6 +1,6 @@
 
 [package]
-name = "amf-fuzz"
+name = "flash-lso-fuzz"
 version = "0.0.0"
 authors = ["Automatically generated"]
 publish = false
@@ -12,7 +12,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.2"
 
-[dependencies.amf]
+[dependencies.flash-lso]
 path = "../flash-lso"
 
 # Prevent this from interfering with workspaces

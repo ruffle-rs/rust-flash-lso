@@ -381,7 +381,8 @@ impl AMF3Decoder {
                 .clone();
 
             if obj == SolValue::Null {
-                unimplemented!();
+                //TODO: more descriptive error something about `cyclic data`
+                return Err(Err::Error(make_error(i, ErrorKind::Alpha)));
             }
 
             return Ok((i, obj));
@@ -398,11 +399,13 @@ impl AMF3Decoder {
 
         // TODO: rest of object loding
         if class_def.encoding == ENCODING_PROXY {
-            println!("Proxy objects not yet supported");
+            // println!("Proxy objects not yet supported");
+            return Err(Err::Error(make_error(i, ErrorKind::Tag)));
         }
 
         if class_def.encoding == ENCODING_EXTERNAL {
-            println!("External");
+            return Err(Err::Error(make_error(i, ErrorKind::Alpha)));
+            // println!("External");
         }
 
         let mut elements = Vec::new();
@@ -612,7 +615,8 @@ impl AMF3Decoder {
                 .clone();
 
             if obj == SolValue::Null {
-                unimplemented!();
+                //TODO: again cyclic err
+                return Err(Err::Error(make_error(i, ErrorKind::Alpha)));
             }
 
             return Ok((i, obj));
@@ -816,7 +820,7 @@ pub mod encoder {
     use cookie_factory::combinator::{cond, slice};
     use cookie_factory::multi::all;
     use cookie_factory::sequence::tuple;
-    use cookie_factory::{SerializeFn, WriteContext};
+    use cookie_factory::{GenError, SerializeFn, WriteContext};
     use std::cell::RefCell;
     use std::io::Write;
 
@@ -1217,33 +1221,39 @@ pub mod encoder {
             self.object_reference_table
                 .store(SolValue::Object(children.to_vec(), class_def.clone()));
 
-            if let Some(def) = class_def {
-                let has_trait = self
-                    .trait_reference_table
-                    .borrow()
-                    .iter()
-                    .position(|cd| *cd == *def);
+            move |out| {
+                if let Some(def) = class_def {
+                    let has_trait = self
+                        .trait_reference_table
+                        .borrow()
+                        .iter()
+                        .position(|cd| *cd == *def);
 
-                tuple((
-                    self.write_type_marker(TypeMarker::Object),
-                    cond(had_object.is_reference(), move |out| {
-                        self.write_object_reference(had_object.to_position().unwrap() as u32)(out)
-                    }),
-                    cond(
-                        !had_object.is_reference(),
-                        tuple((
-                            cond(has_trait.is_some(), move |out| {
-                                self.write_trait_reference(has_trait.unwrap() as u32, children, def)(
-                                    out,
-                                )
-                            }),
-                            cond(has_trait.is_none(), self.write_object_full(children, def)),
-                        )),
-                    ),
-                ))
-            } else {
-                //TODO: errors
-                unimplemented!()
+                    tuple((
+                        self.write_type_marker(TypeMarker::Object),
+                        cond(had_object.is_reference(), move |out| {
+                            self.write_object_reference(had_object.to_position().unwrap() as u32)(
+                                out,
+                            )
+                        }),
+                        cond(
+                            !had_object.is_reference(),
+                            tuple((
+                                cond(has_trait.is_some(), move |out| {
+                                    self.write_trait_reference(
+                                        has_trait.unwrap() as u32,
+                                        children,
+                                        def,
+                                    )(out)
+                                }),
+                                cond(has_trait.is_none(), self.write_object_full(children, def)),
+                            )),
+                        ),
+                    ))(out)
+                } else {
+                    //TODO: should have a default class def, this should only be possible if the input was parsed from an amf0 file
+                    Err(GenError::NotYetImplemented)
+                }
             }
         }
 
