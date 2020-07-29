@@ -31,7 +31,7 @@ macro_rules! auto_test {
             let parse_res = LSODeserializer::default().parse_full(&data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
-                println!("{:#?}", sol);
+                // println!("{:#?}", sol);
 
                 let empty: Vec<u8> = vec![];
                 if unparsed_bytes.len() > 0 {
@@ -39,6 +39,14 @@ macro_rules! auto_test {
                 }
 
                 let bytes = encoder::write_to_bytes(&sol);
+
+                for x in 0..bytes.len() {
+                    if bytes[x] != data[x] {
+                        println!("Difference around here: {}", x);
+                                        assert_eq!(false, true)
+                    }
+                }
+
                 // assert_eq!(bytes.len(), data.len());
                 // assert_eq!(bytes, data, "library output != input");
                 assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
@@ -145,12 +153,10 @@ auto_test! {
 
 // Other tests, mixed
 auto_test! {
-    // [two, "2"],
-    // [zero_four, "00000004"],
     [akamai_enterprise_player, "AkamaiEnterprisePlayer.userData"],
     [areana_madness_game_two, "arenaMadnessGame2"],
     [canvas, "canvas"],
-    // [clarence_save_slot_1, "ClarenceSave_SLOT1"],
+    [clarence_save_slot_1, "ClarenceSave_SLOT1"],
     // [CoC_8, "CoC_8"],
     [com_jeroenwijering, "com.jeroenwijering"],
     [cramjs, "cramjs"],
@@ -161,7 +167,7 @@ auto_test! {
     // [hiro_network_capping_cookie, "HIRO_NETWORK_CAPPING_COOKIE"],
     // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
     [jy1, "JY1"],
-    // [labrat_2, "Labrat2"],
+    [labrat_2, "Labrat2"],
     [mardek_v3_sg_1, "MARDEKv3__sg_1"],
     [media_player_user_settings, "mediaPlayerUserSettings"],
     // [metadata_history, "MetadataHistory"],
@@ -170,7 +176,7 @@ auto_test! {
     // [opp_detail_prefs, "oppDetailPrefs"],
     // [party_1, "Party1"],
     [previous_video, "previousVideo"],
-    // [robokill, "robokill"],
+    [robokill, "robokill"],
     [settings, "settings"],
     // [slot_1, "slot1"],
     [slot_1_party, "slot1_party"],
@@ -186,10 +192,8 @@ auto_test! {
 // Samples that can be parsed but not written
 test_parse_only! {
     [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
-    [clarence_save_slot_1, "ClarenceSave_SLOT1"],
     [slot_1_asf, "slot1"], // malloc error
-    [CoC_8, "CoC_8"], // Gets SIGKILLED? memory error
-    [robokill, "robokill"] // Invalid write
+    [CoC_8, "CoC_8"] // Gets SIGKILLED? memory error
 }
 
 // Other tests, completly failing
@@ -198,18 +202,10 @@ auto_test! {
     // [metadata_history, "MetadataHistory"] // External class, probably wont parse
     // [opp_detail_prefs, "oppDetailPrefs"] //TODO: uses flex, probably wont parse for a while
 
-    // [labrat_2, "Labrat2"] // huge
-        //     [party_1, "Party1"] // huge
-
-
-            // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
-    // small
-    // [clarence_save_slot_1_write, "ClarenceSave_SLOT1"]
+    // [party_1, "Party1"] // works after load/saving with minerva
+    // [infectonator_survivors_76561198009932603_, "InfectonatorSurvivors76561198009932603"]
     // [slot_1, "slot1"]
-
-
-    // [CoC_8, "CoC_8"], // Gets SIGKILLED? memory error
-    // [robokill, "robokill"] // Invalid write
+    [CoC_8_, "CoC_8"] // Gets SIGKILLED? memory error
 }
 //24
 

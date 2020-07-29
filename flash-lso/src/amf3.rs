@@ -1079,9 +1079,11 @@ pub mod encoder {
             bytes: &'b str,
             string: bool,
         ) -> impl SerializeFn<W> + 'a {
-            let len = self
+            let mut len = self
                 .object_reference_table
                 .to_length_store(SolValue::XML(bytes.to_string(), string), bytes.len() as u32);
+
+            len = Length::Size(bytes.len() as u32);
 
             tuple((
                 either(
@@ -1211,9 +1213,11 @@ pub mod encoder {
             children: &'b [SolElement],
             class_def: &'b Option<ClassDefinition>,
         ) -> impl SerializeFn<W> + 'a {
-            let had_object = self
+            let mut had_object = self
                 .object_reference_table
                 .to_length(SolValue::Object(children.to_vec(), class_def.clone()), 0);
+            had_object = Length::Size(0);
+
             self.object_reference_table
                 .store(SolValue::Object(children.to_vec(), class_def.clone()));
 
@@ -1251,10 +1255,13 @@ pub mod encoder {
             &'a self,
             children: &'b [SolValue],
         ) -> impl SerializeFn<W> + 'a {
-            let len = self.object_reference_table.to_length_store(
+            let mut len = self.object_reference_table.to_length_store(
                 SolValue::StrictArray(children.to_vec()),
                 children.len() as u32,
             );
+
+            //TODO: why is this not a reference
+            len = Length::Size(children.len() as u32);
 
             //TODO: why does this not offset the cache if StrictArray([]) is saved but always written as Size(0) instead of Ref(n)
             either(
