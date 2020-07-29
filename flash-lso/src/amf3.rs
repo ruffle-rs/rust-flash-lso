@@ -1,3 +1,5 @@
+#![allow(clippy::identity_op)]
+
 use crate::amf0::decoder::parse_element_number;
 use crate::types::*;
 use crate::types::{SolElement, SolValue};
@@ -141,17 +143,11 @@ pub enum Length {
 
 impl Length {
     fn is_reference(&self) -> bool {
-        match self {
-            Length::Reference(_) => true,
-            _ => false,
-        }
+        matches!(self, Length::Reference(_))
     }
 
     fn is_size(&self) -> bool {
-        match self {
-            Length::Size(_) => true,
-            _ => false,
-        }
+        matches!(self, Length::Size(_))
     }
 
     fn to_position(&self) -> Option<usize> {
@@ -1079,11 +1075,11 @@ pub mod encoder {
             bytes: &'b str,
             string: bool,
         ) -> impl SerializeFn<W> + 'a {
-            let mut len = self
-                .object_reference_table
-                .to_length_store(SolValue::XML(bytes.to_string(), string), bytes.len() as u32);
+            // let mut len = self
+            //     .object_reference_table
+            //     .to_length_store(SolValue::XML(bytes.to_string(), string), bytes.len() as u32);
 
-            len = Length::Size(bytes.len() as u32);
+            let len = Length::Size(bytes.len() as u32);
 
             tuple((
                 either(
@@ -1213,10 +1209,10 @@ pub mod encoder {
             children: &'b [SolElement],
             class_def: &'b Option<ClassDefinition>,
         ) -> impl SerializeFn<W> + 'a {
-            let mut had_object = self
-                .object_reference_table
-                .to_length(SolValue::Object(children.to_vec(), class_def.clone()), 0);
-            had_object = Length::Size(0);
+            // let mut had_object = self
+            //     .object_reference_table
+            //     .to_length(SolValue::Object(children.to_vec(), class_def.clone()), 0);
+            let had_object = Length::Size(0);
 
             self.object_reference_table
                 .store(SolValue::Object(children.to_vec(), class_def.clone()));
@@ -1255,13 +1251,13 @@ pub mod encoder {
             &'a self,
             children: &'b [SolValue],
         ) -> impl SerializeFn<W> + 'a {
-            let mut len = self.object_reference_table.to_length_store(
-                SolValue::StrictArray(children.to_vec()),
-                children.len() as u32,
-            );
+            // let mut len = self.object_reference_table.to_length_store(
+            //     SolValue::StrictArray(children.to_vec()),
+            //     children.len() as u32,
+            // );
 
             //TODO: why is this not a reference
-            len = Length::Size(children.len() as u32);
+            let len = Length::Size(children.len() as u32);
 
             //TODO: why does this not offset the cache if StrictArray([]) is saved but always written as Size(0) instead of Ref(n)
             either(
@@ -1290,10 +1286,12 @@ pub mod encoder {
             dense: &'b [SolValue],
             assoc: &'b [SolElement],
         ) -> impl SerializeFn<W> + 'a {
-            let len = self.object_reference_table.to_length_store(
-                SolValue::ECMAArray(dense.to_vec(), assoc.clone().to_vec(), assoc.len() as u32),
-                dense.len() as u32,
-            );
+            // let mut len = self.object_reference_table.to_length_store(
+            //     SolValue::ECMAArray(dense.to_vec(), assoc.clone().to_vec(), assoc.len() as u32),
+            //     dense.len() as u32,
+            // );
+
+            let len = Length::Size(dense.len() as u32);
 
             //TODO: would this also work for strict arrays if they have [] for assoc part?
             tuple((

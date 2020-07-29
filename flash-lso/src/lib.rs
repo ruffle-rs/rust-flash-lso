@@ -111,7 +111,6 @@ pub mod encoder {
     use cookie_factory::combinator::string;
     use cookie_factory::gen;
     use cookie_factory::sequence::tuple;
-    use cookie_factory::gen_simple;
 
     #[derive(Default)]
     pub struct LSOSerializer {

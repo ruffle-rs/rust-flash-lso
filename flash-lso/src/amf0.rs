@@ -40,8 +40,10 @@ pub mod decoder {
         Ok((i, SolValue::Unsupported))
     }
 
+    #[allow(clippy::let_and_return)]
     fn parse_element_mixed_array(i: &[u8]) -> IResult<&[u8], SolValue> {
         let (i, array_length) = be_u32(i)?;
+        //TODO: this `let x = ...` fixes a borrow error on array_length
         let x = map(parse_array_element, |elms: Vec<SolElement>| {
             SolValue::ECMAArray(Vec::new(), elms, array_length)
         })(i);
@@ -318,7 +320,7 @@ pub mod encoder {
 
     pub fn write_mixed_array<'a, 'b: 'a, W: Write + 'a>(
         elements: &'b [SolElement],
-        length: u32
+        length: u32,
     ) -> impl SerializeFn<W> + 'a {
         //TODO: what is the u16 padding
         //TODO: sometimes array length is ignored (u32) sometimes its: elements.len() as u32
@@ -355,7 +357,9 @@ pub mod encoder {
             SolValue::TypedObject(name, elements) => {
                 write_typed_object_element(name, elements)(out)
             }
-            SolValue::ECMAArray(_dense, elems, elems_length) => write_mixed_array(elems, *elems_length)(out),
+            SolValue::ECMAArray(_dense, elems, elems_length) => {
+                write_mixed_array(elems, *elems_length)(out)
+            }
             _ => {
                 write_unsupported_element()(out) /* Not in amf0, TODO: use the amf3 embedding for every thing else */
             }

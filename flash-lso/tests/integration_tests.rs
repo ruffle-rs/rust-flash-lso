@@ -157,7 +157,7 @@ auto_test! {
     [areana_madness_game_two, "arenaMadnessGame2"],
     [canvas, "canvas"],
     [clarence_save_slot_1, "ClarenceSave_SLOT1"],
-    // [CoC_8, "CoC_8"],
+    [coc_8, "CoC_8"],
     [com_jeroenwijering, "com.jeroenwijering"],
     [cramjs, "cramjs"],
     [dolphin_show_1, "dolphin_show(1)"],
@@ -192,8 +192,7 @@ auto_test! {
 // Samples that can be parsed but not written
 test_parse_only! {
     [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
-    [slot_1_asf, "slot1"], // malloc error
-    [CoC_8, "CoC_8"] // Gets SIGKILLED? memory error
+    [slot_1_asf, "slot1"] // malloc error
 }
 
 // Other tests, completly failing
@@ -203,9 +202,8 @@ auto_test! {
     // [opp_detail_prefs, "oppDetailPrefs"] //TODO: uses flex, probably wont parse for a while
 
     // [party_1, "Party1"] // works after load/saving with minerva
-    // [infectonator_survivors_76561198009932603_, "InfectonatorSurvivors76561198009932603"]
-    // [slot_1, "slot1"]
-    [CoC_8_, "CoC_8"] // Gets SIGKILLED? memory error
+    // [slot_1, "slot1"] // Works after load/saving with minerva
+    // [infectonator_survivors_76561198009932603_, "InfectonatorSurvivors76561198009932603"] // Works after load/saving with minerva
 }
 //24
 
