@@ -1,12 +1,12 @@
 [package]
 name = "flash-lso"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["CUB3D <callumthom11@gmail.com>"]
 description = "Fast and safe SOL/AMF0/AMF3 format parsign"
 repository = "https://github.com/CUB3D/rust-sol"
 readme = "README.md"
 license = "MIT"
-keywords = ["lso", "sol", "amf0", "amf3", "amf", "parser", "serializer", "flash"]
+keywords = ["sol", "amf", "parser", "serializer", "flash"]
 edition = "2018"
 categories = ["data-structures", "encoding", "parser-implementations"]
 
