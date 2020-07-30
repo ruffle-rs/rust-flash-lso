@@ -1,14 +1,14 @@
-#![recursion_limit="256"]
+#![recursion_limit = "256"]
 
+use std::convert::TryInto;
+use std::string::ToString;
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
-use std::string::ToString;
-use std::convert::TryInto;
-use yew::web_sys::Element;
 use yew::services::reader::{File, FileChunk, FileData, ReaderService, ReaderTask};
+use yew::web_sys::Element;
 
-use flash_lso::LSODeserializer;
 use flash_lso::types::{Sol, SolElement, SolValue};
+use flash_lso::LSODeserializer;
 
 struct Model {
     link: ComponentLink<Self>,
@@ -33,7 +33,7 @@ impl Component for Model {
             files: vec![],
         }
     }
-    
+
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
         match msg {
             Msg::Files(files) => {
@@ -46,21 +46,24 @@ impl Component for Model {
                 }
             }
             Msg::Loaded(file) => {
-                let sol = LSODeserializer::default().parse_full(&file.content).unwrap().1;
+                let sol = LSODeserializer::default()
+                    .parse_full(&file.content)
+                    .unwrap()
+                    .1;
                 self.files.push(sol);
             }
             _ => return false,
         }
         true
     }
-    
+
     fn change(&mut self, _props: Self::Properties) -> ShouldRender {
         // Should only return "true" if new properties are different to
         // previously received properties.
         // This component has no properties so we will always return "false".
         false
     }
-    
+
     fn view(&self) -> Html {
         html! {
             <div>
@@ -86,7 +89,6 @@ impl Component for Model {
 }
 
 impl Model {
-
     fn view_array_element(&self, index: usize, data: &SolValue) -> Html {
         html! {
             <div>
@@ -103,7 +105,6 @@ impl Model {
             </div>
         }
     }
-
 
     fn view_sol_value(&self, data: &SolValue) -> Html {
         match data {
@@ -157,7 +158,7 @@ impl Model {
                     </ul>
                 }
             }
-            _ => html! { <div></div> }
+            _ => html! { <div></div> },
         }
     }
 
