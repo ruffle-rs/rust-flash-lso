@@ -1,12 +1,17 @@
 [package]
-name = "reader"
+name = "web"
 version = "0.1.0"
 authors = ["CUB3D <callumthom11@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
-flash-lso = { path = "../flash-lso" }
-env_logger = "*"
-clap = "*"
+yew = "0.17.2"
+wasm-bindgen = "0.2.67"
+js-sys = "0.3.44"
+
+flash-lso = { path = "../flash-lso", features = ["serde"] }

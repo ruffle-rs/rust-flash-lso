@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "flash-lso",
-    "reader",
+    "lso-to-json",
+    "web"
 ]
 

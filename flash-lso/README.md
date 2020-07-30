@@ -21,10 +21,27 @@ fn main() {
 }
 ``` 
 
-## Development / Testing
-To aid with development, there is a sub-project: reader, which can parse either a single file or all files in a directory and will report on which files succeeded and failed to parse
+## Web
+The ```web``` directory contains an example web viewer for LSO files using yew. To run, first build into WASM like so
+```shell script
+cd web
+wasm-pack build --out-name wasm --out-dir ./static --target web --release
+```
+Then serve the static directory like so
+```shell script
+# If needed install miniserve with `cargo install miniserve`
+miniserve ./static --index index.html
+```
 
-In future this will be used to verify and compare the output with the official implementation
+## Development / Testing
+This project has a collection of integration tests to verify that it is able to serialize and then deserialize LSO files to produce output that is identical to it's input
+Also available is a lso-to-json project which allows dumping an LSO file to json for debugging and testing.
+
+## Serde
+To enable serde support, enable the serde feature like so
+```toml
+flash-lso = { version = "0.2.0", features = ["serde"] }
+```
 
 ## Fuzzing
 This project makes use of cargo-fuzz to ensure correct handling of invalid data

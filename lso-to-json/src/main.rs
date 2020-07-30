@@ -2,14 +2,14 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use clap::*;
 use flash_lso::types::Sol;
 use flash_lso::LSODeserializer;
-use clap::*;
 
 fn main() {
     env_logger::init();
 
-    let matched = App::new("SOL file reader")
+    let matched = App::new("LSO -> json converter")
         .version("1.0")
         .author("CUB3D <callumthom11@gmail.com>")
         .arg(Arg::with_name("INPUT").help("").required(true))
@@ -18,21 +18,11 @@ fn main() {
     let file_name = matched.value_of("INPUT").unwrap();
 
     let file = Path::new(file_name);
-    if file.is_dir() {
-        let children = file.read_dir().unwrap();
-        for child in children {
-            if let Ok(c) = child {
-                // println!("Running {:?}", c.file_name());
-                let worked = read_file(c.path());
-                if worked.is_some() {
-                    println!("{} = Worked", c.file_name().to_string_lossy().to_string())
-                } else {
-                    println!("{} = Failed", c.file_name().to_string_lossy().to_string())
-                }
-            }
-        }
+    if let Some(sol) = read_file(file.into()) {
+        let json = serde_json::to_string_pretty(&sol).expect("Unable to encode lso as json");
+        println!("{}", json);
     } else {
-        read_file(file.into());
+        eprintln!("Couldn't read lso file, maybe open a issue on github at https://github.com/CUB3D/rust-flash-lso");
     }
 }
 
@@ -41,6 +31,5 @@ fn read_file(path: PathBuf) -> Option<Sol> {
     let mut data = Vec::new();
     let _ = x.read_to_end(&mut data).expect("Unable to read file");
     let d = LSODeserializer::default().parse_full(&data);
-    println!("{:#?}", d);
     d.map(|s| s.1).ok()
 }
