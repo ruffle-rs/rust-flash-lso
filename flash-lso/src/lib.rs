@@ -24,6 +24,9 @@ use std::convert::TryInto;
 #[macro_use]
 extern crate serde;
 
+#[cfg(feature = "flex")]
+pub mod flex;
+
 /// The main entry point of decoding a SOL file
 /// Example of use
 /// ```

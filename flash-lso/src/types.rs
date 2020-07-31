@@ -126,3 +126,31 @@ pub mod amf0 {
         AMF3 = 17,
     }
 }
+
+pub mod amf3 {
+    use derive_try_from_primitive::TryFromPrimitive;
+
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    #[derive(TryFromPrimitive, Eq, PartialEq, Debug, Copy, Clone)]
+    #[repr(u8)]
+    pub enum TypeMarker {
+        Undefined = 0x00,
+        Null = 0x01,
+        False = 0x02,
+        True = 0x03,
+        Integer = 0x04,
+        Number = 0x05,
+        String = 0x06,
+        XML = 0x07,
+        Date = 0x08,
+        Array = 0x09,
+        Object = 0x0A,
+        XmlString = 0x0B,
+        ByteArray = 0x0C,
+        VectorInt = 0x0D,
+        VectorUInt = 0x0E,
+        VectorDouble = 0x0F,
+        VectorObject = 0x10,
+        Dictionary = 0x11,
+    }
+}

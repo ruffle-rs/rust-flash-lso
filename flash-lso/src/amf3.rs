@@ -17,9 +17,10 @@ use nom::take_str;
 use nom::Err;
 use nom::IResult;
 use std::cell::RefCell;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
 use std::io::Write;
+use crate::types::amf3::TypeMarker;
 
 pub fn either<Fa, Fb, W: Write>(b: bool, t: Fa, f: Fb) -> impl SerializeFn<W>
 where
@@ -92,47 +93,6 @@ impl<T: PartialEq + Clone + Debug> ElementCache<Vec<T>> {
         self.get_index(val.to_vec())
     }
 }
-
-#[repr(u8)]
-pub enum TypeMarker {
-    Undefined = 0x00,
-    Null = 0x01,
-    False = 0x02,
-    True = 0x03,
-    Integer = 0x04,
-    Number = 0x05,
-    String = 0x06,
-    XML = 0x07,
-    Date = 0x08,
-    Array = 0x09,
-    Object = 0x0A,
-    XmlString = 0x0B,
-    ByteArray = 0x0C,
-    VectorInt = 0x0D,
-    VectorUInt = 0x0E,
-    VectorDouble = 0x0F,
-    VectorObject = 0x10,
-    Dictionary = 0x11,
-}
-
-const TYPE_UNDEFINED: u8 = 0x00;
-const TYPE_NULL: u8 = 0x01;
-const TYPE_FALSE: u8 = 0x02;
-const TYPE_TRUE: u8 = 0x03;
-const TYPE_INTEGER: u8 = 0x04;
-const TYPE_NUMBER: u8 = 0x05;
-const TYPE_STRING: u8 = 0x06;
-const TYPE_XML: u8 = 0x07;
-const TYPE_DATE: u8 = 0x08;
-const TYPE_ARRAY: u8 = 0x09;
-const TYPE_OBJECT: u8 = 0x0A;
-const TYPE_XML_STRING: u8 = 0x0B;
-const TYPE_BYTE_ARRAY: u8 = 0x0C;
-const TYPE_VECTOR_INT: u8 = 0x0D;
-const TYPE_VECTOR_UINT: u8 = 0x0E;
-const TYPE_VECTOR_DOUBLE: u8 = 0x0F;
-const TYPE_VECTOR_OBJECT: u8 = 0x10;
-const TYPE_DICT: u8 = 0x11;
 
 const REFERENCE_FLAG: u32 = 0x01;
 
@@ -405,10 +365,39 @@ impl AMF3Decoder {
         // Class def
         let (i, class_def) = self.parse_class_def(length, i)?;
 
-        // TODO: rest of object loding
+        let mut i = i;
         if class_def.attributes.contains(Attribute::EXTERNAL) {
-            // println!("Proxy objects not yet supported");
-            return Err(Err::Error(make_error(i, ErrorKind::Tag)));
+            // will be set if a supported parser exists, otherwise this type can't be parsed
+            let mut parsed = false;
+
+            let mut j = i;
+            #[cfg(feature = "flex")]
+            {
+                parsed = true;
+
+                if class_def.name.starts_with("flex.") {
+
+                    if class_def.name == "flex.messaging.io.ArrayCollection" {
+                        let (i, v) = self.parse_single_element(i)?;
+                        let j = i;
+                    } else if class_def.name == "flex.messaging.io.ObjectProxy" {
+                        let (i, v) = self.parse_single_element(i)?;
+                        let j = i;
+                    }
+                    else {
+                        println!("Flex class = {}", class_def.name);
+                        use crate::flex::decode::parse_flex;
+                        let (i, flex) = parse_flex(i)?;
+                        j = i;
+                    }
+                }
+            }
+
+            if !parsed {
+                return Err(Err::Error(make_error(i, ErrorKind::Tag)));
+            } else {
+                i = j;
+            }
         }
 
         let mut elements = Vec::new();
@@ -767,29 +756,37 @@ impl AMF3Decoder {
         Ok((i, obj))
     }
 
-    fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn read_type_marker<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], TypeMarker> {
         let (i, type_) = be_u8(i)?;
+        if let Ok(type_) = TypeMarker::try_from(type_) {
+            Ok((i, type_))
+        } else {
+            Err(Err::Error(make_error(i, ErrorKind::HexDigit)))
+        }
+    }
+
+    fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+        let (i, type_) = self.read_type_marker(i)?;
 
         match type_ {
-            TYPE_UNDEFINED => Ok((i, SolValue::Undefined)),
-            TYPE_NULL => Ok((i, SolValue::Null)),
-            TYPE_FALSE => Ok((i, SolValue::Bool(false))),
-            TYPE_TRUE => Ok((i, SolValue::Bool(true))),
-            TYPE_INTEGER => parse_element_int(i),
-            TYPE_NUMBER => parse_element_number(i),
-            TYPE_STRING => self.parse_element_string(i),
-            TYPE_XML => self.parse_element_xml(i, false),
-            TYPE_DATE => self.parse_element_date(i),
-            TYPE_ARRAY => self.parse_element_array(i),
-            TYPE_OBJECT => self.parse_element_object(i),
-            TYPE_XML_STRING => self.parse_element_xml(i, true),
-            TYPE_BYTE_ARRAY => self.parse_element_byte_array(i),
-            TYPE_VECTOR_OBJECT => self.parse_element_object_vector(i),
-            TYPE_VECTOR_INT => self.parse_element_vector_int(i),
-            TYPE_VECTOR_UINT => self.parse_element_vector_uint(i),
-            TYPE_VECTOR_DOUBLE => self.parse_element_vector_double(i),
-            TYPE_DICT => self.parse_element_dict(i),
-            _ => Err(Err::Error(make_error(i, ErrorKind::HexDigit))),
+            TypeMarker::Undefined => Ok((i, SolValue::Undefined)),
+            TypeMarker::Null => Ok((i, SolValue::Null)),
+            TypeMarker::False => Ok((i, SolValue::Bool(false))),
+            TypeMarker::True => Ok((i, SolValue::Bool(true))),
+            TypeMarker::Integer => parse_element_int(i),
+            TypeMarker::Number => parse_element_number(i),
+            TypeMarker::String => self.parse_element_string(i),
+            TypeMarker::XML => self.parse_element_xml(i, false),
+            TypeMarker::Date => self.parse_element_date(i),
+            TypeMarker::Array => self.parse_element_array(i),
+            TypeMarker::Object => self.parse_element_object(i),
+            TypeMarker::XmlString => self.parse_element_xml(i, true),
+            TypeMarker::ByteArray => self.parse_element_byte_array(i),
+            TypeMarker::VectorObject => self.parse_element_object_vector(i),
+            TypeMarker::VectorInt => self.parse_element_vector_int(i),
+            TypeMarker::VectorUInt => self.parse_element_vector_uint(i),
+            TypeMarker::VectorDouble => self.parse_element_vector_double(i),
+            TypeMarker::Dictionary => self.parse_element_dict(i),
         }
     }
 

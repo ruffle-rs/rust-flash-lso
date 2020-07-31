@@ -51,7 +51,7 @@ macro_rules! auto_test {
                 // assert_eq!(bytes, data, "library output != input");
                 assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
             } else {
-                println!("Input: {:?}", data);
+                // println!("Input: {:?}", data);
                 println!("parse failed: {:?}", parse_res);
                 assert_eq!(false, true)
             }
@@ -77,7 +77,7 @@ macro_rules! test_parse_only {
                     assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
                 }
             } else {
-                println!("Input: {:?}", data);
+                // println!("Input: {:?}", data);
                 println!("parse failed: {:?}", parse_res);
                 assert_eq!(false, true)
             }
@@ -197,10 +197,11 @@ test_parse_only! {
 }
 
 // Other tests, completly failing
+#[cfg(feature = "flex")]
 auto_test! {
     // [flagstaff, "flagstaff"] // TODO: external class, probably wont parse
     // [metadata_history, "MetadataHistory"] // External class, probably wont parse
-    // [opp_detail_prefs, "oppDetailPrefs"] //TODO: uses flex, probably wont parse for a while
+    [opp_detail_prefs, "oppDetailPrefs"] //TODO: uses flex, probably wont parse for a while
 
     // [party_1, "Party1"] // works after load/saving with minerva
     // [slot_1, "slot1"] // Works after load/saving with minerva
