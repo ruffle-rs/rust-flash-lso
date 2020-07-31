@@ -36,8 +36,8 @@ pub mod decoder {
     }
 
     fn parse_element_movie_clip(i: &[u8]) -> IResult<&[u8], SolValue> {
-        log::warn!("Found movie clip, but type is reserved and unused?");
-        Ok((i, SolValue::Unsupported))
+        // Reserved but unsupported
+        Err(Err::Error(make_error(i, ErrorKind::Tag)))
     }
 
     #[allow(clippy::let_and_return)]
@@ -52,14 +52,11 @@ pub mod decoder {
     }
 
     fn parse_element_reference(i: &[u8]) -> IResult<&[u8], SolValue> {
-        log::warn!("Reference resolution is not currently supported");
-        let (i, _ref) = be_u16(i)?;
-
-        Ok((i, SolValue::Unsupported))
+        // References arent supported
+        Err(Err::Error(make_error(i, ErrorKind::Tag)))
     }
 
     pub fn parse_element_array(i: &[u8]) -> IResult<&[u8], SolValue> {
-        log::warn!("Reference resolution is not currently supported");
         let (i, length) = be_u32(i)?;
 
         let length_usize = length
@@ -92,8 +89,8 @@ pub mod decoder {
     }
 
     fn parse_element_record_set(i: &[u8]) -> IResult<&[u8], SolValue> {
-        log::warn!("Found record set, but type is reserved and unused?");
-        Ok((i, SolValue::Unsupported))
+        // Unsupported
+        Err(Err::Error(make_error(i, ErrorKind::Tag)))
     }
 
     fn parse_element_xml(i: &[u8]) -> IResult<&[u8], SolValue> {

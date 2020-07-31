@@ -15,11 +15,12 @@ categories = ["data-structures", "encoding", "parser-implementations"]
 [dependencies]
 nom = "5"
 cookie-factory = "0.3.1"
-log = "0.4.8"
 
 serde = { version = "1", optional = true, features = ["derive"] }
 
 derive-try-from-primitive = "1.0.0"
+
+enumset = "1.0.0"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"

@@ -1,25 +1,32 @@
 #![recursion_limit = "256"]
 
-use std::convert::TryInto;
 use std::string::ToString;
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
-use yew::services::reader::{File, FileChunk, FileData, ReaderService, ReaderTask};
-use yew::web_sys::Element;
+use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
 use flash_lso::types::{Sol, SolElement, SolValue};
 use flash_lso::LSODeserializer;
+
+pub mod component_tab;
+pub mod component_tabs;
+pub mod jquery_bindgen;
+
+use crate::component_tab::Tab;
+use crate::component_tabs::Tabs;
 
 struct Model {
     link: ComponentLink<Self>,
     reader: ReaderService,
     tasks: Vec<ReaderTask>,
     files: Vec<Sol>,
+    current_selection: Option<SolValue>,
 }
 
 enum Msg {
     Files(Vec<File>),
     Loaded(FileData),
+    Selection(SolValue),
 }
 
 impl Component for Model {
@@ -31,6 +38,7 @@ impl Component for Model {
             reader: ReaderService::new(),
             tasks: vec![],
             files: vec![],
+            current_selection: None,
         }
     }
 
@@ -52,6 +60,7 @@ impl Component for Model {
                     .1;
                 self.files.push(sol);
             }
+            Msg::Selection(val) => self.current_selection = Some(val),
             _ => return false,
         }
         true
@@ -67,28 +76,115 @@ impl Component for Model {
     fn view(&self) -> Html {
         html! {
             <div>
-                <input type="file" onchange=self.link.callback(move |value| {
-                            let mut result = Vec::new();
-                            if let ChangeData::Files(files) = value {
-                                let files = js_sys::try_iter(&files)
-                                    .unwrap()
-                                    .unwrap()
-                                    .into_iter()
-                                    .map(|v| File::from(v.unwrap()));
-                                result.extend(files);
-                            }
-                            Msg::Files(result)
-                        })/>
-
-                 <ul>
-                    { for self.files.iter().map(|f| self.view_file(f)) }
-                </ul>
+                { self.navbar() }
+                <Tabs>
+                    { for self.files.iter().enumerate().map(|(i,f)| html_nested! {
+                    <Tab label={&f.header.name}>
+                        { self.view_file(i,f)}
+                    </Tab>
+                }) }
+                </Tabs>
             </div>
         }
+    }
+
+    fn rendered(&mut self, _first_render: bool) {
+        // jquery_bindgen::jquery("#tree").jstree();
     }
 }
 
 impl Model {
+    fn value_details(&self, val: &SolValue) -> Html {
+        match val {
+            SolValue::Object(_, Some(def)) => html! {
+                <>
+                    <p>{"name"}</p>
+                    <p>{&def.name}</p>
+                    <p>{"encoding"}</p>
+                    <p>{def.encoding}</p>
+                    <p>{"static properties"}</p>
+                    <ul>
+                        { for def.static_properties.iter().map(|p| html! {
+                            <li>{p}</li>
+                        })}
+                    </ul>
+                </>
+            },
+            SolValue::TypedObject(name, _) => html! {
+                <>
+                <p>{"name"}</p>
+                <p>{name}</p>
+                </>
+            },
+            SolValue::VectorObject(_, name, _) => html! {
+                <>
+                <p>{"name"}</p>
+                <p>{name}</p>
+                </>
+            },
+            SolValue::Number(n) => html! {
+                <p>{n}</p>
+            },
+            SolValue::Integer(n) => html! {
+                <p>{n}</p>
+            },
+            SolValue::ByteArray(n) => html! {
+                <p>{format!("{:?}", n.as_slice())}</p>
+            },
+            SolValue::String(s) => html! {
+                <p>{s}</p>
+            },
+            SolValue::Bool(b) => html! {
+                <p>{ if *b {"true"} else {"false"} }</p>
+            },
+            SolValue::Null => html! {
+                <p>{ "null" }</p>
+            },
+            SolValue::Undefined => html! {
+                <p>{ "undefined" }</p>
+            },
+            SolValue::Unsupported => html! {
+                <p>{ "unsupported" }</p>
+            },
+            SolValue::Date(x, tz) => html! {
+                <>
+                <p>{ "epoch" }</p>
+                <p>{ x }</p>
+                <p>{ "timezone" }</p>
+                <p>{ format!("{:?}", tz) }</p>
+                </>
+            },
+            SolValue::XML(content, string) => html! {
+                <p>{ content }</p>
+            },
+            _ => html! {},
+        }
+    }
+
+    fn navbar(&self) -> Html {
+        html! {
+            <nav class="navbar navbar-expand-lg">
+                <ul class="navbar-nav mr-auto">
+                    <li class="nav-item">
+                        <label for="files" class="btn btn-primary">{"Open"}</label>
+                        <input id="files" class="btn btn-default" style="visibility:hidden;" type="file" onchange=self.link.callback(move |value| {
+                                let mut result = Vec::new();
+                                if let ChangeData::Files(files) = value {
+                                    let files = js_sys::try_iter(&files)
+                                        .unwrap()
+                                        .unwrap()
+                                        .into_iter()
+                                        .map(|v| File::from(v.unwrap()));
+                                    result.extend(files);
+                                }
+                                Msg::Files(result)
+                            })/>
+                    </li>
+                </ul>
+            </nav>
+        }
+    }
+
     fn view_array_element(&self, index: usize, data: &SolValue) -> Html {
         html! {
             <div>
@@ -108,78 +204,99 @@ impl Model {
 
     fn view_sol_value(&self, data: &SolValue) -> Html {
         match data {
-            SolValue::Object(elements, class_def) => {
-                html! {
-                    <ul>
-                        { for elements.iter().map(|e| self.view_sol_element(e))}
-                    </ul>
-                }
-            }
-            SolValue::StrictArray(x) => {
-                html! {
-                    <ul>
-                        { for x.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
-                    </ul>
-                }
-            }
-            SolValue::ECMAArray(dense, assoc, size) => {
-                html! {
+            SolValue::Object(elements, _class_def) => html! {
+                <ul>
+                    { for elements.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
+                </ul>
+            },
+            SolValue::TypedObject(_name, elements) => html! {
+                <ul>
+                    { for elements.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
+                </ul>
+            },
+            SolValue::StrictArray(x) => html! {
+                <ul>
+                    { for x.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
+                </ul>
+            },
+            SolValue::ECMAArray(dense, assoc, _size) => html! {
                     <ul>
                         { for dense.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
-                        { for assoc.iter().map(|e| self.view_sol_element(e))}
+                        { for assoc.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
                     </ul>
-                }
-            }
-            SolValue::VectorInt(x, _fixed_len) => {
-                html! {
+            },
+            SolValue::VectorInt(x, _fixed_len) => html! {
                 <ul>
                     { for x.iter().enumerate().map(|(i, v)| self.view_array_index(i) )}
                 </ul>
-                }
-            }
-            SolValue::VectorUInt(x, _fixed_len) => {
-                html! {
+            },
+            SolValue::VectorUInt(x, _fixed_len) => html! {
                 <ul>
                     { for x.iter().enumerate().map(|(i, v)| self.view_array_index(i) )}
                 </ul>
-                }
-            }
-            SolValue::VectorDouble(x, _fixed_len) => {
-                html! {
+            },
+            SolValue::VectorDouble(x, _fixed_len) => html! {
                 <ul>
                     { for x.iter().enumerate().map(|(i, v)| self.view_array_index(i) )}
                 </ul>
-                }
-            }
-            SolValue::VectorObject(children, name, _fixed_len) => {
-                html! {
-                    <ul>
-                        { for children.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
-                    </ul>
-                }
-            }
-            _ => html! { <div></div> },
+            },
+            SolValue::VectorObject(children, _name, _fixed_len) => html! {
+                <ul>
+                    { for children.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
+                </ul>
+            },
+            SolValue::Dictionary(children, _) => html! {
+                <ul>
+                    { for children.iter().map(|(k, v)| html! {
+                            <>
+                            <li><span >{ "key" }</span></li>
+                            <li><span >{ "value" }</span></li>
+                            </>
+                        })}
+                </ul>
+            },
+            _ => html! {},
         }
     }
 
-    fn view_sol_element(&self, data: &SolElement) -> Html {
+    fn view_sol_element(&self, data: Box<SolElement>) -> Html {
+        let name = data.name.clone();
+        let value = data.value.clone();
+        let value_clone = data.value.clone();
         html! {
             <li>
-                <p>{ &data.name }</p>
-                {self.view_sol_value(&data.value)}
+                <span onclick=self.link.callback(move |_| Msg::Selection(value_clone.clone()))>{ name }</span>
+                {self.view_sol_value(&value)}
             </li>
         }
     }
 
-    fn view_file(&self, data: &Sol) -> Html {
+    fn view_file(&self, index: usize, data: &Sol) -> Html {
         html! {
-            <div>
-                <p>{ &format!("Name: {}", data.header.name) }</p>
-                <p>{ &format!("Size: {} bytes", data.header.length) }</p>
-                <p>{ &format!("Version: {}", data.header.format_version) }</p>
-                <ul>
-                    { for data.body.iter().map(|e| self.view_sol_element(e))}
-                </ul>
+
+
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-4">
+                        <p>{ &format!("Name: {}", data.header.name) }</p>
+                        <p>{ &format!("Size: {} bytes", data.header.length) }</p>
+                        <p>{ &format!("Version: {}", data.header.format_version) }</p>
+                        <div id="tree">
+                            <ul>
+                                { for data.body.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-8">
+                        {
+                            if let Some(selection) = &self.current_selection {
+                                self.value_details(selection)
+                            } else {
+                                html! { <p>{"Select an item"}</p> }
+                            }
+                        }
+                    </div>
+                </div>
             </div>
         }
     }

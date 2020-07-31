@@ -5,6 +5,7 @@ use crate::types::*;
 use crate::types::{SolElement, SolValue};
 use crate::PADDING;
 use cookie_factory::SerializeFn;
+use enumset::EnumSet;
 use nom::bytes::complete::tag;
 use nom::combinator::map;
 use nom::error::{make_error, ErrorKind};
@@ -158,11 +159,6 @@ impl Length {
     }
 }
 
-const ENCODING_STATIC: u8 = 0;
-const ENCODING_EXTERNAL: u8 = 1;
-const ENCODING_DYNAMIC: u8 = 2;
-const ENCODING_PROXY: u8 = 3;
-
 pub fn read_int_signed(i: &[u8]) -> IResult<&[u8], i32> {
     let mut vlu_len = 0;
     let mut result: i32 = 0;
@@ -302,10 +298,22 @@ impl AMF3Decoder {
         let (i, static_props) =
             many_m_n(attr_count_usize, attr_count_usize, |i| self.parse_string(i))(i)?;
 
+        let is_external = encoding & 0b1 == 1;
+        let is_dynamic = encoding & 0b10 == 0b10;
+
+        let mut attributes = EnumSet::empty();
+
+        if is_external {
+            attributes = attributes | Attribute::EXTERNAL;
+        }
+        if is_dynamic {
+            attributes = attributes | Attribute::DYNAMIC;
+        }
+
         let class_def = ClassDefinition {
             name: name_str,
             //TODO: encodings should be an enumset
-            encoding,
+            attributes,
             attribute_count: attributes_count,
             static_properties: static_props,
         };
@@ -398,21 +406,15 @@ impl AMF3Decoder {
         let (i, class_def) = self.parse_class_def(length, i)?;
 
         // TODO: rest of object loding
-        if class_def.encoding == ENCODING_PROXY {
+        if class_def.attributes.contains(Attribute::EXTERNAL) {
             // println!("Proxy objects not yet supported");
             return Err(Err::Error(make_error(i, ErrorKind::Tag)));
-        }
-
-        if class_def.encoding == ENCODING_EXTERNAL {
-            return Err(Err::Error(make_error(i, ErrorKind::Alpha)));
-            // println!("External");
         }
 
         let mut elements = Vec::new();
 
         let mut i = i;
-        if class_def.encoding == ENCODING_DYNAMIC {
-            // log::info!("Dynamic encoding");
+        if class_def.attributes.contains(Attribute::DYNAMIC) {
             let (j, x) = self.parse_object_static(i, &class_def)?;
             elements.extend(x);
 
@@ -433,7 +435,7 @@ impl AMF3Decoder {
             }
             i = j;
         }
-        if class_def.encoding == ENCODING_STATIC {
+        if class_def.attributes.is_empty() {
             let (j, x) = self.parse_object_static(i, &class_def)?;
             elements.extend(x);
 
@@ -811,10 +813,8 @@ impl AMF3Decoder {
 }
 
 pub mod encoder {
-    use crate::amf3::{
-        either, ElementCache, Length, TypeMarker, ENCODING_DYNAMIC, ENCODING_STATIC,
-    };
-    use crate::types::{ClassDefinition, SolElement, SolValue};
+    use crate::amf3::{either, ElementCache, Length, TypeMarker};
+    use crate::types::{Attribute, ClassDefinition, SolElement, SolValue};
     use crate::PADDING;
     use cookie_factory::bytes::{be_f64, be_i32, be_u32, be_u8};
     use cookie_factory::combinator::{cond, slice};
@@ -1121,7 +1121,7 @@ pub mod encoder {
             tuple((
                 self.write_int(size as i32),
                 cond(
-                    def.encoding == ENCODING_STATIC,
+                    def.attributes.is_empty(),
                     all(children
                         .iter()
                         .filter(move |c| def.static_properties.contains(&c.name))
@@ -1129,7 +1129,7 @@ pub mod encoder {
                         .map(move |e| self.write_value(e))),
                 ),
                 cond(
-                    def.encoding == ENCODING_DYNAMIC,
+                    def.attributes.contains(Attribute::DYNAMIC),
                     tuple((
                         all(children
                             .iter()
@@ -1168,16 +1168,27 @@ pub mod encoder {
 
             self.trait_reference_table.borrow_mut().push(def.clone());
 
+            let is_external = def.attributes.contains(Attribute::EXTERNAL);
+            let is_dynamic = def.attributes.contains(Attribute::DYNAMIC);
+
+            let mut encoding = 0b00;
+            if is_external {
+                encoding |= 0b01;
+            }
+            if is_dynamic {
+                encoding |= 0b10;
+            }
+
             // Format attribute_count[:4] | encoding[4:2] | class_def_ref flag (1 bit) | class_ref flag (1 bit)
-            let size =
-                (((((def.attribute_count << 2) | (def.encoding & 0xff) as u32) << 1) | 1u32) << 1)
-                    | 1u32;
+            let size = (((((def.attribute_count << 2) | (encoding & 0xff) as u32) << 1) | 1u32)
+                << 1)
+                | 1u32;
 
             tuple((
                 self.write_int(size as i32),
                 self.write_class_definition(def),
                 cond(
-                    def.encoding == ENCODING_STATIC,
+                    def.attributes.is_empty(),
                     all(children
                         .iter()
                         .filter(move |c| def.static_properties.contains(&c.name))
@@ -1185,7 +1196,7 @@ pub mod encoder {
                         .map(move |e| self.write_value(e))),
                 ),
                 cond(
-                    def.encoding == ENCODING_DYNAMIC,
+                    def.attributes.contains(Attribute::DYNAMIC),
                     tuple((
                         all(children
                             .iter()

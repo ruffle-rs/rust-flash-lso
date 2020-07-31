@@ -1,3 +1,6 @@
+use enumset::EnumSet;
+use enumset::EnumSetType;
+
 /// A container for sol files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
@@ -81,9 +84,18 @@ pub enum SolValue {
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct ClassDefinition {
     pub name: String,
-    pub encoding: u8,
+    pub attributes: EnumSet<Attribute>,
     pub attribute_count: u32,
     pub static_properties: Vec<String>,
+}
+
+/// Encodes the possible attributes that can be given to a trait
+/// If a trait is dynamic then the object may have additional properties other than the ones specified in the trait
+/// If a trait is external then it requires custom serialization and deserialization support
+#[derive(EnumSetType, Debug)]
+pub enum Attribute {
+    DYNAMIC,
+    EXTERNAL,
 }
 
 pub mod amf0 {

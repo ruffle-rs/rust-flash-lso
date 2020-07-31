@@ -192,7 +192,8 @@ auto_test! {
 // Samples that can be parsed but not written
 test_parse_only! {
     [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
-    [slot_1_asf, "slot1"] // malloc error
+    [slot_1, "slot1"], // malloc error
+    [party_1, "Party1"]
 }
 
 // Other tests, completly failing
