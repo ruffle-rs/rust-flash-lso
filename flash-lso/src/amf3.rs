@@ -22,6 +22,7 @@ use std::cell::RefCell;
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
 use std::io::Write;
+use crate::amf3::encoder::AMF3Encoder;
 
 pub fn either<Fa, Fb, W: Write>(b: bool, t: Fa, f: Fb) -> impl SerializeFn<W>
 where
@@ -34,64 +35,6 @@ where
         } else {
             f(out)
         }
-    }
-}
-
-pub struct ElementCache<T> {
-    cache: RefCell<Vec<T>>,
-}
-
-impl<T> Default for ElementCache<T> {
-    fn default() -> Self {
-        ElementCache {
-            cache: RefCell::new(Vec::new()),
-        }
-    }
-}
-
-impl<T: PartialEq + Clone + Debug> ElementCache<T> {
-    pub fn has(&self, val: &T) -> bool {
-        self.cache.borrow().contains(val)
-    }
-
-    pub fn store(&self, val: T) {
-        if !self.has(&val) {
-            self.cache.borrow_mut().push(val);
-        }
-    }
-
-    pub fn get_element(&self, index: usize) -> Option<T> {
-        self.cache.borrow().get(index).cloned()
-    }
-
-    pub fn get_index(&self, val: T) -> Option<usize> {
-        self.cache.borrow().iter().position(|i| *i == val)
-    }
-
-    pub fn to_length(&self, val: T, length: u32) -> Length {
-        if let Some(i) = self.get_index(val) {
-            Length::Reference(i)
-        } else {
-            Length::Size(length)
-        }
-    }
-
-    //TODO: no clone
-    pub fn to_length_store(&self, val: T, length: u32) -> Length {
-        let len = self.to_length(val.clone(), length);
-        self.store(val);
-        len
-    }
-}
-
-//tOdo: remove
-impl<T: PartialEq + Clone + Debug> ElementCache<Vec<T>> {
-    pub fn store_slice(&self, val: &[T]) {
-        self.store(val.to_vec());
-    }
-
-    pub fn get_slice_index(&self, val: &[T]) -> Option<usize> {
-        self.get_index(val.to_vec())
     }
 }
 
@@ -194,7 +137,13 @@ fn parse_element_int(i: &[u8]) -> IResult<&[u8], SolValue> {
     map(read_int_signed, SolValue::Integer)(i)
 }
 
-type ExternalDecoderFn = Box<dyn for<'a> Fn(&'a [u8], &AMF3Decoder) -> IResult<&'a [u8], SolValue>>;
+//TODO: could this be combined
+type ExternalDecoderFn =
+    Box<dyn for<'a> Fn(&'a [u8], &AMF3Decoder) -> IResult<&'a [u8], Vec<SolElement>>>;
+
+pub trait CustomEncoder {
+    fn encode<'a, 'b: 'a>(&self, elements: &'b [SolElement], class_def: &Option<ClassDefinition>, encoder: &AMF3Encoder) -> Vec<u8>;
+}
 
 pub struct AMF3Decoder {
     pub string_reference_table: RefCell<Vec<Vec<u8>>>,
@@ -277,7 +226,6 @@ impl AMF3Decoder {
 
         let class_def = ClassDefinition {
             name: name_str,
-            //TODO: encodings should be an enumset
             attributes,
             attribute_count: attributes_count,
             static_properties: static_props,
@@ -370,33 +318,14 @@ impl AMF3Decoder {
         // Class def
         let (i, class_def) = self.parse_class_def(length, i)?;
 
-        let mut i = i;
         if class_def.attributes.contains(Attribute::EXTERNAL) {
-            // will be set if a supported parser exists, otherwise this type can't be parsed
-            #[allow(unused_mut, unused_assignments)]
-            let mut parsed = false;
-
-            #[allow(unused_mut, unused_assignments)]
-            let mut i2 = i;
-            #[cfg(feature = "flex")]
-            {
-                parsed = true;
-
-                if class_def.name.starts_with("flex.") {
-                    if self.external_decoders.contains_key(&class_def.name) {
-                        return self.external_decoders[&class_def.name](i2, self);
-                    } else {
-                        println!("Unsupported external class {}", class_def.name);
-                        return Err(Err::Error(make_error(i, ErrorKind::Tag)));
-                    }
-                }
-            }
-            i = i2;
-
-            println!("Parsed = {}", parsed);
-            if !parsed {
-                return Err(Err::Error(make_error(i, ErrorKind::Tag)));
-            }
+            return if self.external_decoders.contains_key(&class_def.name) {
+                let (i, v) = self.external_decoders[&class_def.name](i, self)?;
+                Ok((i, SolValue::Custom(v, Some(class_def))))
+            } else {
+                println!("Unsupported external class {}", class_def.name);
+                Err(Err::Error(make_error(i, ErrorKind::Tag)))
+            };
         }
 
         let mut elements = Vec::new();
@@ -809,7 +738,8 @@ impl AMF3Decoder {
 }
 
 pub mod encoder {
-    use crate::amf3::{either, ElementCache, Length, TypeMarker};
+    use crate::amf3::{either, CustomEncoder, Length, TypeMarker};
+    use crate::element_cache::ElementCache;
     use crate::types::{Attribute, ClassDefinition, SolElement, SolValue};
     use crate::PADDING;
     use cookie_factory::bytes::{be_f64, be_i32, be_u32, be_u8};
@@ -818,6 +748,7 @@ pub mod encoder {
     use cookie_factory::sequence::tuple;
     use cookie_factory::{GenError, SerializeFn, WriteContext};
     use std::cell::RefCell;
+    use std::collections::HashMap;
     use std::io::Write;
 
     #[derive(Default)]
@@ -825,6 +756,7 @@ pub mod encoder {
         pub string_reference_table: ElementCache<Vec<u8>>,
         pub trait_reference_table: RefCell<Vec<ClassDefinition>>,
         pub object_reference_table: ElementCache<SolValue>,
+        pub external_encoders: HashMap<String, Box<dyn CustomEncoder>>,
     }
 
     impl AMF3Encoder {
@@ -860,13 +792,6 @@ pub mod encoder {
             } else {
                 bytes.push((n & 0x7f) as u8);
             }
-
-            //TODO: cache
-
-            //TODO: must be a better way
-            // be_u8(*bytes.get(0).unwrap())
-
-            // slice(&bytes.as_slice())
 
             move |out| all(bytes.iter().copied().map(be_u8))(out)
         }
@@ -1117,6 +1042,16 @@ pub mod encoder {
             tuple((
                 self.write_int(size as i32),
                 cond(
+                    def.attributes.contains(Attribute::EXTERNAL),
+                    move | out | {
+                        if let Some(encoder) = self.external_encoders.get(&def.name) {
+                            slice(encoder.encode(children, &Some(def.clone()), self))(out)
+                        } else {
+                            Err(GenError::NotYetImplemented)
+                        }
+                    }
+                ),
+                cond(
                     def.attributes.is_empty(),
                     all(children
                         .iter()
@@ -1143,7 +1078,7 @@ pub mod encoder {
                             })),
                         self.write_byte_string(&[]),
                     )),
-                ),
+                )
             ))
         }
 
@@ -1160,8 +1095,6 @@ pub mod encoder {
             children: &'b [SolElement],
             def: &'b ClassDefinition,
         ) -> impl SerializeFn<W> + 'a {
-            //TODO: object references (not just traits)
-
             self.trait_reference_table.borrow_mut().push(def.clone());
 
             let is_external = def.attributes.contains(Attribute::EXTERNAL);
@@ -1183,6 +1116,16 @@ pub mod encoder {
             tuple((
                 self.write_int(size as i32),
                 self.write_class_definition(def),
+                cond(
+                    def.attributes.contains(Attribute::EXTERNAL),
+                    move | out | {
+                        if let Some(encoder) = self.external_encoders.get(&def.name) {
+                            slice(encoder.encode(children, &Some(def.clone()), self))(out)
+                        } else {
+                            Err(GenError::NotYetImplemented)
+                        }
+                    }
+                ),
                 cond(
                     def.attributes.is_empty(),
                     all(children
@@ -1211,7 +1154,7 @@ pub mod encoder {
                             })),
                         self.write_byte_string(&[]),
                     )),
-                ),
+                )
             ))
         }
 
@@ -1423,6 +1366,7 @@ pub mod encoder {
                     self.write_dictionary_element(kv, *weak_keys)(out)
                 }
 
+                SolValue::Custom(elements, def) => self.write_object_element(elements, def)(out),
                 SolValue::TypedObject(_, _) => self.write_unsupported_element()(out),
                 SolValue::Unsupported => self.write_unsupported_element()(out),
             }

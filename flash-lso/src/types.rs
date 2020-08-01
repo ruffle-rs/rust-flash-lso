@@ -77,6 +77,8 @@ pub enum SolValue {
     /// Represent the dictionary type (amf3)
     /// Format is ((key, value), has_weak_keys)
     Dictionary(Vec<(SolValue, SolValue)>, bool),
+    /// Represent a external object, such as from flex
+    Custom(Vec<SolElement>, Option<ClassDefinition>),
 }
 
 /// A class definition (trait) used in AMF3

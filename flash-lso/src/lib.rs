@@ -7,6 +7,7 @@ const FORMAT_VERSION_AMF3: u8 = 0x3;
 
 pub mod amf0;
 pub mod amf3;
+mod element_cache;
 pub mod types;
 
 use crate::amf3::AMF3Decoder;
@@ -115,7 +116,7 @@ pub mod encoder {
 
     #[derive(Default)]
     pub struct LSOSerializer {
-        amf3_encoder: AMF3Encoder,
+        pub amf3_encoder: AMF3Encoder,
     }
 
     impl LSOSerializer {

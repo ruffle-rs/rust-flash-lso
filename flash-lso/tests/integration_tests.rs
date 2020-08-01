@@ -1,5 +1,6 @@
 use core::fmt;
 use flash_lso::encoder;
+use flash_lso::encoder::LSOSerializer;
 use flash_lso::LSODeserializer;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
@@ -93,6 +94,7 @@ macro_rules! auto_test_flex {
         #[test]
         pub fn $name() {
             use flash_lso::flex;
+            use cookie_factory::gen;
             let mut x = File::open(concat!("tests/sol/", $path, ".sol")).expect("Couldn't open file");
             let mut data = Vec::new();
             let _ = x.read_to_end(&mut data).expect("Unable to read file");
@@ -100,7 +102,7 @@ macro_rules! auto_test_flex {
             flex::decode::register_decoders(&mut des.amf3_decoder);
             let parse_res = des.parse_full(&data);
 
-            if let Ok((unparsed_bytes, _sol)) =  parse_res {
+            if let Ok((unparsed_bytes, sol)) =  parse_res {
                 // println!("{:#?}", sol);
 
                 let empty: Vec<u8> = vec![];
@@ -108,18 +110,23 @@ macro_rules! auto_test_flex {
                     assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
                 }
 
-                // let bytes = encoder::write_to_bytes(&sol);
-                //
+                let v = vec![];
+                let mut s = LSOSerializer::default();
+                flex::encode::register_encoders(&mut s.amf3_encoder);
+                let serialise = s.write_full(&sol);
+                let (buffer, _size) = gen(serialise, v).unwrap();
+                let bytes = buffer;
+
                 // for x in 0..bytes.len() {
                 //     if bytes[x] != data[x] {
                 //         println!("Difference around here: {}", x);
                 //                         assert_eq!(false, true)
                 //     }
                 // }
-                //
-                // // assert_eq!(bytes.len(), data.len());
-                // // assert_eq!(bytes, data, "library output != input");
-                // assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
+
+                // assert_eq!(bytes.len(), data.len());
+                // assert_eq!(bytes, data, "library output != input");
+                assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
             } else {
                 // println!("Input: {:?}", data);
                 println!("parse failed: {:?}", parse_res);
