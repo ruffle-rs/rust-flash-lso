@@ -1,6 +1,7 @@
 #![allow(clippy::identity_op)]
 
 use crate::amf0::decoder::parse_element_number;
+use crate::types::amf3::TypeMarker;
 use crate::types::*;
 use crate::types::{SolElement, SolValue};
 use crate::PADDING;
@@ -9,6 +10,7 @@ use enumset::EnumSet;
 use nom::bytes::complete::tag;
 use nom::combinator::map;
 use nom::error::{make_error, ErrorKind};
+use nom::lib::std::collections::HashMap;
 use nom::multi::{many_m_n, separated_list};
 use nom::number::complete::{be_f64, be_i32, be_u32, be_u8};
 use nom::sequence::tuple;
@@ -20,7 +22,6 @@ use std::cell::RefCell;
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
 use std::io::Write;
-use crate::types::amf3::TypeMarker;
 
 pub fn either<Fa, Fb, W: Write>(b: bool, t: Fa, f: Fb) -> impl SerializeFn<W>
 where
@@ -193,10 +194,13 @@ fn parse_element_int(i: &[u8]) -> IResult<&[u8], SolValue> {
     map(read_int_signed, SolValue::Integer)(i)
 }
 
+type ExternalDecoderFn = Box<dyn for<'a> Fn(&'a [u8], &AMF3Decoder) -> IResult<&'a [u8], SolValue>>;
+
 pub struct AMF3Decoder {
     pub string_reference_table: RefCell<Vec<Vec<u8>>>,
     pub trait_reference_table: RefCell<Vec<ClassDefinition>>,
     pub object_reference_table: RefCell<Vec<SolValue>>,
+    pub external_decoders: HashMap<String, ExternalDecoderFn>,
 }
 
 impl Default for AMF3Decoder {
@@ -205,6 +209,7 @@ impl Default for AMF3Decoder {
             string_reference_table: RefCell::new(Vec::new()),
             trait_reference_table: RefCell::new(Vec::new()),
             object_reference_table: RefCell::new(Vec::new()),
+            external_decoders: HashMap::new(),
         }
     }
 }
@@ -368,35 +373,29 @@ impl AMF3Decoder {
         let mut i = i;
         if class_def.attributes.contains(Attribute::EXTERNAL) {
             // will be set if a supported parser exists, otherwise this type can't be parsed
+            #[allow(unused_mut, unused_assignments)]
             let mut parsed = false;
 
-            let mut j = i;
+            #[allow(unused_mut, unused_assignments)]
+            let mut i2 = i;
             #[cfg(feature = "flex")]
             {
                 parsed = true;
 
                 if class_def.name.starts_with("flex.") {
-
-                    if class_def.name == "flex.messaging.io.ArrayCollection" {
-                        let (i, v) = self.parse_single_element(i)?;
-                        let j = i;
-                    } else if class_def.name == "flex.messaging.io.ObjectProxy" {
-                        let (i, v) = self.parse_single_element(i)?;
-                        let j = i;
-                    }
-                    else {
-                        println!("Flex class = {}", class_def.name);
-                        use crate::flex::decode::parse_flex;
-                        let (i, flex) = parse_flex(i)?;
-                        j = i;
+                    if self.external_decoders.contains_key(&class_def.name) {
+                        return self.external_decoders[&class_def.name](i2, self);
+                    } else {
+                        println!("Unsupported external class {}", class_def.name);
+                        return Err(Err::Error(make_error(i, ErrorKind::Tag)));
                     }
                 }
             }
+            i = i2;
 
+            println!("Parsed = {}", parsed);
             if !parsed {
                 return Err(Err::Error(make_error(i, ErrorKind::Tag)));
-            } else {
-                i = j;
             }
         }
 
@@ -765,7 +764,7 @@ impl AMF3Decoder {
         }
     }
 
-    fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    pub(crate) fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
         let (i, type_) = self.read_type_marker(i)?;
 
         match type_ {

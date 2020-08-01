@@ -92,6 +92,7 @@ pub struct ClassDefinition {
 /// Encodes the possible attributes that can be given to a trait
 /// If a trait is dynamic then the object may have additional properties other than the ones specified in the trait
 /// If a trait is external then it requires custom serialization and deserialization support
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(EnumSetType, Debug)]
 pub enum Attribute {
     DYNAMIC,

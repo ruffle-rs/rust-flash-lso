@@ -42,7 +42,7 @@ pub mod flex;
 /// }
 #[derive(Default)]
 pub struct LSODeserializer {
-    amf3_decoder: AMF3Decoder,
+    pub amf3_decoder: AMF3Decoder,
 }
 
 impl LSODeserializer {
