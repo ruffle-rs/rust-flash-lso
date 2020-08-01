@@ -321,7 +321,9 @@ impl AMF3Decoder {
         if class_def.attributes.contains(Attribute::EXTERNAL) {
             return if self.external_decoders.contains_key(&class_def.name) {
                 let (i, v) = self.external_decoders[&class_def.name](i, self)?;
-                Ok((i, SolValue::Custom(v, Some(class_def))))
+                let obj = SolValue::Custom(v, Some(class_def));
+                self.object_reference_table.borrow_mut()[old_len] = obj.clone();
+                Ok((i, obj))
             } else {
                 println!("Unsupported external class {}", class_def.name);
                 Err(Err::Error(make_error(i, ErrorKind::Tag)))
@@ -1116,6 +1118,7 @@ pub mod encoder {
             tuple((
                 self.write_int(size as i32),
                 self.write_class_definition(def),
+                be_u8(255),
                 cond(
                     def.attributes.contains(Attribute::EXTERNAL),
                     move | out | {
@@ -1126,6 +1129,7 @@ pub mod encoder {
                         }
                     }
                 ),
+                be_u8(255),
                 cond(
                     def.attributes.is_empty(),
                     all(children
