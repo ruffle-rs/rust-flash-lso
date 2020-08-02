@@ -37,10 +37,14 @@ miniserve ./static --index index.html
 This project has a collection of integration tests to verify that it is able to serialize and then deserialize LSO files to produce output that is identical to it's input
 Also available is a lso-to-json project which allows dumping an LSO file to json for debugging and testing.
 
-## Serde
-To enable serde support, enable the serde feature like so
+## Features
+To enable serde support
 ```toml
 flash-lso = { version = "0.2.0", features = ["serde"] }
+```
+To enable (alpha) support for flex
+ ```toml
+ flash-lso = { version = "0.2.0", features = ["flex"] }
 ```
 
 ## Fuzzing
