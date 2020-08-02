@@ -261,6 +261,22 @@ impl Model {
                         })}
                 </ul>
             },
+            SolValue::Custom(el, el2, class_def) => html! {
+                <ul>
+                    <li>
+                        {"Custom elements"}
+                        <ul>
+                            { for el.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
+                        </ul>
+                    </li>
+                    <li>
+                        {"Standard elements"}
+                        <ul>
+                            { for el2.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
+                        </ul>
+                    </li>
+                </ul>
+            },
             _ => html! {},
         }
     }

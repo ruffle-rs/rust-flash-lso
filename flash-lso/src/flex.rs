@@ -394,9 +394,9 @@ pub mod encode {
     pub struct ArrayCollection;
 
     impl CustomEncoder for ArrayCollection {
-        fn encode<'a, 'b: 'a>(
+        fn encode<'a>(
             &self,
-            elements: &'b [SolElement],
+            elements: &'a [SolElement],
             class_def: &Option<ClassDefinition>,
             encoder: &AMF3Encoder,
         ) -> Vec<u8> {
@@ -421,9 +421,9 @@ pub mod encode {
     pub struct ObjectProxy;
 
     impl CustomEncoder for ObjectProxy {
-        fn encode<'a, 'b: 'a>(
+        fn encode<'a>(
             &self,
-            elements: &'b [SolElement],
+            elements: &'a [SolElement],
             class_def: &Option<ClassDefinition>,
             encoder: &AMF3Encoder,
         ) -> Vec<u8> {
