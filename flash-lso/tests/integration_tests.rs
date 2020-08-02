@@ -1,6 +1,5 @@
 use core::fmt;
 use flash_lso::encoder;
-use flash_lso::encoder::LSOSerializer;
 use flash_lso::LSODeserializer;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
@@ -124,6 +123,11 @@ macro_rules! auto_test_flex {
                 //     }
                 // }
 
+                let mut des2 = LSODeserializer::default();
+                flex::decode::register_decoders(&mut des2.amf3_decoder);
+                let (_, sol2) = des2.parse_full(&bytes).expect("Unable to round trip");
+                assert!(sol2 == sol);
+
                 // assert_eq!(bytes.len(), data.len());
                 // assert_eq!(bytes, data, "library output != input");
                 assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
@@ -216,7 +220,7 @@ auto_test! {
     [flagstaff_2, "flagstaff"],
     [flash_viewer, "flash.viewer"],
     [hiro_network_capping_cookie, "HIRO_NETWORK_CAPPING_COOKIE"],
-    // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
+    // [infectonator_survivors_76561198009932603_, "InfectonatorSurvivors76561198009932603"],
     [jy1, "JY1"],
     [labrat_2, "Labrat2"],
     [mardek_v3_sg_1, "MARDEKv3__sg_1"],
@@ -224,11 +228,11 @@ auto_test! {
     // [metadata_history_, "MetadataHistory"],
     [minimal, "Minimal"],
     [minimal_2, "Minimalv2"],
-    // [party_1, "Party1"],
+    // [party_1_, "Party1"],
     [previous_video, "previousVideo"],
     [robokill, "robokill"],
     [settings, "settings"],
-    // [slot_1, "slot1"],
+    // [slot_1_, "slot1"],
     [slot_1_party, "slot1_party"],
     [sound_data, "soundData"],
     [sound_data_level_0, "soundData_level0"],

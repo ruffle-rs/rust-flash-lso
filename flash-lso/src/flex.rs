@@ -386,7 +386,7 @@ pub mod decode {
 pub mod encode {
     use crate::amf3::encoder::AMF3Encoder;
     use crate::amf3::CustomEncoder;
-    use crate::types::{SolElement, ClassDefinition};
+    use crate::types::{ClassDefinition, SolElement};
     use cookie_factory::bytes::be_u16;
     use cookie_factory::{gen, SerializeFn};
     use std::io::Write;
@@ -394,7 +394,12 @@ pub mod encode {
     pub struct ArrayCollection;
 
     impl CustomEncoder for ArrayCollection {
-        fn encode<'a, 'b: 'a>(&self, elements: &'b [SolElement], class_def: &Option<ClassDefinition>, encoder: &AMF3Encoder) -> Vec<u8> {
+        fn encode<'a, 'b: 'a>(
+            &self,
+            elements: &'b [SolElement],
+            class_def: &Option<ClassDefinition>,
+            encoder: &AMF3Encoder,
+        ) -> Vec<u8> {
             let v = Vec::new();
             let (bytes, size) = gen(self.do_encode(elements, class_def, encoder), v).unwrap();
             bytes
@@ -416,7 +421,12 @@ pub mod encode {
     pub struct ObjectProxy;
 
     impl CustomEncoder for ObjectProxy {
-        fn encode<'a, 'b: 'a>(&self, elements: &'b [SolElement], class_def: &Option<ClassDefinition>, encoder: &AMF3Encoder) -> Vec<u8> {
+        fn encode<'a, 'b: 'a>(
+            &self,
+            elements: &'b [SolElement],
+            class_def: &Option<ClassDefinition>,
+            encoder: &AMF3Encoder,
+        ) -> Vec<u8> {
             let v = Vec::new();
             let (bytes, size) = gen(self.do_encode(elements, class_def, encoder), v).unwrap();
             bytes
@@ -446,5 +456,4 @@ pub mod encode {
             Box::new(ObjectProxy {}),
         );
     }
-
 }

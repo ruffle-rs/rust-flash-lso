@@ -1,6 +1,7 @@
 #![allow(clippy::identity_op)]
 
 use crate::amf0::decoder::parse_element_number;
+use crate::amf3::encoder::AMF3Encoder;
 use crate::types::amf3::TypeMarker;
 use crate::types::*;
 use crate::types::{SolElement, SolValue};
@@ -22,7 +23,6 @@ use std::cell::RefCell;
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
 use std::io::Write;
-use crate::amf3::encoder::AMF3Encoder;
 
 pub fn either<Fa, Fb, W: Write>(b: bool, t: Fa, f: Fb) -> impl SerializeFn<W>
 where
@@ -142,7 +142,12 @@ type ExternalDecoderFn =
     Box<dyn for<'a> Fn(&'a [u8], &AMF3Decoder) -> IResult<&'a [u8], Vec<SolElement>>>;
 
 pub trait CustomEncoder {
-    fn encode<'a, 'b: 'a>(&self, elements: &'b [SolElement], class_def: &Option<ClassDefinition>, encoder: &AMF3Encoder) -> Vec<u8>;
+    fn encode<'a>(
+        &self,
+        elements: &'a [SolElement],
+        class_def: &Option<ClassDefinition>,
+        encoder: &AMF3Encoder,
+    ) -> Vec<u8>;
 }
 
 pub struct AMF3Decoder {
@@ -218,10 +223,10 @@ impl AMF3Decoder {
         let mut attributes = EnumSet::empty();
 
         if is_external {
-            attributes = attributes | Attribute::EXTERNAL;
+            attributes |= Attribute::EXTERNAL;
         }
         if is_dynamic {
-            attributes = attributes | Attribute::DYNAMIC;
+            attributes |= Attribute::DYNAMIC;
         }
 
         let class_def = ClassDefinition {
@@ -288,6 +293,7 @@ impl AMF3Decoder {
 
     pub fn parse_element_object<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
         let (i, mut length) = read_int(i)?;
+        println!("Obj length = {}", length);
 
         if length & REFERENCE_FLAG == 0 {
             let len_usize: usize = (length >> 1)
@@ -318,24 +324,33 @@ impl AMF3Decoder {
         // Class def
         let (i, class_def) = self.parse_class_def(length, i)?;
 
-        if class_def.attributes.contains(Attribute::EXTERNAL) {
-            return if self.external_decoders.contains_key(&class_def.name) {
-                let (i, v) = self.external_decoders[&class_def.name](i, self)?;
-                let obj = SolValue::Custom(v, Some(class_def));
-                self.object_reference_table.borrow_mut()[old_len] = obj.clone();
-                Ok((i, obj))
-            } else {
-                println!("Unsupported external class {}", class_def.name);
-                Err(Err::Error(make_error(i, ErrorKind::Tag)))
-            };
-        }
+        println!("class def = {:?}", class_def);
 
         let mut elements = Vec::new();
+        let mut external_elements = Vec::new();
+
+        let mut i = i;
+        if class_def.attributes.contains(Attribute::EXTERNAL) {
+            if self.external_decoders.contains_key(&class_def.name) {
+                let (j, v) = self.external_decoders[&class_def.name](i, self)?;
+                external_elements = v;
+                i = j;
+                //TODO: should it be possible to have both dynamic and external together
+                return Ok((
+                    i,
+                    SolValue::Custom(external_elements, vec![], Some(class_def)),
+                ));
+            } else {
+                println!("Unsupported external class {}", class_def.name);
+                return Err(Err::Error(make_error(i, ErrorKind::Tag)));
+            };
+        }
 
         let mut i = i;
         if class_def.attributes.contains(Attribute::DYNAMIC) {
             let (j, x) = self.parse_object_static(i, &class_def)?;
             elements.extend(x);
+            println!("Parsed static");
 
             // Read dynamic
             let (mut j, mut attr) = self.parse_byte_stream(j)?;
@@ -353,6 +368,8 @@ impl AMF3Decoder {
                 attr = attr2;
             }
             i = j;
+
+            println!("Parsed dynamic");
         }
         if class_def.attributes.is_empty() {
             let (j, x) = self.parse_object_static(i, &class_def)?;
@@ -361,9 +378,14 @@ impl AMF3Decoder {
             i = j;
         }
 
-        let obj = SolValue::Object(elements, Some(class_def));
+        let obj = if class_def.attributes.contains(Attribute::EXTERNAL) {
+            SolValue::Object(elements, Some(class_def))
+        } else {
+            SolValue::Custom(external_elements, elements, Some(class_def))
+        };
         // self.object_reference_table.borrow_mut().push(obj.clone());
         self.object_reference_table.borrow_mut()[old_len] = obj.clone();
+
         Ok((i, obj))
     }
 
@@ -696,6 +718,7 @@ impl AMF3Decoder {
     }
 
     pub(crate) fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+        println!("Parsing element");
         let (i, type_) = self.read_type_marker(i)?;
 
         match type_ {
@@ -1037,50 +1060,54 @@ pub mod encoder {
             &'a self,
             index: u32,
             children: &'b [SolElement],
+            custom_props: Option<&'b [SolElement]>,
             def: &'b ClassDefinition,
         ) -> impl SerializeFn<W> + 'a {
             let size = (((index << 1) | 0u32) << 1) | 1u32;
 
             tuple((
                 self.write_int(size as i32),
-                cond(
-                    def.attributes.contains(Attribute::EXTERNAL),
-                    move | out | {
-                        if let Some(encoder) = self.external_encoders.get(&def.name) {
-                            slice(encoder.encode(children, &Some(def.clone()), self))(out)
-                        } else {
-                            Err(GenError::NotYetImplemented)
-                        }
+                cond(def.attributes.contains(Attribute::EXTERNAL), move |out| {
+                    if let Some(encoder) = self.external_encoders.get(&def.name) {
+                        slice(encoder.encode(custom_props.unwrap(), &Some(def.clone()), self))(out)
+                    } else {
+                        Err(GenError::NotYetImplemented)
                     }
-                ),
+                }),
                 cond(
-                    def.attributes.is_empty(),
-                    all(children
-                        .iter()
-                        .filter(move |c| def.static_properties.contains(&c.name))
-                        .map(move |e| &e.value)
-                        .map(move |e| self.write_value(e))),
-                ),
-                cond(
-                    def.attributes.contains(Attribute::DYNAMIC),
+                    !def.attributes.contains(Attribute::EXTERNAL),
                     tuple((
-                        all(children
-                            .iter()
-                            .filter(move |c| def.static_properties.contains(&c.name))
-                            .map(move |e| &e.value)
-                            .map(move |e| self.write_value(e))),
-                        all(children
-                            .iter()
-                            .filter(move |c| !def.static_properties.contains(&c.name))
-                            .map(move |e| {
-                                tuple((
-                                    self.write_byte_string(e.name.as_bytes()),
-                                    self.write_value(&e.value),
-                                ))
-                            })),
-                        self.write_byte_string(&[]),
+                        cond(
+                            def.attributes.is_empty(),
+                            all(children
+                                .iter()
+                                .filter(move |c| def.static_properties.contains(&c.name))
+                                .map(move |e| &e.value)
+                                .map(move |e| self.write_value(e))),
+                        ),
+                        cond(
+                            def.attributes.contains(Attribute::DYNAMIC),
+                            tuple((
+                                all(children
+                                    .iter()
+                                    .filter(move |c| def.static_properties.contains(&c.name))
+                                    .map(move |e| &e.value)
+                                    .map(move |e| self.write_value(e))),
+                                all(children
+                                    .iter()
+                                    .filter(move |c| !def.static_properties.contains(&c.name))
+                                    // .map(move |e| &e.value)
+                                    .map(move |e| {
+                                        tuple((
+                                            self.write_byte_string(e.name.as_bytes()),
+                                            self.write_value(&e.value),
+                                        ))
+                                    })),
+                                self.write_byte_string(&[]),
+                            )),
+                        ),
                     )),
-                )
+                ),
             ))
         }
 
@@ -1094,6 +1121,7 @@ pub mod encoder {
 
         pub fn write_object_full<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
+            custom_props: Option<&'b [SolElement]>,
             children: &'b [SolElement],
             def: &'b ClassDefinition,
         ) -> impl SerializeFn<W> + 'a {
@@ -1118,53 +1146,54 @@ pub mod encoder {
             tuple((
                 self.write_int(size as i32),
                 self.write_class_definition(def),
-                be_u8(255),
-                cond(
-                    def.attributes.contains(Attribute::EXTERNAL),
-                    move | out | {
-                        if let Some(encoder) = self.external_encoders.get(&def.name) {
-                            slice(encoder.encode(children, &Some(def.clone()), self))(out)
-                        } else {
-                            Err(GenError::NotYetImplemented)
-                        }
+                cond(def.attributes.contains(Attribute::EXTERNAL), move |out| {
+                    if let Some(encoder) = self.external_encoders.get(&def.name) {
+                        slice(encoder.encode(custom_props.unwrap(), &Some(def.clone()), self))(out)
+                    } else {
+                        Err(GenError::NotYetImplemented)
                     }
-                ),
-                be_u8(255),
+                }),
                 cond(
-                    def.attributes.is_empty(),
-                    all(children
-                        .iter()
-                        .filter(move |c| def.static_properties.contains(&c.name))
-                        .map(move |e| &e.value)
-                        .map(move |e| self.write_value(e))),
-                ),
-                cond(
-                    def.attributes.contains(Attribute::DYNAMIC),
+                    !def.attributes.contains(Attribute::EXTERNAL),
                     tuple((
-                        all(children
-                            .iter()
-                            .filter(move |c| def.static_properties.contains(&c.name))
-                            .map(move |e| &e.value)
-                            .map(move |e| self.write_value(e))),
-                        all(children
-                            .iter()
-                            .filter(move |c| !def.static_properties.contains(&c.name))
-                            // .map(move |e| &e.value)
-                            .map(move |e| {
-                                tuple((
-                                    self.write_byte_string(e.name.as_bytes()),
-                                    self.write_value(&e.value),
-                                ))
-                            })),
-                        self.write_byte_string(&[]),
+                        cond(
+                            def.attributes.is_empty(),
+                            all(children
+                                .iter()
+                                .filter(move |c| def.static_properties.contains(&c.name))
+                                .map(move |e| &e.value)
+                                .map(move |e| self.write_value(e))),
+                        ),
+                        cond(
+                            def.attributes.contains(Attribute::DYNAMIC),
+                            tuple((
+                                all(children
+                                    .iter()
+                                    .filter(move |c| def.static_properties.contains(&c.name))
+                                    .map(move |e| &e.value)
+                                    .map(move |e| self.write_value(e))),
+                                all(children
+                                    .iter()
+                                    .filter(move |c| !def.static_properties.contains(&c.name))
+                                    // .map(move |e| &e.value)
+                                    .map(move |e| {
+                                        tuple((
+                                            self.write_byte_string(e.name.as_bytes()),
+                                            self.write_value(&e.value),
+                                        ))
+                                    })),
+                                self.write_byte_string(&[]),
+                            )),
+                        ),
                     )),
-                )
+                ),
             ))
         }
 
         pub fn write_object_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             children: &'b [SolElement],
+            custom_props: Option<&'b [SolElement]>,
             class_def: &'b Option<ClassDefinition>,
         ) -> impl SerializeFn<W> + 'a {
             // let mut had_object = self
@@ -1197,10 +1226,14 @@ pub mod encoder {
                                     self.write_trait_reference(
                                         has_trait.unwrap() as u32,
                                         children,
+                                        custom_props,
                                         def,
                                     )(out)
                                 }),
-                                cond(has_trait.is_none(), self.write_object_full(children, def)),
+                                cond(
+                                    has_trait.is_none(),
+                                    self.write_object_full(custom_props, children, def),
+                                ),
                             )),
                         ),
                     ))(out)
@@ -1342,7 +1375,7 @@ pub mod encoder {
                 SolValue::Bool(b) => self.write_boolean_element(*b)(out),
                 SolValue::String(s) => self.write_string_element(s)(out),
                 SolValue::Object(children, class_def) => {
-                    self.write_object_element(children, class_def)(out)
+                    self.write_object_element(children, None, class_def)(out)
                 }
                 SolValue::Null => self.write_null_element()(out),
                 SolValue::Undefined => self.write_undefined_element()(out),
@@ -1370,7 +1403,9 @@ pub mod encoder {
                     self.write_dictionary_element(kv, *weak_keys)(out)
                 }
 
-                SolValue::Custom(elements, def) => self.write_object_element(elements, def)(out),
+                SolValue::Custom(elements, dynamic_elements, def) => {
+                    self.write_object_element(dynamic_elements, Some(elements), def)(out)
+                }
                 SolValue::TypedObject(_, _) => self.write_unsupported_element()(out),
                 SolValue::Unsupported => self.write_unsupported_element()(out),
             }
