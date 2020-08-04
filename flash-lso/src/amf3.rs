@@ -1,6 +1,5 @@
 #![allow(clippy::identity_op)]
 
-use crate::amf0::decoder::parse_element_number;
 use crate::amf3::encoder::AMF3Encoder;
 use crate::types::amf3::TypeMarker;
 use crate::types::*;
@@ -19,10 +18,13 @@ use nom::take;
 use nom::take_str;
 use nom::Err;
 use nom::IResult;
+use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
 use std::io::Write;
+use std::ops::{Deref, DerefMut};
+use std::rc::Rc;
 
 pub fn either<Fa, Fb, W: Write>(b: bool, t: Fa, f: Fb) -> impl SerializeFn<W>
 where
@@ -133,8 +135,9 @@ fn read_length(i: &[u8]) -> IResult<&[u8], (u32, bool)> {
     Ok((i, (val >> 1, val & REFERENCE_FLAG == 0)))
 }
 
-fn parse_element_int(i: &[u8]) -> IResult<&[u8], SolValue> {
-    map(read_int_signed, SolValue::Integer)(i)
+fn parse_element_int(i: &[u8]) -> IResult<&[u8], Element> {
+    let (i, s) = map(read_int_signed, SolValue::Integer)(i)?;
+    Ok((i, Rc::new(RefCell::new(s))))
 }
 
 //TODO: could this be combined
@@ -153,7 +156,7 @@ pub trait CustomEncoder {
 pub struct AMF3Decoder {
     pub string_reference_table: RefCell<Vec<Vec<u8>>>,
     pub trait_reference_table: RefCell<Vec<ClassDefinition>>,
-    pub object_reference_table: RefCell<Vec<SolValue>>,
+    pub object_reference_table: RefCell<Vec<Rc<RefCell<SolValue>>>>,
     pub external_decoders: HashMap<String, ExternalDecoderFn>,
 }
 
@@ -167,10 +170,17 @@ impl Default for AMF3Decoder {
         }
     }
 }
+type Element = Rc<RefCell<SolValue>>;
+
+pub fn parse_element_number(i: &[u8]) -> IResult<&[u8], Element> {
+    let (i, v) = map(be_f64, SolValue::Number)(i)?;
+    Ok((i, Rc::new(RefCell::new(v))))
+}
 
 impl AMF3Decoder {
-    fn parse_element_string<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
-        map(|i| self.parse_string(i), SolValue::String)(i)
+    fn parse_element_string<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
+        let (i, s) = map(|i| self.parse_string(i), SolValue::String)(i)?;
+        return Ok((i, Rc::new(RefCell::new(s))));
     }
 
     pub fn parse_string<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], String> {
@@ -291,7 +301,7 @@ impl AMF3Decoder {
         Ok((i, elements))
     }
 
-    pub fn parse_element_object<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    pub fn parse_element_object<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, mut length) = read_int(i)?;
         println!("Obj length = {}", length);
 
@@ -307,24 +317,22 @@ impl AMF3Decoder {
                 .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
                 .clone();
 
-            if obj == SolValue::Null {
-                //TODO: more descriptive error something about `cyclic data`
-                return Err(Err::Error(make_error(i, ErrorKind::Alpha)));
-            }
-
             return Ok((i, obj));
         }
         length >>= 1;
 
         let old_len = self.object_reference_table.borrow().len();
+        let obj = Rc::new(RefCell::new(SolValue::Object(Vec::new(), None)));
         self.object_reference_table
             .borrow_mut()
-            .push(SolValue::Null);
+            .push(Rc::clone(&obj));
 
         // Class def
         let (i, class_def) = self.parse_class_def(length, i)?;
 
-        println!("class def = {:?}", class_def);
+        if let SolValue::Object(_, ref mut def) = obj.deref().borrow_mut().deref_mut() {
+            *def = Some(class_def.clone());
+        }
 
         let mut elements = Vec::new();
         let mut external_elements = Vec::new();
@@ -338,10 +346,13 @@ impl AMF3Decoder {
                 //TODO: should it be possible to have both dynamic and external together
                 return Ok((
                     i,
-                    SolValue::Custom(external_elements, vec![], Some(class_def)),
+                    Rc::new(RefCell::new(SolValue::Custom(
+                        external_elements,
+                        vec![],
+                        Some(class_def.clone()),
+                    ))),
                 ));
             } else {
-                println!("Unsupported external class {}", class_def.name);
                 return Err(Err::Error(make_error(i, ErrorKind::Tag)));
             };
         }
@@ -350,7 +361,6 @@ impl AMF3Decoder {
         if class_def.attributes.contains(Attribute::DYNAMIC) {
             let (j, x) = self.parse_object_static(i, &class_def)?;
             elements.extend(x);
-            println!("Parsed static");
 
             // Read dynamic
             let (mut j, mut attr) = self.parse_byte_stream(j)?;
@@ -368,8 +378,6 @@ impl AMF3Decoder {
                 attr = attr2;
             }
             i = j;
-
-            println!("Parsed dynamic");
         }
         if class_def.attributes.is_empty() {
             let (j, x) = self.parse_object_static(i, &class_def)?;
@@ -378,18 +386,17 @@ impl AMF3Decoder {
             i = j;
         }
 
-        let obj = if class_def.attributes.contains(Attribute::EXTERNAL) {
-            SolValue::Object(elements, Some(class_def))
-        } else {
-            SolValue::Custom(external_elements, elements, Some(class_def))
-        };
-        // self.object_reference_table.borrow_mut().push(obj.clone());
-        self.object_reference_table.borrow_mut()[old_len] = obj.clone();
+        if let SolValue::Object(ref mut elements_inner, _) = obj.deref().borrow_mut().deref_mut() {
+            *elements_inner = elements;
+        }
 
-        Ok((i, obj))
+        // self.object_reference_table.borrow_mut().push(obj.clone());
+        // self.object_reference_table.borrow_mut()[old_len] = obj.clone();
+
+        Ok((i, Rc::clone(&obj)))
     }
 
-    fn parse_element_byte_array<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_byte_array<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, (len, reference)) = read_length(i)?;
 
         if reference {
@@ -407,13 +414,15 @@ impl AMF3Decoder {
             Ok((i, obj))
         } else {
             let (i, bytes) = take!(i, len)?;
-            let obj = SolValue::ByteArray(bytes.to_vec());
-            self.object_reference_table.borrow_mut().push(obj.clone());
+            let obj = Rc::new(RefCell::new(SolValue::ByteArray(bytes.to_vec())));
+            self.object_reference_table
+                .borrow_mut()
+                .push(Rc::clone(&obj));
             Ok((i, obj))
         }
     }
 
-    fn parse_element_vector_int<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_vector_int<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, (len, reference)) = read_length(i)?;
 
         let len_usize: usize = len
@@ -440,12 +449,14 @@ impl AMF3Decoder {
 
         let (i, ints) = many_m_n(len_usize, len_usize, be_i32)(i)?;
 
-        let obj = SolValue::VectorInt(ints, fixed_length == 1);
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        let obj = Rc::new(RefCell::new(SolValue::VectorInt(ints, fixed_length == 1)));
+        self.object_reference_table
+            .borrow_mut()
+            .push(Rc::clone(&obj));
         Ok((i, obj))
     }
 
-    fn parse_element_vector_uint<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_vector_uint<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, (len, reference)) = read_length(i)?;
 
         let len_usize: usize = len
@@ -472,12 +483,15 @@ impl AMF3Decoder {
 
         let (i, ints) = many_m_n(len_usize, len_usize, be_u32)(i)?;
 
-        let obj = SolValue::VectorUInt(ints, fixed_length == 1);
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        //TODO: move up and others
+        let obj = Rc::new(RefCell::new(SolValue::VectorUInt(ints, fixed_length == 1)));
+        self.object_reference_table
+            .borrow_mut()
+            .push(Rc::clone(&obj));
         Ok((i, obj))
     }
 
-    fn parse_element_vector_double<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_vector_double<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, (len, reference)) = read_length(i)?;
         let len_usize: usize = len
             .try_into()
@@ -503,12 +517,17 @@ impl AMF3Decoder {
 
         let (i, ints) = many_m_n(len_usize, len_usize, be_f64)(i)?;
 
-        let obj = SolValue::VectorDouble(ints, fixed_length == 1);
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        let obj = Rc::new(RefCell::new(SolValue::VectorDouble(
+            ints,
+            fixed_length == 1,
+        )));
+        self.object_reference_table
+            .borrow_mut()
+            .push(Rc::clone(&obj));
         Ok((i, obj))
     }
 
-    fn parse_element_object_vector<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_object_vector<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, (len, reference)) = read_length(i)?;
 
         let length_usize = len
@@ -537,12 +556,19 @@ impl AMF3Decoder {
 
         let (i, elems) = many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
 
-        let obj = SolValue::VectorObject(elems, object_type_name, fixed_length == 1);
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        //TODO: move up
+        let obj = Rc::new(RefCell::new(SolValue::VectorObject(
+            elems,
+            object_type_name,
+            fixed_length == 1,
+        )));
+        self.object_reference_table
+            .borrow_mut()
+            .push(Rc::clone(&obj));
         Ok((i, obj))
     }
 
-    fn parse_element_array<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_array<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, mut length) = read_int(i)?;
 
         if length & REFERENCE_FLAG == 0 {
@@ -555,12 +581,8 @@ impl AMF3Decoder {
                 .borrow()
                 .get(len_usize)
                 .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
+                //TODO: all these clone should be Rc::clone()
                 .clone();
-
-            if obj == SolValue::Null {
-                //TODO: again cyclic err
-                return Err(Err::Error(make_error(i, ErrorKind::Alpha)));
-            }
 
             return Ok((i, obj));
         }
@@ -574,19 +596,25 @@ impl AMF3Decoder {
         if i.len() < length_usize {
             return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
         }
+        //TODO: this wont work properly till we have one type for all
 
         let old_len = self.object_reference_table.borrow().len();
+        let obj = Rc::new(RefCell::new(SolValue::Null));
         self.object_reference_table
             .borrow_mut()
-            .push(SolValue::Null);
+            .push(Rc::clone(&obj));
 
         let (i, mut key) = self.parse_byte_stream(i)?;
 
         if key == [] {
             let (i, elements) =
                 many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
-            let obj = SolValue::StrictArray(elements);
-            self.object_reference_table.borrow_mut()[old_len] = obj.clone();
+
+            let mut x = obj.deref().borrow_mut();
+            *x = SolValue::StrictArray(elements);
+            drop(x);
+
+            // self.object_reference_table.borrow_mut()[old_len] = Rc::clone(&obj);
             return Ok((i, obj));
         }
 
@@ -611,12 +639,15 @@ impl AMF3Decoder {
         let (i, el) = many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
 
         let elements_len = elements.len() as u32;
-        let obj = SolValue::ECMAArray(el, elements, elements_len);
-        self.object_reference_table.borrow_mut()[old_len] = obj.clone();
+        // let obj = Rc::new(RefCell::new(SolValue::ECMAArray(el, elements, elements_len)));
+        // self.object_reference_table.borrow_mut()[old_len] = obj.clone();
+        let mut x = obj.deref().borrow_mut();
+        *x = SolValue::ECMAArray(el, elements, elements_len);
+        drop(x);
         Ok((i, obj))
     }
 
-    fn parse_element_dict<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_dict<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, (len, reference)) = read_length(i)?;
 
         if reference {
@@ -637,6 +668,14 @@ impl AMF3Decoder {
         //TODO: implications of this
         let (i, weak_keys) = be_u8(i)?;
 
+        let obj = Rc::new(RefCell::new(SolValue::Dictionary(
+            Vec::new(),
+            weak_keys == 1,
+        )));
+        self.object_reference_table
+            .borrow_mut()
+            .push(Rc::clone(&obj));
+
         let length_usize = len
             .try_into()
             .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
@@ -655,11 +694,18 @@ impl AMF3Decoder {
             )),
         )(i)?;
 
-        let obj = SolValue::Dictionary(pairs, weak_keys == 1);
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        let mut x = obj.deref().borrow_mut();
+        if let SolValue::Dictionary(ref mut internal_pairs, _) = x.deref_mut() {
+            *internal_pairs = Vec::new();
+        }
+        drop(x);
+
+        // let obj = SolValue::Dictionary(pairs, weak_keys == 1);
+        // self.object_reference_table.borrow_mut().push(obj.clone());
         Ok((i, obj))
     }
-    fn parse_element_date<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+
+    fn parse_element_date<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, reference) = read_int(i)?;
 
         if reference & REFERENCE_FLAG == 0 {
@@ -679,12 +725,14 @@ impl AMF3Decoder {
 
         let (i, ms) = be_f64(i)?;
 
-        let obj = SolValue::Date(ms, None);
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        let obj = Rc::new(RefCell::new(SolValue::Date(ms, None)));
+        self.object_reference_table
+            .borrow_mut()
+            .push(Rc::clone(&obj));
         Ok((i, obj))
     }
 
-    fn parse_element_xml<'a>(&self, i: &'a [u8], string: bool) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_xml<'a>(&self, i: &'a [u8], string: bool) -> IResult<&'a [u8], Element> {
         let (i, reference) = read_int(i)?;
 
         if reference & REFERENCE_FLAG == 0 {
@@ -703,8 +751,10 @@ impl AMF3Decoder {
         }
 
         let (i, data) = take_str!(i, reference >> 1)?;
-        let obj = SolValue::XML(data.into(), string);
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        let obj = Rc::new(RefCell::new(SolValue::XML(data.into(), string)));
+        self.object_reference_table
+            .borrow_mut()
+            .push(Rc::clone(&obj));
         Ok((i, obj))
     }
 
@@ -717,15 +767,14 @@ impl AMF3Decoder {
         }
     }
 
-    pub(crate) fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
-        println!("Parsing element");
+    pub fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
         let (i, type_) = self.read_type_marker(i)?;
 
-        match type_ {
-            TypeMarker::Undefined => Ok((i, SolValue::Undefined)),
-            TypeMarker::Null => Ok((i, SolValue::Null)),
-            TypeMarker::False => Ok((i, SolValue::Bool(false))),
-            TypeMarker::True => Ok((i, SolValue::Bool(true))),
+        let x = match type_ {
+            TypeMarker::Undefined => Ok((i, Rc::new(RefCell::new(SolValue::Undefined)))),
+            TypeMarker::Null => Ok((i, Rc::new(RefCell::new(SolValue::Null)))),
+            TypeMarker::False => Ok((i, Rc::new(RefCell::new(SolValue::Bool(false))))),
+            TypeMarker::True => Ok((i, Rc::new(RefCell::new(SolValue::Bool(true))))),
             TypeMarker::Integer => parse_element_int(i),
             TypeMarker::Number => parse_element_number(i),
             TypeMarker::String => self.parse_element_string(i),
@@ -740,7 +789,10 @@ impl AMF3Decoder {
             TypeMarker::VectorUInt => self.parse_element_vector_uint(i),
             TypeMarker::VectorDouble => self.parse_element_vector_double(i),
             TypeMarker::Dictionary => self.parse_element_dict(i),
-        }
+        }?;
+
+        let y = x.1.borrow().deref().clone();
+        Ok((i, y))
     }
 
     pub fn parse_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolElement> {

@@ -29,7 +29,7 @@ pub mod decode {
         while next_flag {
             let (i, flag) = be_u8(i)?;
             flags.push(flag);
-            if flag & 128 == 0 {
+            if flag & NEXT_FLAG == 0 {
                 next_flag = false
             }
             k = i;
@@ -387,7 +387,6 @@ pub mod encode {
     use crate::amf3::encoder::AMF3Encoder;
     use crate::amf3::CustomEncoder;
     use crate::types::{ClassDefinition, SolElement};
-    use cookie_factory::bytes::be_u16;
     use cookie_factory::{gen, SerializeFn};
     use std::io::Write;
 
@@ -397,11 +396,11 @@ pub mod encode {
         fn encode<'a>(
             &self,
             elements: &'a [SolElement],
-            class_def: &Option<ClassDefinition>,
+            _class_def: &Option<ClassDefinition>,
             encoder: &AMF3Encoder,
         ) -> Vec<u8> {
             let v = Vec::new();
-            let (bytes, size) = gen(self.do_encode(elements, class_def, encoder), v).unwrap();
+            let (bytes, _size) = gen(self.do_encode(elements, encoder), v).unwrap();
             bytes
         }
     }
@@ -410,7 +409,6 @@ pub mod encode {
         fn do_encode<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             elements: &'b [SolElement],
-            class_def: &'a Option<ClassDefinition>,
             encoder: &'a AMF3Encoder,
         ) -> impl SerializeFn<W> + 'a {
             let data = elements.get(0).unwrap();
@@ -424,11 +422,11 @@ pub mod encode {
         fn encode<'a>(
             &self,
             elements: &'a [SolElement],
-            class_def: &Option<ClassDefinition>,
+            _class_def: &Option<ClassDefinition>,
             encoder: &AMF3Encoder,
         ) -> Vec<u8> {
             let v = Vec::new();
-            let (bytes, size) = gen(self.do_encode(elements, class_def, encoder), v).unwrap();
+            let (bytes, _size) = gen(self.do_encode(elements, encoder), v).unwrap();
             bytes
         }
     }
@@ -437,7 +435,6 @@ pub mod encode {
         fn do_encode<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             elements: &'b [SolElement],
-            class_def: &'a Option<ClassDefinition>,
             encoder: &'a AMF3Encoder,
         ) -> impl SerializeFn<W> + 'a {
             let data = elements.get(0).unwrap();

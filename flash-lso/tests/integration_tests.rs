@@ -1,5 +1,6 @@
 use core::fmt;
 use flash_lso::encoder;
+use flash_lso::encoder::LSOSerializer;
 use flash_lso::LSODeserializer;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
