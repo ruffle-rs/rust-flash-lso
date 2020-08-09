@@ -32,7 +32,7 @@ macro_rules! auto_test {
             let parse_res = LSODeserializer::default().parse_full(&data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
-                // println!("{:#?}", sol);
+                println!("{:#?}", sol);
 
                 let empty: Vec<u8> = vec![];
                 if unparsed_bytes.len() > 0 {
@@ -41,14 +41,13 @@ macro_rules! auto_test {
 
                 let bytes = encoder::write_to_bytes(&sol);
 
-                for x in 0..bytes.len() {
-                    if bytes[x] != data[x] {
-                        println!("Difference around here: {}", x);
-                                        assert_eq!(false, true)
-                    }
-                }
+                // for x in 0..bytes.len() {
+                //     if bytes[x] != data[x] {
+                //         println!("Difference around here: {}", x);
+                //                         assert_eq!(false, true)
+                //     }
+                // }
 
-                // assert_eq!(bytes.len(), data.len());
                 // assert_eq!(bytes, data, "library output != input");
                 assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
             } else {

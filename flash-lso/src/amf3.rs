@@ -696,7 +696,7 @@ impl AMF3Decoder {
 
         let mut x = obj.deref().borrow_mut();
         if let SolValue::Dictionary(ref mut internal_pairs, _) = x.deref_mut() {
-            *internal_pairs = Vec::new();
+            *internal_pairs = pairs;
         }
         drop(x);
 
@@ -713,14 +713,15 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            let obj = self
+            let table = self
                 .object_reference_table
-                .borrow()
-                .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
-                .clone();
+                .borrow();
 
-            return Ok((i, obj));
+            let obj = table
+                .get(len_usize)
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?;
+
+            return Ok((i, Rc::clone(obj)));
         }
 
         let (i, ms) = be_f64(i)?;
@@ -770,7 +771,7 @@ impl AMF3Decoder {
     pub fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
         let (i, type_) = self.read_type_marker(i)?;
 
-        let x = match type_ {
+        let (i, x) = match type_ {
             TypeMarker::Undefined => Ok((i, Rc::new(RefCell::new(SolValue::Undefined)))),
             TypeMarker::Null => Ok((i, Rc::new(RefCell::new(SolValue::Null)))),
             TypeMarker::False => Ok((i, Rc::new(RefCell::new(SolValue::Bool(false))))),
@@ -791,7 +792,7 @@ impl AMF3Decoder {
             TypeMarker::Dictionary => self.parse_element_dict(i),
         }?;
 
-        let y = x.1.borrow().deref().clone();
+        let y = x.borrow().deref().clone();
         Ok((i, y))
     }
 

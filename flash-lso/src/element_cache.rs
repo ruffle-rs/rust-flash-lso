@@ -34,7 +34,9 @@ impl<T: PartialEq + Clone + Debug> ElementCache<T> {
     }
 
     pub fn to_length(&self, val: T, length: u32) -> Length {
+        println!("Looking up {:?}", val);
         if let Some(i) = self.get_index(val) {
+            println!("ref = {}", i);
             Length::Reference(i)
         } else {
             Length::Size(length)
