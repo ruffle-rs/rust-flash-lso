@@ -1,10 +1,12 @@
+const NEXT_FLAG: u8 = 128;
+
 pub mod decode {
     use crate::amf3::AMF3Decoder;
+    use crate::flex::NEXT_FLAG;
     use crate::types::SolElement;
     use nom::number::complete::be_u8;
     use nom::IResult;
 
-    const NEXT_FLAG: u8 = 128;
     const BODY_FLAG: u8 = 1;
     const CLIENT_ID_FLAG: u8 = 2;
     const DESTINATION_ID_FLAG: u8 = 4;
@@ -268,7 +270,7 @@ pub mod decode {
         Ok((k, elements))
     }
 
-    // arrays
+    // all arrays
     pub fn parse_array_collection<'a>(
         i: &'a [u8],
         amf3: &AMF3Decoder,
@@ -283,14 +285,7 @@ pub mod decode {
         Ok((i, el))
     }
 
-    pub fn parse_array_list<'a>(
-        i: &'a [u8],
-        amf3: &AMF3Decoder,
-    ) -> IResult<&'a [u8], Vec<SolElement>> {
-        parse_array_collection(i, amf3)
-    }
-
-    // proxies
+    // all proxies
     pub fn parse_object_proxy<'a>(
         i: &'a [u8],
         amf3: &AMF3Decoder,
@@ -299,27 +294,6 @@ pub mod decode {
 
         let el = vec![SolElement {
             name: "object".to_string(),
-            value,
-        }];
-
-        Ok((i, el))
-    }
-
-    pub fn parse_managed_object_proxy<'a>(
-        i: &'a [u8],
-        amf3: &AMF3Decoder,
-    ) -> IResult<&'a [u8], Vec<SolElement>> {
-        parse_object_proxy(i, amf3)
-    }
-
-    pub fn parse_serialization_proxy<'a>(
-        i: &'a [u8],
-        amf3: &AMF3Decoder,
-    ) -> IResult<&'a [u8], Vec<SolElement>> {
-        let (i, value) = amf3.parse_single_element(i)?;
-
-        let el = vec![SolElement {
-            name: "proxy".to_string(),
             value,
         }];
 
@@ -374,11 +348,11 @@ pub mod decode {
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.ManagedObjectProxy".to_string(),
-            Box::new(parse_managed_object_proxy),
+            Box::new(parse_object_proxy),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.SerializationProxy".to_string(),
-            Box::new(parse_serialization_proxy),
+            Box::new(parse_object_proxy),
         );
     }
 }
@@ -386,9 +360,13 @@ pub mod decode {
 pub mod encode {
     use crate::amf3::encoder::AMF3Encoder;
     use crate::amf3::CustomEncoder;
+    use crate::flex::NEXT_FLAG;
     use crate::types::{ClassDefinition, SolElement};
+    use cookie_factory::bytes::be_u8;
     use cookie_factory::{gen, SerializeFn};
     use std::io::Write;
+    use nom::InputIter;
+    use cookie_factory::multi::all;
 
     pub struct ArrayCollection;
 
@@ -442,6 +420,16 @@ pub mod encode {
         }
     }
 
+    pub fn write_flags<'a, 'b: 'a, W: Write + 'a>(flags: &'a [u8]) -> impl SerializeFn<W> + 'a {
+        all(flags.iter().enumerate().map(move |(index, flag)| {
+            if index == flags.len() {
+                be_u8(*flag & !NEXT_FLAG)
+            } else {
+                be_u8(*flag | NEXT_FLAG)
+            }
+        }))
+    }
+
     pub fn register_encoders(encoder: &mut AMF3Encoder) {
         encoder.external_encoders.insert(
             "flex.messaging.io.ArrayCollection".to_string(),
@@ -449,7 +437,22 @@ pub mod encode {
         );
 
         encoder.external_encoders.insert(
+            "flex.messaging.io.ArrayList".to_string(),
+            Box::new(ArrayCollection {}),
+        );
+
+        encoder.external_encoders.insert(
             "flex.messaging.io.ObjectProxy".to_string(),
+            Box::new(ObjectProxy {}),
+        );
+
+        encoder.external_encoders.insert(
+            "flex.messaging.io.ManagedObjectProxy".to_string(),
+            Box::new(ObjectProxy {}),
+        );
+
+        encoder.external_encoders.insert(
+            "flex.messaging.io.SerializationProxy".to_string(),
             Box::new(ObjectProxy {}),
         );
     }

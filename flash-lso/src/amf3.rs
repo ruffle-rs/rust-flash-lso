@@ -713,9 +713,7 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            let table = self
-                .object_reference_table
-                .borrow();
+            let table = self.object_reference_table.borrow();
 
             let obj = table
                 .get(len_usize)
