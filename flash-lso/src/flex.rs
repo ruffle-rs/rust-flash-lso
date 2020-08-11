@@ -1,25 +1,25 @@
 const NEXT_FLAG: u8 = 128;
 
+const BODY_FLAG: u8 = 1;
+const CLIENT_ID_FLAG: u8 = 2;
+const DESTINATION_ID_FLAG: u8 = 4;
+const HEADERS_FLAG: u8 = 8;
+const MESSAGE_ID_FLAG: u8 = 16;
+const TIMESTAMP_FLAG: u8 = 32;
+const TTL_FLAG: u8 = 64;
+
+const CLIENT_ID_BYTES_FLAG: u8 = 1;
+const MESSAGE_ID_BYTES_FLAG: u8 = 2;
+
+const CORRELATION_ID_FLAG: u8 = 1;
+const CORRELATION_ID_BYTES_FLAG: u8 = 2;
+
 pub mod decode {
     use crate::amf3::AMF3Decoder;
-    use crate::flex::NEXT_FLAG;
+    use crate::flex::{NEXT_FLAG, BODY_FLAG, CLIENT_ID_FLAG, DESTINATION_ID_FLAG, HEADERS_FLAG, MESSAGE_ID_FLAG, TIMESTAMP_FLAG, TTL_FLAG, CLIENT_ID_BYTES_FLAG, MESSAGE_ID_BYTES_FLAG, CORRELATION_ID_FLAG, CORRELATION_ID_BYTES_FLAG};
     use crate::types::SolElement;
     use nom::number::complete::be_u8;
     use nom::IResult;
-
-    const BODY_FLAG: u8 = 1;
-    const CLIENT_ID_FLAG: u8 = 2;
-    const DESTINATION_ID_FLAG: u8 = 4;
-    const HEADERS_FLAG: u8 = 8;
-    const MESSAGE_ID_FLAG: u8 = 16;
-    const TIMESTAMP_FLAG: u8 = 32;
-    const TTL_FLAG: u8 = 64;
-
-    const CLIENT_ID_BYTES_FLAG: u8 = 1;
-    const MESSAGE_ID_BYTES_FLAG: u8 = 2;
-
-    const CORRELATION_ID_FLAG: u8 = 1;
-    const CORRELATION_ID_BYTES_FLAG: u8 = 2;
 
     const OPERATION_FLAG: u8 = 1;
 
@@ -360,8 +360,8 @@ pub mod decode {
 pub mod encode {
     use crate::amf3::encoder::AMF3Encoder;
     use crate::amf3::CustomEncoder;
-    use crate::flex::NEXT_FLAG;
-    use crate::types::{ClassDefinition, SolElement};
+    use crate::flex::{NEXT_FLAG, BODY_FLAG, CLIENT_ID_FLAG, DESTINATION_ID_FLAG, HEADERS_FLAG, MESSAGE_ID_FLAG, TIMESTAMP_FLAG, TTL_FLAG, CLIENT_ID_BYTES_FLAG, MESSAGE_ID_BYTES_FLAG};
+    use crate::types::{ClassDefinition, SolElement, SolValue};
     use cookie_factory::bytes::be_u8;
     use cookie_factory::{gen, SerializeFn};
     use std::io::Write;
@@ -430,6 +430,91 @@ pub mod encode {
         }))
     }
 
+    pub struct AbstractMessage;
+
+    impl CustomEncoder for AbstractMessage {
+        fn encode<'a>(
+            &self,
+            elements: &'a [SolElement],
+            _class_def: &Option<ClassDefinition>,
+            encoder: &AMF3Encoder,
+        ) -> Vec<u8> {
+            let v = Vec::new();
+            let (bytes, _size) = gen(self.do_encode(elements, encoder), v).unwrap();
+            bytes
+        }
+    }
+
+    impl AbstractMessage {
+        fn do_encode<'a, 'b: 'a, W: Write + 'a>(
+            &'a self,
+            elements: &'b [SolElement],
+            encoder: &'a AMF3Encoder,
+        ) -> impl SerializeFn<W> + 'a {
+
+            let mut flags = Vec::new();
+            let mut new_elements = Vec::new();
+            {
+                let mut flag = 0;
+
+                if let Some(v) = elements.iter().find(|e| e.name == "body").map(|e| e.value.clone()) {
+                    flag |= BODY_FLAG;
+                    new_elements.push(v);
+                }
+                if let Some(v) = elements.iter().find(|e| e.name == "client_id").map(|e| e.value.clone()) {
+                    flag |= CLIENT_ID_FLAG;
+                    new_elements.push(v);
+                }
+                if let Some(v) = elements.iter().find(|e| e.name == "destination").map(|e| e.value.clone()) {
+                    flag |= DESTINATION_ID_FLAG;
+                    new_elements.push(v);
+                }
+                if let Some(v) = elements.iter().find(|e| e.name == "headers").map(|e| e.value.clone()) {
+                    flag |= HEADERS_FLAG;
+                    new_elements.push(v);
+                }
+                if let Some(v) = elements.iter().find(|e| e.name == "message_id").map(|e| e.value.clone()) {
+                    flag |= MESSAGE_ID_FLAG;
+                    new_elements.push(v);
+                }
+                if let Some(v) = elements.iter().find(|e| e.name == "timestamp").map(|e| e.value.clone()) {
+                    flag |= TIMESTAMP_FLAG;
+                    new_elements.push(v);
+                }
+                if let Some(v) = elements.iter().find(|e| e.name == "ttl").map(|e| e.value.clone()) {
+                    flag |= TTL_FLAG;
+                    new_elements.push(v);
+                }
+
+                //TODO: if we have any children then the last bit can be used for it
+
+                flags.push(flag);
+            }
+            {
+                let mut flag = 0;
+
+                if let Some(v) = elements.iter().find(|e| e.name == "client_id_bytes").map(|e| e.value.clone()) {
+                    flag |= CLIENT_ID_BYTES_FLAG;
+                    new_elements.push(v);
+                }
+                if let Some(v) = elements.iter().find(|e| e.name == "message_id_bytes").map(|e| e.value.clone()) {
+                    flag |= MESSAGE_ID_BYTES_FLAG;
+                    new_elements.push(v);
+                }
+
+                //TODO: if we have any children then the last 7 bits can be used for them
+
+                flags.push(flag);
+            }
+
+            //TODO: if we have any children then all the other bits can be used for them
+
+
+            let data = elements.get(0).unwrap();
+            encoder.write_value(&data.value)
+        }
+    }
+
     pub fn register_encoders(encoder: &mut AMF3Encoder) {
         encoder.external_encoders.insert(
             "flex.messaging.io.ArrayCollection".to_string(),
@@ -439,6 +524,11 @@ pub mod encode {
         encoder.external_encoders.insert(
             "flex.messaging.io.ArrayList".to_string(),
             Box::new(ArrayCollection {}),
+        );
+
+        encoder.external_encoders.insert(
+            "flex.messaging.io.AbstractMessage".to_string(),
+            Box::new(AbstractMessage {}),
         );
 
         encoder.external_encoders.insert(
