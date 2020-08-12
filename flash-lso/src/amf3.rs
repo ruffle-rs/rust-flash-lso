@@ -169,7 +169,6 @@ impl Default for AMF3Decoder {
         }
     }
 }
-type Element = Rc<RefCell<SolValue>>;
 
 pub fn parse_element_number(i: &[u8]) -> IResult<&[u8], Element> {
     let (i, v) = map(be_f64, SolValue::Number)(i)?;
@@ -763,10 +762,10 @@ impl AMF3Decoder {
         }
     }
 
-    pub fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    pub fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, type_) = self.read_type_marker(i)?;
 
-        let (i, x) = match type_ {
+        match type_ {
             TypeMarker::Undefined => Ok((i, Rc::new(RefCell::new(SolValue::Undefined)))),
             TypeMarker::Null => Ok((i, Rc::new(RefCell::new(SolValue::Null)))),
             TypeMarker::False => Ok((i, Rc::new(RefCell::new(SolValue::Bool(false))))),
@@ -785,10 +784,7 @@ impl AMF3Decoder {
             TypeMarker::VectorUInt => self.parse_element_vector_uint(i),
             TypeMarker::VectorDouble => self.parse_element_vector_double(i),
             TypeMarker::Dictionary => self.parse_element_dict(i),
-        }?;
-
-        let y = x.borrow().deref().clone();
-        Ok((i, y))
+        }
     }
 
     pub fn parse_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolElement> {
@@ -796,7 +792,7 @@ impl AMF3Decoder {
 
         map(
             |i| self.parse_single_element(i),
-            move |v: SolValue| SolElement {
+            move |v| SolElement {
                 name: name.clone(),
                 value: v,
             },
@@ -813,7 +809,7 @@ impl AMF3Decoder {
 pub mod encoder {
     use crate::amf3::{either, CustomEncoder, Length, TypeMarker};
     use crate::element_cache::ElementCache;
-    use crate::types::{Attribute, ClassDefinition, SolElement, SolValue};
+    use crate::types::{Attribute, ClassDefinition, Element, SolElement, SolValue};
     use crate::PADDING;
     use cookie_factory::bytes::{be_f64, be_i32, be_u32, be_u8};
     use cookie_factory::combinator::{cond, slice};
@@ -823,6 +819,7 @@ pub mod encoder {
     use std::cell::RefCell;
     use std::collections::HashMap;
     use std::io::Write;
+    use std::ops::Deref;
 
     #[derive(Default)]
     pub struct AMF3Encoder {
@@ -1131,7 +1128,7 @@ pub mod encoder {
                                 .iter()
                                 .filter(move |c| def.static_properties.contains(&c.name))
                                 .map(move |e| &e.value)
-                                .map(move |e| self.write_value(e))),
+                                .map(move |e| self.write_value_element(e))),
                         ),
                         cond(
                             def.attributes.contains(Attribute::DYNAMIC),
@@ -1140,7 +1137,7 @@ pub mod encoder {
                                     .iter()
                                     .filter(move |c| def.static_properties.contains(&c.name))
                                     .map(move |e| &e.value)
-                                    .map(move |e| self.write_value(e))),
+                                    .map(move |e| self.write_value_element(e))),
                                 all(children
                                     .iter()
                                     .filter(move |c| !def.static_properties.contains(&c.name))
@@ -1148,7 +1145,7 @@ pub mod encoder {
                                     .map(move |e| {
                                         tuple((
                                             self.write_byte_string(e.name.as_bytes()),
-                                            self.write_value(&e.value),
+                                            self.write_value_element(&e.value),
                                         ))
                                     })),
                                 self.write_byte_string(&[]),
@@ -1210,7 +1207,7 @@ pub mod encoder {
                                 .iter()
                                 .filter(move |c| def.static_properties.contains(&c.name))
                                 .map(move |e| &e.value)
-                                .map(move |e| self.write_value(e))),
+                                .map(move |e| self.write_value_element(e))),
                         ),
                         cond(
                             def.attributes.contains(Attribute::DYNAMIC),
@@ -1219,7 +1216,7 @@ pub mod encoder {
                                     .iter()
                                     .filter(move |c| def.static_properties.contains(&c.name))
                                     .map(move |e| &e.value)
-                                    .map(move |e| self.write_value(e))),
+                                    .map(move |e| self.write_value_element(e))),
                                 all(children
                                     .iter()
                                     .filter(move |c| !def.static_properties.contains(&c.name))
@@ -1227,7 +1224,7 @@ pub mod encoder {
                                     .map(move |e| {
                                         tuple((
                                             self.write_byte_string(e.name.as_bytes()),
-                                            self.write_value(&e.value),
+                                            self.write_value_element(&e.value),
                                         ))
                                     })),
                                 self.write_byte_string(&[]),
@@ -1294,7 +1291,7 @@ pub mod encoder {
 
         pub fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
-            children: &'b [SolValue],
+            children: &'b [Element],
         ) -> impl SerializeFn<W> + 'a {
             // let mut len = self.object_reference_table.to_length_store(
             //     SolValue::StrictArray(children.to_vec()),
@@ -1319,7 +1316,7 @@ pub mod encoder {
                         len.is_size(),
                         tuple((
                             self.write_byte_string(&[]), // Empty key
-                            all(children.iter().map(move |v| self.write_value(v))),
+                            all(children.iter().map(move |v| self.write_value_element(v))),
                         )),
                     ),
                 )),
@@ -1328,7 +1325,7 @@ pub mod encoder {
 
         pub fn write_ecma_array_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
-            dense: &'b [SolValue],
+            dense: &'b [Element],
             assoc: &'b [SolElement],
         ) -> impl SerializeFn<W> + 'a {
             // let mut len = self.object_reference_table.to_length_store(
@@ -1347,7 +1344,7 @@ pub mod encoder {
                     tuple((
                         all(assoc.iter().map(move |out| self.write_element(out))),
                         self.write_byte_string(&[]),
-                        all(dense.iter().map(move |out| self.write_value(out))),
+                        all(dense.iter().map(move |out| self.write_value_element(out))),
                     )),
                 ),
             ))
@@ -1355,7 +1352,7 @@ pub mod encoder {
 
         pub fn write_object_vector_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
-            items: &'b [SolValue],
+            items: &'b [Element],
             type_name: &'b str,
             fixed_length: bool,
         ) -> impl SerializeFn<W> + 'a {
@@ -1372,7 +1369,7 @@ pub mod encoder {
                     tuple((
                         be_u8(fixed_length as u8),
                         self.write_string(type_name),
-                        all(items.iter().map(move |i| self.write_value(i))),
+                        all(items.iter().map(move |i| self.write_value_element(i))),
                     )),
                 ),
             ))
@@ -1380,7 +1377,7 @@ pub mod encoder {
 
         pub fn write_dictionary_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
-            items: &'b [(SolValue, SolValue)],
+            items: &'b [(Element, Element)],
             weak_keys: bool,
         ) -> impl SerializeFn<W> + 'a {
             let len = self.object_reference_table.to_length(
@@ -1397,9 +1394,12 @@ pub mod encoder {
                     len.is_size(),
                     tuple((
                         be_u8(weak_keys as u8),
-                        all(items
-                            .iter()
-                            .map(move |i| tuple((self.write_value(&i.0), self.write_value(&i.1))))),
+                        all(items.iter().map(move |i| {
+                            tuple((
+                                self.write_value_element(&i.0),
+                                self.write_value_element(&i.1),
+                            ))
+                        })),
                     )),
                 ),
             ))
@@ -1412,6 +1412,13 @@ pub mod encoder {
         ) -> impl SerializeFn<W> + 'a {
             unimplemented!();
             self.write_type_marker(TypeMarker::Undefined)
+        }
+
+        pub fn write_value_element<'a, 'b: 'a, W: Write + 'a>(
+            &'b self,
+            s: &'b Element,
+        ) -> impl SerializeFn<W> + 'a {
+            move |out| self.write_value(s.borrow_mut().deref())(out)
         }
 
         pub fn write_value<'a, 'b: 'a, W: Write + 'a>(
@@ -1465,7 +1472,7 @@ pub mod encoder {
         ) -> impl SerializeFn<W> + 'a {
             tuple((
                 self.write_string(&element.name),
-                self.write_value(&element.value),
+                self.write_value_element(&element.value),
             ))
         }
 

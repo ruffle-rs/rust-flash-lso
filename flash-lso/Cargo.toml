@@ -1,8 +1,8 @@
 [package]
 name = "flash-lso"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["CUB3D <callumthom11@gmail.com>"]
-description = "Fast and safe SOL/AMF0/AMF3 format parsign"
+description = "Fast and safe SOL/AMF0/AMF3 format parsing. Supports serde, Adobe flex and cyclic references"
 repository = "https://github.com/CUB3D/rust-sol"
 readme = "README.md"
 license = "MIT"
@@ -16,7 +16,7 @@ categories = ["data-structures", "encoding", "parser-implementations"]
 nom = "5"
 cookie-factory = "0.3.1"
 
-serde = { version = "1", optional = true, features = ["derive"] }
+serde = { version = "1", optional = true, features = ["derive", "rc"] }
 
 derive-try-from-primitive = "1.0.0"
 
