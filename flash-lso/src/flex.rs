@@ -16,10 +16,13 @@ const CORRELATION_ID_BYTES_FLAG: u8 = 2;
 
 const OPERATION_FLAG: u8 = 1;
 
-
 pub mod decode {
     use crate::amf3::AMF3Decoder;
-    use crate::flex::{BODY_FLAG, CLIENT_ID_BYTES_FLAG, CLIENT_ID_FLAG, CORRELATION_ID_BYTES_FLAG, CORRELATION_ID_FLAG, DESTINATION_ID_FLAG, HEADERS_FLAG, MESSAGE_ID_BYTES_FLAG, MESSAGE_ID_FLAG, NEXT_FLAG, TIMESTAMP_FLAG, TTL_FLAG, OPERATION_FLAG};
+    use crate::flex::{
+        BODY_FLAG, CLIENT_ID_BYTES_FLAG, CLIENT_ID_FLAG, CORRELATION_ID_BYTES_FLAG,
+        CORRELATION_ID_FLAG, DESTINATION_ID_FLAG, HEADERS_FLAG, MESSAGE_ID_BYTES_FLAG,
+        MESSAGE_ID_FLAG, NEXT_FLAG, OPERATION_FLAG, TIMESTAMP_FLAG, TTL_FLAG,
+    };
     use crate::types::SolElement;
     use nom::number::complete::be_u8;
     use nom::IResult;
@@ -361,7 +364,11 @@ pub mod decode {
 pub mod encode {
     use crate::amf3::encoder::AMF3Encoder;
     use crate::amf3::CustomEncoder;
-    use crate::flex::{BODY_FLAG, CLIENT_ID_BYTES_FLAG, CLIENT_ID_FLAG, DESTINATION_ID_FLAG, HEADERS_FLAG, MESSAGE_ID_BYTES_FLAG, MESSAGE_ID_FLAG, NEXT_FLAG, TIMESTAMP_FLAG, TTL_FLAG, CORRELATION_ID_FLAG, CORRELATION_ID_BYTES_FLAG, OPERATION_FLAG};
+    use crate::flex::{
+        BODY_FLAG, CLIENT_ID_BYTES_FLAG, CLIENT_ID_FLAG, CORRELATION_ID_BYTES_FLAG,
+        CORRELATION_ID_FLAG, DESTINATION_ID_FLAG, HEADERS_FLAG, MESSAGE_ID_BYTES_FLAG,
+        MESSAGE_ID_FLAG, NEXT_FLAG, OPERATION_FLAG, TIMESTAMP_FLAG, TTL_FLAG,
+    };
     use crate::types::{ClassDefinition, SolElement, SolValue};
     use cookie_factory::bytes::be_u8;
     use cookie_factory::multi::all;
@@ -616,7 +623,6 @@ pub mod encode {
         encoder: &'a AMF3Encoder,
     ) -> impl SerializeFn<W> + 'a {
         move |out| {
-
             let mut flags = Vec::new();
             let mut new_elements = Vec::new();
             {
@@ -711,7 +717,6 @@ pub mod encode {
         encoder: &'a AMF3Encoder,
     ) -> impl SerializeFn<W> + 'a {
         move |out| {
-
             let mut flags = Vec::new();
             let mut new_elements = Vec::new();
             {
