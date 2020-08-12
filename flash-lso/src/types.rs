@@ -1,5 +1,7 @@
 use enumset::EnumSet;
 use enumset::EnumSetType;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 /// A container for sol files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -21,12 +23,14 @@ pub struct SolHeader {
     pub format_version: u8,
 }
 
+pub(crate) type Element = Rc<RefCell<SolValue>>;
+
 /// Represent a named element
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq)]
 pub struct SolElement {
     pub name: String,
-    pub value: SolValue,
+    pub value: Element,
 }
 
 //TODO: should amf3 assoc arrays be their own type with a dense and assoc section
@@ -47,9 +51,9 @@ pub enum SolValue {
     Undefined,
     /// Represent ECMA-Arrays (amf0) and associative arrays (amf3, even if they contain a dense part)
     /// Final value represents the length of the array in amf0, this can differ from the actual number of elements
-    ECMAArray(Vec<SolValue>, Vec<SolElement>, u32),
+    ECMAArray(Vec<Element>, Vec<SolElement>, u32),
     /// Represent a strict array (amf0) or a dense array (amf3)
-    StrictArray(Vec<SolValue>),
+    StrictArray(Vec<Element>),
     /// Represent a timezone in the format (seconds since epoch, timezone or UTC if missing (amf3) )
     Date(f64, Option<u16>),
     /// Represent the unsupported type
@@ -73,10 +77,10 @@ pub enum SolValue {
     VectorDouble(Vec<f64>, bool),
     /// Represent the object vector type (amf3)
     /// Format is (values, is_fixed_length)
-    VectorObject(Vec<SolValue>, String, bool),
+    VectorObject(Vec<Element>, String, bool),
     /// Represent the dictionary type (amf3)
     /// Format is ((key, value), has_weak_keys)
-    Dictionary(Vec<(SolValue, SolValue)>, bool),
+    Dictionary(Vec<(Element, Element)>, bool),
     /// Represent a external object, such as from flex
     /// (custom_elements, regular elements, class def)
     Custom(Vec<SolElement>, Vec<SolElement>, Option<ClassDefinition>),

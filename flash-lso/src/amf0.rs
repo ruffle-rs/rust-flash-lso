@@ -11,6 +11,8 @@ pub mod decoder {
     use nom::Err;
     use nom::IResult;
     use std::convert::{TryFrom, TryInto};
+    use enumset::__internal::core_export::cell::RefCell;
+    use std::rc::Rc;
     use std::ops::Deref;
 
     pub fn parse_string(i: &[u8]) -> IResult<&[u8], &str> {
@@ -72,7 +74,7 @@ pub mod decoder {
         // This must parse length elements
         let (i, elements) = many_m_n(length_usize, length_usize, parse_single_element)(i)?;
 
-        Ok((i, SolValue::StrictArray(elements)))
+        Ok((i, SolValue::StrictArray(elements.into_iter().map(|e| Rc::new(RefCell::new(e))).collect())))
     }
 
     fn parse_element_date(i: &[u8]) -> IResult<&[u8], SolValue> {
@@ -158,9 +160,9 @@ pub mod decoder {
     fn parse_element(i: &[u8]) -> IResult<&[u8], SolElement> {
         let (i, name) = parse_string(i)?;
 
-        map(parse_single_element, move |v: SolValue| SolElement {
+        map(parse_single_element, move |v| SolElement {
             name: name.to_string(),
-            value: v,
+            value: Rc::new(RefCell::new(v)),
         })(i)
     }
 
@@ -200,7 +202,7 @@ pub mod decoder {
 
 pub mod encoder {
     use crate::types::amf0::TypeMarker;
-    use crate::types::{SolElement, SolValue};
+    use crate::types::{SolElement, SolValue, Element};
     use crate::PADDING;
     use cookie_factory::bytes::{be_f64, be_u16, be_u32, be_u8};
     use cookie_factory::{SerializeFn, WriteContext};
@@ -211,6 +213,7 @@ pub mod encoder {
     use cookie_factory::combinator::string;
     use cookie_factory::multi::all;
     use cookie_factory::sequence::tuple;
+    use std::ops::Deref;
 
     pub fn write_type_marker<'a, 'b: 'a, W: Write + 'a>(
         type_: TypeMarker,
@@ -272,7 +275,7 @@ pub mod encoder {
     }
 
     pub fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(
-        elements: &'b [SolValue],
+        elements: &'b [Element],
     ) -> impl SerializeFn<W> + 'a {
         tuple((
             write_type_marker(TypeMarker::Array),
@@ -335,9 +338,9 @@ pub mod encoder {
     }
 
     pub fn write_value<'a, 'b: 'a, W: Write + 'a>(
-        element: &'b SolValue,
+        element: &'b Element,
     ) -> impl SerializeFn<W> + 'a {
-        move |out: WriteContext<W>| match element {
+        move |out: WriteContext<W>| match element.borrow_mut().deref() {
             SolValue::Number(n) => write_number_element(*n)(out),
             SolValue::Bool(b) => write_bool_element(*b)(out),
             SolValue::String(s) => {
