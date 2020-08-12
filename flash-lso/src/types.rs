@@ -23,7 +23,7 @@ pub struct SolHeader {
     pub format_version: u8,
 }
 
-pub(crate) type Element = Rc<RefCell<SolValue>>;
+pub type Element = Rc<RefCell<SolValue>>;
 
 /// Represent a named element
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

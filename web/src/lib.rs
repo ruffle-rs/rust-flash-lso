@@ -5,7 +5,7 @@ use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
-use flash_lso::types::{Sol, SolElement, SolValue, Attribute};
+use flash_lso::types::{Sol, SolElement, SolValue, Attribute, Element};
 use flash_lso::LSODeserializer;
 use flash_lso::flex;
 
@@ -15,19 +15,20 @@ pub mod jquery_bindgen;
 
 use crate::component_tab::Tab;
 use crate::component_tabs::Tabs;
+use std::ops::Deref;
 
 struct Model {
     link: ComponentLink<Self>,
     reader: ReaderService,
     tasks: Vec<ReaderTask>,
     files: Vec<Sol>,
-    current_selection: Option<SolValue>,
+    current_selection: Option<Element>,
 }
 
 enum Msg {
     Files(Vec<File>),
     Loaded(FileData),
-    Selection(SolValue),
+    Selection(Element),
 }
 
 impl Component for Model {
@@ -98,8 +99,8 @@ impl Component for Model {
 }
 
 impl Model {
-    fn value_details(&self, val: &SolValue) -> Html {
-        match val {
+    fn value_details(&self, val: Element) -> Html {
+        match val.borrow_mut().deref() {
             SolValue::Object(_, Some(def)) => html! {
                 <>
                     <p>{"name"}</p>
@@ -191,11 +192,11 @@ impl Model {
         }
     }
 
-    fn view_array_element(&self, index: usize, data: &SolValue) -> Html {
+    fn view_array_element(&self, index: usize, data: &Element) -> Html {
         html! {
             <div>
                 <p>{index}</p>
-                { self.view_sol_value(data) }
+                { self.view_sol_value(data.clone()) }
             </div>
         }
     }
@@ -208,8 +209,8 @@ impl Model {
         }
     }
 
-    fn view_sol_value(&self, data: &SolValue) -> Html {
-        match data {
+    fn view_sol_value(&self, data: Element) -> Html {
+        match data.borrow_mut().deref() {
             SolValue::Object(elements, _class_def) => html! {
                 <ul>
                     { for elements.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
@@ -288,7 +289,7 @@ impl Model {
         html! {
             <li>
                 <span onclick=self.link.callback(move |_| Msg::Selection(value_clone.clone()))>{ name }</span>
-                {self.view_sol_value(&value)}
+                {self.view_sol_value(value)}
             </li>
         }
     }
@@ -312,7 +313,7 @@ impl Model {
                     <div class="col-8">
                         {
                             if let Some(selection) = &self.current_selection {
-                                self.value_details(selection)
+                                self.value_details(selection.clone())
                             } else {
                                 html! { <p>{"Select an item"}</p> }
                             }
