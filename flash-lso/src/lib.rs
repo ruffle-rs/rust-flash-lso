@@ -1,3 +1,5 @@
+#![type_length_limit = "1176271"]
+
 const HEADER_VERSION: [u8; 2] = [0x00, 0xbf];
 const HEADER_SIGNATURE: [u8; 10] = [0x54, 0x43, 0x53, 0x4f, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00];
 const PADDING: [u8; 1] = [0x00];
@@ -7,6 +9,7 @@ const FORMAT_VERSION_AMF3: u8 = 0x3;
 
 pub mod amf0;
 pub mod amf3;
+mod element_cache;
 pub mod types;
 
 use crate::amf3::AMF3Decoder;
@@ -24,6 +27,9 @@ use std::convert::TryInto;
 #[macro_use]
 extern crate serde;
 
+#[cfg(feature = "flex")]
+pub mod flex;
+
 /// The main entry point of decoding a SOL file
 /// Example of use
 /// ```
@@ -39,7 +45,7 @@ extern crate serde;
 /// }
 #[derive(Default)]
 pub struct LSODeserializer {
-    amf3_decoder: AMF3Decoder,
+    pub amf3_decoder: AMF3Decoder,
 }
 
 impl LSODeserializer {
@@ -112,7 +118,7 @@ pub mod encoder {
 
     #[derive(Default)]
     pub struct LSOSerializer {
-        amf3_encoder: AMF3Encoder,
+        pub amf3_encoder: AMF3Encoder,
     }
 
     impl LSOSerializer {

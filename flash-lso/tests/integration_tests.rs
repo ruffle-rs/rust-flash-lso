@@ -31,7 +31,7 @@ macro_rules! auto_test {
             let parse_res = LSODeserializer::default().parse_full(&data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
-                // println!("{:#?}", sol);
+                println!("{:#?}", sol);
 
                 let empty: Vec<u8> = vec![];
                 if unparsed_bytes.len() > 0 {
@@ -40,18 +40,17 @@ macro_rules! auto_test {
 
                 let bytes = encoder::write_to_bytes(&sol);
 
-                for x in 0..bytes.len() {
-                    if bytes[x] != data[x] {
-                        println!("Difference around here: {}", x);
-                                        assert_eq!(false, true)
-                    }
-                }
+                // for x in 0..bytes.len() {
+                //     if bytes[x] != data[x] {
+                //         println!("Difference around here: {}", x);
+                //                         assert_eq!(false, true)
+                //     }
+                // }
 
-                // assert_eq!(bytes.len(), data.len());
                 // assert_eq!(bytes, data, "library output != input");
                 assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
             } else {
-                println!("Input: {:?}", data);
+                // println!("Input: {:?}", data);
                 println!("parse failed: {:?}", parse_res);
                 assert_eq!(false, true)
             }
@@ -77,7 +76,64 @@ macro_rules! test_parse_only {
                     assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
                 }
             } else {
-                println!("Input: {:?}", data);
+                // println!("Input: {:?}", data);
+                println!("parse failed: {:?}", parse_res);
+                assert_eq!(false, true)
+            }
+        }
+        )*
+    }
+}
+
+macro_rules! auto_test_flex {
+    ($([$name: ident, $path: expr]),*) => {
+        $(
+        #[cfg(feature = "flex")]
+        #[test]
+        pub fn $name() {
+            use flash_lso::flex;
+            use cookie_factory::gen;
+            use flash_lso::encoder::LSOSerializer;
+
+            let mut x = File::open(concat!("tests/sol/", $path, ".sol")).expect("Couldn't open file");
+            let mut data = Vec::new();
+            let _ = x.read_to_end(&mut data).expect("Unable to read file");
+            let mut des = LSODeserializer::default();
+            flex::decode::register_decoders(&mut des.amf3_decoder);
+            let parse_res = des.parse_full(&data);
+
+            if let Ok((unparsed_bytes, sol)) =  parse_res {
+                // println!("{:#?}", sol);
+
+                let empty: Vec<u8> = vec![];
+                if unparsed_bytes.len() > 0 {
+                    assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
+                }
+
+                let v = vec![];
+                let mut s = LSOSerializer::default();
+                flex::encode::register_encoders(&mut s.amf3_encoder);
+                let serialise = s.write_full(&sol);
+                let (buffer, _size) = gen(serialise, v).unwrap();
+                let bytes = buffer;
+
+                // for x in 0..bytes.len() {
+                //     if bytes[x] != data[x] {
+                //         println!("Difference around here: {}", x);
+                //                         assert_eq!(false, true)
+                //     }
+                // }
+
+                let mut des2 = LSODeserializer::default();
+                flex::decode::register_decoders(&mut des2.amf3_decoder);
+                let (_, sol2) = des2.parse_full(&bytes).expect("Unable to round trip");
+                assert!(sol2 == sol);
+
+                // assert_eq!(bytes.len(), data.len());
+                // assert_eq!(bytes, data, "library output != input");
+                assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
+            } else {
+                // println!("Input: {:?}", data);
                 println!("parse failed: {:?}", parse_res);
                 assert_eq!(false, true)
             }
@@ -162,23 +218,22 @@ auto_test! {
     [cramjs, "cramjs"],
     [dolphin_show_1, "dolphin_show(1)"],
     [flagstaff_1, "flagstaff(1)"],
-    // [flagstaff, "flagstaff"],
+    [flagstaff_2, "flagstaff"],
     [flash_viewer, "flash.viewer"],
-    // [hiro_network_capping_cookie, "HIRO_NETWORK_CAPPING_COOKIE"],
-    // [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
+    [hiro_network_capping_cookie, "HIRO_NETWORK_CAPPING_COOKIE"],
+    // [infectonator_survivors_76561198009932603_, "InfectonatorSurvivors76561198009932603"],
     [jy1, "JY1"],
     [labrat_2, "Labrat2"],
     [mardek_v3_sg_1, "MARDEKv3__sg_1"],
     [media_player_user_settings, "mediaPlayerUserSettings"],
-    // [metadata_history, "MetadataHistory"],
+    // [metadata_history_, "MetadataHistory"],
     [minimal, "Minimal"],
     [minimal_2, "Minimalv2"],
-    // [opp_detail_prefs, "oppDetailPrefs"],
-    // [party_1, "Party1"],
+    // [party_1_, "Party1"],
     [previous_video, "previousVideo"],
     [robokill, "robokill"],
     [settings, "settings"],
-    // [slot_1, "slot1"],
+    // [slot_1_, "slot1"],
     [slot_1_party, "slot1_party"],
     [sound_data, "soundData"],
     [sound_data_level_0, "soundData_level0"],
@@ -193,20 +248,15 @@ auto_test! {
 test_parse_only! {
     [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
     [slot_1, "slot1"], // malloc error
-    [party_1, "Party1"]
+    [party_1, "Party1"],
+
+    // External classes
+    [metadata_history, "MetadataHistory"]
 }
 
-// Other tests, completly failing
-auto_test! {
-    // [flagstaff, "flagstaff"] // TODO: external class, probably wont parse
-    // [metadata_history, "MetadataHistory"] // External class, probably wont parse
-    // [opp_detail_prefs, "oppDetailPrefs"] //TODO: uses flex, probably wont parse for a while
-
-    // [party_1, "Party1"] // works after load/saving with minerva
-    // [slot_1, "slot1"] // Works after load/saving with minerva
-    // [infectonator_survivors_76561198009932603_, "InfectonatorSurvivors76561198009932603"] // Works after load/saving with minerva
+auto_test_flex! {
+    [opp_detail_prefs, "oppDetailPrefs"] //TODO: uses flex, probably wont parse for a while
 }
-//24
 
 use nom::error::ErrorKind::Tag;
 use nom::Needed;

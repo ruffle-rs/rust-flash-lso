@@ -11,6 +11,7 @@ pub mod decoder {
     use nom::Err;
     use nom::IResult;
     use std::convert::{TryFrom, TryInto};
+    use std::ops::Deref;
 
     pub fn parse_string(i: &[u8]) -> IResult<&[u8], &str> {
         let (i, length) = be_u16(i)?;
@@ -116,7 +117,9 @@ pub mod decoder {
 
     fn parse_element_amf3(i: &[u8]) -> IResult<&[u8], SolValue> {
         // Hopefully amf3 objects wont have references
-        amf3::AMF3Decoder::default().parse_element_object(i)
+        let (i, x) = amf3::AMF3Decoder::default().parse_element_object(i)?;
+        let y = x.deref().borrow();
+        Ok((i, y.deref().clone()))
     }
 
     fn read_type_marker(i: &[u8]) -> IResult<&[u8], TypeMarker> {

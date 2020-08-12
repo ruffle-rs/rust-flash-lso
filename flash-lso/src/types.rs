@@ -3,7 +3,7 @@ use enumset::EnumSetType;
 
 /// A container for sol files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Sol {
     pub header: SolHeader,
     pub body: Vec<SolElement>,
@@ -11,7 +11,7 @@ pub struct Sol {
 
 /// The header of a sol file
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct SolHeader {
     pub version: [u8; 2],
     pub length: u32,
@@ -77,6 +77,9 @@ pub enum SolValue {
     /// Represent the dictionary type (amf3)
     /// Format is ((key, value), has_weak_keys)
     Dictionary(Vec<(SolValue, SolValue)>, bool),
+    /// Represent a external object, such as from flex
+    /// (custom_elements, regular elements, class def)
+    Custom(Vec<SolElement>, Vec<SolElement>, Option<ClassDefinition>),
 }
 
 /// A class definition (trait) used in AMF3
@@ -92,6 +95,7 @@ pub struct ClassDefinition {
 /// Encodes the possible attributes that can be given to a trait
 /// If a trait is dynamic then the object may have additional properties other than the ones specified in the trait
 /// If a trait is external then it requires custom serialization and deserialization support
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(EnumSetType, Debug)]
 pub enum Attribute {
     DYNAMIC,
@@ -124,5 +128,33 @@ pub mod amf0 {
         XML = 15,
         TypedObject = 16,
         AMF3 = 17,
+    }
+}
+
+pub mod amf3 {
+    use derive_try_from_primitive::TryFromPrimitive;
+
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    #[derive(TryFromPrimitive, Eq, PartialEq, Debug, Copy, Clone)]
+    #[repr(u8)]
+    pub enum TypeMarker {
+        Undefined = 0x00,
+        Null = 0x01,
+        False = 0x02,
+        True = 0x03,
+        Integer = 0x04,
+        Number = 0x05,
+        String = 0x06,
+        XML = 0x07,
+        Date = 0x08,
+        Array = 0x09,
+        Object = 0x0A,
+        XmlString = 0x0B,
+        ByteArray = 0x0C,
+        VectorInt = 0x0D,
+        VectorUInt = 0x0E,
+        VectorDouble = 0x0F,
+        VectorObject = 0x10,
+        Dictionary = 0x11,
     }
 }

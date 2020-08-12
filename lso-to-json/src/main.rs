@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use clap::*;
 use flash_lso::types::Sol;
 use flash_lso::LSODeserializer;
+use flash_lso::flex::decode;
 
 fn main() {
     env_logger::init();
@@ -30,6 +31,9 @@ fn read_file(path: PathBuf) -> Option<Sol> {
     let mut x = File::open(path).unwrap();
     let mut data = Vec::new();
     let _ = x.read_to_end(&mut data).expect("Unable to read file");
-    let d = LSODeserializer::default().parse_full(&data);
+    let mut d = LSODeserializer::default();
+    decode::register_decoders(&mut d.amf3_decoder);
+
+    let d  =d.parse_full(&data);
     d.map(|s| s.1).ok()
 }

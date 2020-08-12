@@ -5,8 +5,9 @@ use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
-use flash_lso::types::{Sol, SolElement, SolValue};
+use flash_lso::types::{Sol, SolElement, SolValue, Attribute};
 use flash_lso::LSODeserializer;
+use flash_lso::flex;
 
 pub mod component_tab;
 pub mod component_tabs;
@@ -54,7 +55,10 @@ impl Component for Model {
                 }
             }
             Msg::Loaded(file) => {
-                let sol = LSODeserializer::default()
+                let mut parser = LSODeserializer::default();
+                flex::decode::register_decoders(&mut parser.amf3_decoder);
+
+                let sol = parser
                     .parse_full(&file.content)
                     .unwrap()
                     .1;
@@ -100,8 +104,10 @@ impl Model {
                 <>
                     <p>{"name"}</p>
                     <p>{&def.name}</p>
-                    <p>{"encoding"}</p>
-                    <p>{def.encoding}</p>
+                    <p>{"is dynamic"}</p>
+                    <p>{def.attributes.contains(Attribute::DYNAMIC)}</p>
+                    <p>{"is external"}</p>
+                    <p>{def.attributes.contains(Attribute::EXTERNAL)}</p>
                     <p>{"static properties"}</p>
                     <ul>
                         { for def.static_properties.iter().map(|p| html! {
@@ -253,6 +259,22 @@ impl Model {
                             <li><span >{ "value" }</span></li>
                             </>
                         })}
+                </ul>
+            },
+            SolValue::Custom(el, el2, class_def) => html! {
+                <ul>
+                    <li>
+                        {"Custom elements"}
+                        <ul>
+                            { for el.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
+                        </ul>
+                    </li>
+                    <li>
+                        {"Standard elements"}
+                        <ul>
+                            { for el2.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
+                        </ul>
+                    </li>
                 </ul>
             },
             _ => html! {},

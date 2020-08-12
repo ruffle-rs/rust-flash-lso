@@ -1,6 +1,7 @@
 #![allow(clippy::identity_op)]
 
-use crate::amf0::decoder::parse_element_number;
+use crate::amf3::encoder::AMF3Encoder;
+use crate::types::amf3::TypeMarker;
 use crate::types::*;
 use crate::types::{SolElement, SolValue};
 use crate::PADDING;
@@ -9,6 +10,7 @@ use enumset::EnumSet;
 use nom::bytes::complete::tag;
 use nom::combinator::map;
 use nom::error::{make_error, ErrorKind};
+use nom::lib::std::collections::HashMap;
 use nom::multi::{many_m_n, separated_list};
 use nom::number::complete::{be_f64, be_i32, be_u32, be_u8};
 use nom::sequence::tuple;
@@ -17,9 +19,11 @@ use nom::take_str;
 use nom::Err;
 use nom::IResult;
 use std::cell::RefCell;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
 use std::io::Write;
+use std::ops::{Deref, DerefMut};
+use std::rc::Rc;
 
 pub fn either<Fa, Fb, W: Write>(b: bool, t: Fa, f: Fb) -> impl SerializeFn<W>
 where
@@ -34,105 +38,6 @@ where
         }
     }
 }
-
-pub struct ElementCache<T> {
-    cache: RefCell<Vec<T>>,
-}
-
-impl<T> Default for ElementCache<T> {
-    fn default() -> Self {
-        ElementCache {
-            cache: RefCell::new(Vec::new()),
-        }
-    }
-}
-
-impl<T: PartialEq + Clone + Debug> ElementCache<T> {
-    pub fn has(&self, val: &T) -> bool {
-        self.cache.borrow().contains(val)
-    }
-
-    pub fn store(&self, val: T) {
-        if !self.has(&val) {
-            self.cache.borrow_mut().push(val);
-        }
-    }
-
-    pub fn get_element(&self, index: usize) -> Option<T> {
-        self.cache.borrow().get(index).cloned()
-    }
-
-    pub fn get_index(&self, val: T) -> Option<usize> {
-        self.cache.borrow().iter().position(|i| *i == val)
-    }
-
-    pub fn to_length(&self, val: T, length: u32) -> Length {
-        if let Some(i) = self.get_index(val) {
-            Length::Reference(i)
-        } else {
-            Length::Size(length)
-        }
-    }
-
-    //TODO: no clone
-    pub fn to_length_store(&self, val: T, length: u32) -> Length {
-        let len = self.to_length(val.clone(), length);
-        self.store(val);
-        len
-    }
-}
-
-//tOdo: remove
-impl<T: PartialEq + Clone + Debug> ElementCache<Vec<T>> {
-    pub fn store_slice(&self, val: &[T]) {
-        self.store(val.to_vec());
-    }
-
-    pub fn get_slice_index(&self, val: &[T]) -> Option<usize> {
-        self.get_index(val.to_vec())
-    }
-}
-
-#[repr(u8)]
-pub enum TypeMarker {
-    Undefined = 0x00,
-    Null = 0x01,
-    False = 0x02,
-    True = 0x03,
-    Integer = 0x04,
-    Number = 0x05,
-    String = 0x06,
-    XML = 0x07,
-    Date = 0x08,
-    Array = 0x09,
-    Object = 0x0A,
-    XmlString = 0x0B,
-    ByteArray = 0x0C,
-    VectorInt = 0x0D,
-    VectorUInt = 0x0E,
-    VectorDouble = 0x0F,
-    VectorObject = 0x10,
-    Dictionary = 0x11,
-}
-
-const TYPE_UNDEFINED: u8 = 0x00;
-const TYPE_NULL: u8 = 0x01;
-const TYPE_FALSE: u8 = 0x02;
-const TYPE_TRUE: u8 = 0x03;
-const TYPE_INTEGER: u8 = 0x04;
-const TYPE_NUMBER: u8 = 0x05;
-const TYPE_STRING: u8 = 0x06;
-const TYPE_XML: u8 = 0x07;
-const TYPE_DATE: u8 = 0x08;
-const TYPE_ARRAY: u8 = 0x09;
-const TYPE_OBJECT: u8 = 0x0A;
-const TYPE_XML_STRING: u8 = 0x0B;
-const TYPE_BYTE_ARRAY: u8 = 0x0C;
-const TYPE_VECTOR_INT: u8 = 0x0D;
-const TYPE_VECTOR_UINT: u8 = 0x0E;
-const TYPE_VECTOR_DOUBLE: u8 = 0x0F;
-const TYPE_VECTOR_OBJECT: u8 = 0x10;
-const TYPE_DICT: u8 = 0x11;
 
 const REFERENCE_FLAG: u32 = 0x01;
 
@@ -229,14 +134,29 @@ fn read_length(i: &[u8]) -> IResult<&[u8], (u32, bool)> {
     Ok((i, (val >> 1, val & REFERENCE_FLAG == 0)))
 }
 
-fn parse_element_int(i: &[u8]) -> IResult<&[u8], SolValue> {
-    map(read_int_signed, SolValue::Integer)(i)
+fn parse_element_int(i: &[u8]) -> IResult<&[u8], Element> {
+    let (i, s) = map(read_int_signed, SolValue::Integer)(i)?;
+    Ok((i, Rc::new(RefCell::new(s))))
+}
+
+//TODO: could this be combined
+type ExternalDecoderFn =
+    Box<dyn for<'a> Fn(&'a [u8], &AMF3Decoder) -> IResult<&'a [u8], Vec<SolElement>>>;
+
+pub trait CustomEncoder {
+    fn encode<'a>(
+        &self,
+        elements: &'a [SolElement],
+        class_def: &Option<ClassDefinition>,
+        encoder: &AMF3Encoder,
+    ) -> Vec<u8>;
 }
 
 pub struct AMF3Decoder {
     pub string_reference_table: RefCell<Vec<Vec<u8>>>,
     pub trait_reference_table: RefCell<Vec<ClassDefinition>>,
-    pub object_reference_table: RefCell<Vec<SolValue>>,
+    pub object_reference_table: RefCell<Vec<Rc<RefCell<SolValue>>>>,
+    pub external_decoders: HashMap<String, ExternalDecoderFn>,
 }
 
 impl Default for AMF3Decoder {
@@ -245,13 +165,21 @@ impl Default for AMF3Decoder {
             string_reference_table: RefCell::new(Vec::new()),
             trait_reference_table: RefCell::new(Vec::new()),
             object_reference_table: RefCell::new(Vec::new()),
+            external_decoders: HashMap::new(),
         }
     }
 }
+type Element = Rc<RefCell<SolValue>>;
+
+pub fn parse_element_number(i: &[u8]) -> IResult<&[u8], Element> {
+    let (i, v) = map(be_f64, SolValue::Number)(i)?;
+    Ok((i, Rc::new(RefCell::new(v))))
+}
 
 impl AMF3Decoder {
-    fn parse_element_string<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
-        map(|i| self.parse_string(i), SolValue::String)(i)
+    fn parse_element_string<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
+        let (i, s) = map(|i| self.parse_string(i), SolValue::String)(i)?;
+        Ok((i, Rc::new(RefCell::new(s))))
     }
 
     pub fn parse_string<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], String> {
@@ -304,15 +232,14 @@ impl AMF3Decoder {
         let mut attributes = EnumSet::empty();
 
         if is_external {
-            attributes = attributes | Attribute::EXTERNAL;
+            attributes |= Attribute::EXTERNAL;
         }
         if is_dynamic {
-            attributes = attributes | Attribute::DYNAMIC;
+            attributes |= Attribute::DYNAMIC;
         }
 
         let class_def = ClassDefinition {
             name: name_str,
-            //TODO: encodings should be an enumset
             attributes,
             attribute_count: attributes_count,
             static_properties: static_props,
@@ -373,8 +300,9 @@ impl AMF3Decoder {
         Ok((i, elements))
     }
 
-    pub fn parse_element_object<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    pub fn parse_element_object<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, mut length) = read_int(i)?;
+        println!("Obj length = {}", length);
 
         if length & REFERENCE_FLAG == 0 {
             let len_usize: usize = (length >> 1)
@@ -388,30 +316,44 @@ impl AMF3Decoder {
                 .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
                 .clone();
 
-            if obj == SolValue::Null {
-                //TODO: more descriptive error something about `cyclic data`
-                return Err(Err::Error(make_error(i, ErrorKind::Alpha)));
-            }
-
             return Ok((i, obj));
         }
         length >>= 1;
 
-        let old_len = self.object_reference_table.borrow().len();
+        let obj = Rc::new(RefCell::new(SolValue::Object(Vec::new(), None)));
         self.object_reference_table
             .borrow_mut()
-            .push(SolValue::Null);
+            .push(Rc::clone(&obj));
 
         // Class def
         let (i, class_def) = self.parse_class_def(length, i)?;
 
-        // TODO: rest of object loding
-        if class_def.attributes.contains(Attribute::EXTERNAL) {
-            // println!("Proxy objects not yet supported");
-            return Err(Err::Error(make_error(i, ErrorKind::Tag)));
+        if let SolValue::Object(_, ref mut def) = obj.deref().borrow_mut().deref_mut() {
+            *def = Some(class_def.clone());
         }
 
         let mut elements = Vec::new();
+        let external_elements;
+
+        let mut i = i;
+        if class_def.attributes.contains(Attribute::EXTERNAL) {
+            if self.external_decoders.contains_key(&class_def.name) {
+                let (j, v) = self.external_decoders[&class_def.name](i, self)?;
+                external_elements = v;
+                i = j;
+                //TODO: should it be possible to have both dynamic and external together
+                return Ok((
+                    i,
+                    Rc::new(RefCell::new(SolValue::Custom(
+                        external_elements,
+                        vec![],
+                        Some(class_def.clone()),
+                    ))),
+                ));
+            } else {
+                return Err(Err::Error(make_error(i, ErrorKind::Tag)));
+            };
+        }
 
         let mut i = i;
         if class_def.attributes.contains(Attribute::DYNAMIC) {
@@ -442,13 +384,17 @@ impl AMF3Decoder {
             i = j;
         }
 
-        let obj = SolValue::Object(elements, Some(class_def));
+        if let SolValue::Object(ref mut elements_inner, _) = obj.deref().borrow_mut().deref_mut() {
+            *elements_inner = elements;
+        }
+
         // self.object_reference_table.borrow_mut().push(obj.clone());
-        self.object_reference_table.borrow_mut()[old_len] = obj.clone();
-        Ok((i, obj))
+        // self.object_reference_table.borrow_mut()[old_len] = obj.clone();
+
+        Ok((i, Rc::clone(&obj)))
     }
 
-    fn parse_element_byte_array<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_byte_array<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, (len, reference)) = read_length(i)?;
 
         if reference {
@@ -466,13 +412,15 @@ impl AMF3Decoder {
             Ok((i, obj))
         } else {
             let (i, bytes) = take!(i, len)?;
-            let obj = SolValue::ByteArray(bytes.to_vec());
-            self.object_reference_table.borrow_mut().push(obj.clone());
+            let obj = Rc::new(RefCell::new(SolValue::ByteArray(bytes.to_vec())));
+            self.object_reference_table
+                .borrow_mut()
+                .push(Rc::clone(&obj));
             Ok((i, obj))
         }
     }
 
-    fn parse_element_vector_int<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_vector_int<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, (len, reference)) = read_length(i)?;
 
         let len_usize: usize = len
@@ -499,12 +447,14 @@ impl AMF3Decoder {
 
         let (i, ints) = many_m_n(len_usize, len_usize, be_i32)(i)?;
 
-        let obj = SolValue::VectorInt(ints, fixed_length == 1);
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        let obj = Rc::new(RefCell::new(SolValue::VectorInt(ints, fixed_length == 1)));
+        self.object_reference_table
+            .borrow_mut()
+            .push(Rc::clone(&obj));
         Ok((i, obj))
     }
 
-    fn parse_element_vector_uint<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_vector_uint<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, (len, reference)) = read_length(i)?;
 
         let len_usize: usize = len
@@ -531,12 +481,15 @@ impl AMF3Decoder {
 
         let (i, ints) = many_m_n(len_usize, len_usize, be_u32)(i)?;
 
-        let obj = SolValue::VectorUInt(ints, fixed_length == 1);
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        //TODO: move up and others
+        let obj = Rc::new(RefCell::new(SolValue::VectorUInt(ints, fixed_length == 1)));
+        self.object_reference_table
+            .borrow_mut()
+            .push(Rc::clone(&obj));
         Ok((i, obj))
     }
 
-    fn parse_element_vector_double<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_vector_double<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, (len, reference)) = read_length(i)?;
         let len_usize: usize = len
             .try_into()
@@ -562,12 +515,17 @@ impl AMF3Decoder {
 
         let (i, ints) = many_m_n(len_usize, len_usize, be_f64)(i)?;
 
-        let obj = SolValue::VectorDouble(ints, fixed_length == 1);
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        let obj = Rc::new(RefCell::new(SolValue::VectorDouble(
+            ints,
+            fixed_length == 1,
+        )));
+        self.object_reference_table
+            .borrow_mut()
+            .push(Rc::clone(&obj));
         Ok((i, obj))
     }
 
-    fn parse_element_object_vector<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_object_vector<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, (len, reference)) = read_length(i)?;
 
         let length_usize = len
@@ -596,12 +554,19 @@ impl AMF3Decoder {
 
         let (i, elems) = many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
 
-        let obj = SolValue::VectorObject(elems, object_type_name, fixed_length == 1);
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        //TODO: move up
+        let obj = Rc::new(RefCell::new(SolValue::VectorObject(
+            elems,
+            object_type_name,
+            fixed_length == 1,
+        )));
+        self.object_reference_table
+            .borrow_mut()
+            .push(Rc::clone(&obj));
         Ok((i, obj))
     }
 
-    fn parse_element_array<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_array<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, mut length) = read_int(i)?;
 
         if length & REFERENCE_FLAG == 0 {
@@ -614,12 +579,8 @@ impl AMF3Decoder {
                 .borrow()
                 .get(len_usize)
                 .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
+                //TODO: all these clone should be Rc::clone()
                 .clone();
-
-            if obj == SolValue::Null {
-                //TODO: again cyclic err
-                return Err(Err::Error(make_error(i, ErrorKind::Alpha)));
-            }
 
             return Ok((i, obj));
         }
@@ -633,19 +594,24 @@ impl AMF3Decoder {
         if i.len() < length_usize {
             return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
         }
+        //TODO: this wont work properly till we have one type for all
 
-        let old_len = self.object_reference_table.borrow().len();
+        let obj = Rc::new(RefCell::new(SolValue::Null));
         self.object_reference_table
             .borrow_mut()
-            .push(SolValue::Null);
+            .push(Rc::clone(&obj));
 
         let (i, mut key) = self.parse_byte_stream(i)?;
 
         if key == [] {
             let (i, elements) =
                 many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
-            let obj = SolValue::StrictArray(elements);
-            self.object_reference_table.borrow_mut()[old_len] = obj.clone();
+
+            let mut x = obj.deref().borrow_mut();
+            *x = SolValue::StrictArray(elements);
+            drop(x);
+
+            // self.object_reference_table.borrow_mut()[old_len] = Rc::clone(&obj);
             return Ok((i, obj));
         }
 
@@ -670,12 +636,15 @@ impl AMF3Decoder {
         let (i, el) = many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
 
         let elements_len = elements.len() as u32;
-        let obj = SolValue::ECMAArray(el, elements, elements_len);
-        self.object_reference_table.borrow_mut()[old_len] = obj.clone();
+        // let obj = Rc::new(RefCell::new(SolValue::ECMAArray(el, elements, elements_len)));
+        // self.object_reference_table.borrow_mut()[old_len] = obj.clone();
+        let mut x = obj.deref().borrow_mut();
+        *x = SolValue::ECMAArray(el, elements, elements_len);
+        drop(x);
         Ok((i, obj))
     }
 
-    fn parse_element_dict<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_dict<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, (len, reference)) = read_length(i)?;
 
         if reference {
@@ -696,6 +665,14 @@ impl AMF3Decoder {
         //TODO: implications of this
         let (i, weak_keys) = be_u8(i)?;
 
+        let obj = Rc::new(RefCell::new(SolValue::Dictionary(
+            Vec::new(),
+            weak_keys == 1,
+        )));
+        self.object_reference_table
+            .borrow_mut()
+            .push(Rc::clone(&obj));
+
         let length_usize = len
             .try_into()
             .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
@@ -714,11 +691,18 @@ impl AMF3Decoder {
             )),
         )(i)?;
 
-        let obj = SolValue::Dictionary(pairs, weak_keys == 1);
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        let mut x = obj.deref().borrow_mut();
+        if let SolValue::Dictionary(ref mut internal_pairs, _) = x.deref_mut() {
+            *internal_pairs = pairs;
+        }
+        drop(x);
+
+        // let obj = SolValue::Dictionary(pairs, weak_keys == 1);
+        // self.object_reference_table.borrow_mut().push(obj.clone());
         Ok((i, obj))
     }
-    fn parse_element_date<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+
+    fn parse_element_date<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, reference) = read_int(i)?;
 
         if reference & REFERENCE_FLAG == 0 {
@@ -726,24 +710,25 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            let obj = self
-                .object_reference_table
-                .borrow()
-                .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
-                .clone();
+            let table = self.object_reference_table.borrow();
 
-            return Ok((i, obj));
+            let obj = table
+                .get(len_usize)
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?;
+
+            return Ok((i, Rc::clone(obj)));
         }
 
         let (i, ms) = be_f64(i)?;
 
-        let obj = SolValue::Date(ms, None);
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        let obj = Rc::new(RefCell::new(SolValue::Date(ms, None)));
+        self.object_reference_table
+            .borrow_mut()
+            .push(Rc::clone(&obj));
         Ok((i, obj))
     }
 
-    fn parse_element_xml<'a>(&self, i: &'a [u8], string: bool) -> IResult<&'a [u8], SolValue> {
+    fn parse_element_xml<'a>(&self, i: &'a [u8], string: bool) -> IResult<&'a [u8], Element> {
         let (i, reference) = read_int(i)?;
 
         if reference & REFERENCE_FLAG == 0 {
@@ -762,35 +747,48 @@ impl AMF3Decoder {
         }
 
         let (i, data) = take_str!(i, reference >> 1)?;
-        let obj = SolValue::XML(data.into(), string);
-        self.object_reference_table.borrow_mut().push(obj.clone());
+        let obj = Rc::new(RefCell::new(SolValue::XML(data.into(), string)));
+        self.object_reference_table
+            .borrow_mut()
+            .push(Rc::clone(&obj));
         Ok((i, obj))
     }
 
-    fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+    fn read_type_marker<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], TypeMarker> {
         let (i, type_) = be_u8(i)?;
-
-        match type_ {
-            TYPE_UNDEFINED => Ok((i, SolValue::Undefined)),
-            TYPE_NULL => Ok((i, SolValue::Null)),
-            TYPE_FALSE => Ok((i, SolValue::Bool(false))),
-            TYPE_TRUE => Ok((i, SolValue::Bool(true))),
-            TYPE_INTEGER => parse_element_int(i),
-            TYPE_NUMBER => parse_element_number(i),
-            TYPE_STRING => self.parse_element_string(i),
-            TYPE_XML => self.parse_element_xml(i, false),
-            TYPE_DATE => self.parse_element_date(i),
-            TYPE_ARRAY => self.parse_element_array(i),
-            TYPE_OBJECT => self.parse_element_object(i),
-            TYPE_XML_STRING => self.parse_element_xml(i, true),
-            TYPE_BYTE_ARRAY => self.parse_element_byte_array(i),
-            TYPE_VECTOR_OBJECT => self.parse_element_object_vector(i),
-            TYPE_VECTOR_INT => self.parse_element_vector_int(i),
-            TYPE_VECTOR_UINT => self.parse_element_vector_uint(i),
-            TYPE_VECTOR_DOUBLE => self.parse_element_vector_double(i),
-            TYPE_DICT => self.parse_element_dict(i),
-            _ => Err(Err::Error(make_error(i, ErrorKind::HexDigit))),
+        if let Ok(type_) = TypeMarker::try_from(type_) {
+            Ok((i, type_))
+        } else {
+            Err(Err::Error(make_error(i, ErrorKind::HexDigit)))
         }
+    }
+
+    pub fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolValue> {
+        let (i, type_) = self.read_type_marker(i)?;
+
+        let (i, x) = match type_ {
+            TypeMarker::Undefined => Ok((i, Rc::new(RefCell::new(SolValue::Undefined)))),
+            TypeMarker::Null => Ok((i, Rc::new(RefCell::new(SolValue::Null)))),
+            TypeMarker::False => Ok((i, Rc::new(RefCell::new(SolValue::Bool(false))))),
+            TypeMarker::True => Ok((i, Rc::new(RefCell::new(SolValue::Bool(true))))),
+            TypeMarker::Integer => parse_element_int(i),
+            TypeMarker::Number => parse_element_number(i),
+            TypeMarker::String => self.parse_element_string(i),
+            TypeMarker::XML => self.parse_element_xml(i, false),
+            TypeMarker::Date => self.parse_element_date(i),
+            TypeMarker::Array => self.parse_element_array(i),
+            TypeMarker::Object => self.parse_element_object(i),
+            TypeMarker::XmlString => self.parse_element_xml(i, true),
+            TypeMarker::ByteArray => self.parse_element_byte_array(i),
+            TypeMarker::VectorObject => self.parse_element_object_vector(i),
+            TypeMarker::VectorInt => self.parse_element_vector_int(i),
+            TypeMarker::VectorUInt => self.parse_element_vector_uint(i),
+            TypeMarker::VectorDouble => self.parse_element_vector_double(i),
+            TypeMarker::Dictionary => self.parse_element_dict(i),
+        }?;
+
+        let y = x.borrow().deref().clone();
+        Ok((i, y))
     }
 
     pub fn parse_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolElement> {
@@ -813,7 +811,8 @@ impl AMF3Decoder {
 }
 
 pub mod encoder {
-    use crate::amf3::{either, ElementCache, Length, TypeMarker};
+    use crate::amf3::{either, CustomEncoder, Length, TypeMarker};
+    use crate::element_cache::ElementCache;
     use crate::types::{Attribute, ClassDefinition, SolElement, SolValue};
     use crate::PADDING;
     use cookie_factory::bytes::{be_f64, be_i32, be_u32, be_u8};
@@ -822,6 +821,7 @@ pub mod encoder {
     use cookie_factory::sequence::tuple;
     use cookie_factory::{GenError, SerializeFn, WriteContext};
     use std::cell::RefCell;
+    use std::collections::HashMap;
     use std::io::Write;
 
     #[derive(Default)]
@@ -829,6 +829,7 @@ pub mod encoder {
         pub string_reference_table: ElementCache<Vec<u8>>,
         pub trait_reference_table: RefCell<Vec<ClassDefinition>>,
         pub object_reference_table: ElementCache<SolValue>,
+        pub external_encoders: HashMap<String, Box<dyn CustomEncoder>>,
     }
 
     impl AMF3Encoder {
@@ -864,13 +865,6 @@ pub mod encoder {
             } else {
                 bytes.push((n & 0x7f) as u8);
             }
-
-            //TODO: cache
-
-            //TODO: must be a better way
-            // be_u8(*bytes.get(0).unwrap())
-
-            // slice(&bytes.as_slice())
 
             move |out| all(bytes.iter().copied().map(be_u8))(out)
         }
@@ -1114,38 +1108,52 @@ pub mod encoder {
             &'a self,
             index: u32,
             children: &'b [SolElement],
+            custom_props: Option<&'b [SolElement]>,
             def: &'b ClassDefinition,
         ) -> impl SerializeFn<W> + 'a {
             let size = (((index << 1) | 0u32) << 1) | 1u32;
 
             tuple((
                 self.write_int(size as i32),
+                cond(def.attributes.contains(Attribute::EXTERNAL), move |out| {
+                    if let Some(encoder) = self.external_encoders.get(&def.name) {
+                        slice(encoder.encode(custom_props.unwrap(), &Some(def.clone()), self))(out)
+                    } else {
+                        Err(GenError::NotYetImplemented)
+                    }
+                }),
                 cond(
-                    def.attributes.is_empty(),
-                    all(children
-                        .iter()
-                        .filter(move |c| def.static_properties.contains(&c.name))
-                        .map(move |e| &e.value)
-                        .map(move |e| self.write_value(e))),
-                ),
-                cond(
-                    def.attributes.contains(Attribute::DYNAMIC),
+                    !def.attributes.contains(Attribute::EXTERNAL),
                     tuple((
-                        all(children
-                            .iter()
-                            .filter(move |c| def.static_properties.contains(&c.name))
-                            .map(move |e| &e.value)
-                            .map(move |e| self.write_value(e))),
-                        all(children
-                            .iter()
-                            .filter(move |c| !def.static_properties.contains(&c.name))
-                            .map(move |e| {
-                                tuple((
-                                    self.write_byte_string(e.name.as_bytes()),
-                                    self.write_value(&e.value),
-                                ))
-                            })),
-                        self.write_byte_string(&[]),
+                        cond(
+                            def.attributes.is_empty(),
+                            all(children
+                                .iter()
+                                .filter(move |c| def.static_properties.contains(&c.name))
+                                .map(move |e| &e.value)
+                                .map(move |e| self.write_value(e))),
+                        ),
+                        cond(
+                            def.attributes.contains(Attribute::DYNAMIC),
+                            tuple((
+                                all(children
+                                    .iter()
+                                    .filter(move |c| def.static_properties.contains(&c.name))
+                                    .map(move |e| &e.value)
+                                    .map(move |e| self.write_value(e))),
+                                all(children
+                                    .iter()
+                                    .filter(move |c| !def.static_properties.contains(&c.name))
+                                    // .map(move |e| &e.value)
+                                    .map(move |e| {
+                                        tuple((
+                                            self.write_byte_string(e.name.as_bytes()),
+                                            self.write_value(&e.value),
+                                        ))
+                                    })),
+                                self.write_byte_string(&[]),
+                            )),
+                        ),
                     )),
                 ),
             ))
@@ -1161,11 +1169,10 @@ pub mod encoder {
 
         pub fn write_object_full<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
+            custom_props: Option<&'b [SolElement]>,
             children: &'b [SolElement],
             def: &'b ClassDefinition,
         ) -> impl SerializeFn<W> + 'a {
-            //TODO: object references (not just traits)
-
             self.trait_reference_table.borrow_mut().push(def.clone());
 
             let is_external = def.attributes.contains(Attribute::EXTERNAL);
@@ -1187,33 +1194,45 @@ pub mod encoder {
             tuple((
                 self.write_int(size as i32),
                 self.write_class_definition(def),
+                cond(def.attributes.contains(Attribute::EXTERNAL), move |out| {
+                    if let Some(encoder) = self.external_encoders.get(&def.name) {
+                        slice(encoder.encode(custom_props.unwrap(), &Some(def.clone()), self))(out)
+                    } else {
+                        Err(GenError::NotYetImplemented)
+                    }
+                }),
                 cond(
-                    def.attributes.is_empty(),
-                    all(children
-                        .iter()
-                        .filter(move |c| def.static_properties.contains(&c.name))
-                        .map(move |e| &e.value)
-                        .map(move |e| self.write_value(e))),
-                ),
-                cond(
-                    def.attributes.contains(Attribute::DYNAMIC),
+                    !def.attributes.contains(Attribute::EXTERNAL),
                     tuple((
-                        all(children
-                            .iter()
-                            .filter(move |c| def.static_properties.contains(&c.name))
-                            .map(move |e| &e.value)
-                            .map(move |e| self.write_value(e))),
-                        all(children
-                            .iter()
-                            .filter(move |c| !def.static_properties.contains(&c.name))
-                            // .map(move |e| &e.value)
-                            .map(move |e| {
-                                tuple((
-                                    self.write_byte_string(e.name.as_bytes()),
-                                    self.write_value(&e.value),
-                                ))
-                            })),
-                        self.write_byte_string(&[]),
+                        cond(
+                            def.attributes.is_empty(),
+                            all(children
+                                .iter()
+                                .filter(move |c| def.static_properties.contains(&c.name))
+                                .map(move |e| &e.value)
+                                .map(move |e| self.write_value(e))),
+                        ),
+                        cond(
+                            def.attributes.contains(Attribute::DYNAMIC),
+                            tuple((
+                                all(children
+                                    .iter()
+                                    .filter(move |c| def.static_properties.contains(&c.name))
+                                    .map(move |e| &e.value)
+                                    .map(move |e| self.write_value(e))),
+                                all(children
+                                    .iter()
+                                    .filter(move |c| !def.static_properties.contains(&c.name))
+                                    // .map(move |e| &e.value)
+                                    .map(move |e| {
+                                        tuple((
+                                            self.write_byte_string(e.name.as_bytes()),
+                                            self.write_value(&e.value),
+                                        ))
+                                    })),
+                                self.write_byte_string(&[]),
+                            )),
+                        ),
                     )),
                 ),
             ))
@@ -1222,6 +1241,7 @@ pub mod encoder {
         pub fn write_object_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             children: &'b [SolElement],
+            custom_props: Option<&'b [SolElement]>,
             class_def: &'b Option<ClassDefinition>,
         ) -> impl SerializeFn<W> + 'a {
             // let mut had_object = self
@@ -1254,10 +1274,14 @@ pub mod encoder {
                                     self.write_trait_reference(
                                         has_trait.unwrap() as u32,
                                         children,
+                                        custom_props,
                                         def,
                                     )(out)
                                 }),
-                                cond(has_trait.is_none(), self.write_object_full(children, def)),
+                                cond(
+                                    has_trait.is_none(),
+                                    self.write_object_full(custom_props, children, def),
+                                ),
                             )),
                         ),
                     ))(out)
@@ -1399,7 +1423,7 @@ pub mod encoder {
                 SolValue::Bool(b) => self.write_boolean_element(*b)(out),
                 SolValue::String(s) => self.write_string_element(s)(out),
                 SolValue::Object(children, class_def) => {
-                    self.write_object_element(children, class_def)(out)
+                    self.write_object_element(children, None, class_def)(out)
                 }
                 SolValue::Null => self.write_null_element()(out),
                 SolValue::Undefined => self.write_undefined_element()(out),
@@ -1427,6 +1451,9 @@ pub mod encoder {
                     self.write_dictionary_element(kv, *weak_keys)(out)
                 }
 
+                SolValue::Custom(elements, dynamic_elements, def) => {
+                    self.write_object_element(dynamic_elements, Some(elements), def)(out)
+                }
                 SolValue::TypedObject(_, _) => self.write_unsupported_element()(out),
                 SolValue::Unsupported => self.write_unsupported_element()(out),
             }
