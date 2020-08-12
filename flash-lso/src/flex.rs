@@ -398,7 +398,7 @@ pub mod encode {
             encoder: &'a AMF3Encoder,
         ) -> impl SerializeFn<W> + 'a {
             let data = elements.get(0).unwrap();
-            encoder.write_value(&data.value)
+            encoder.write_value_element(&data.value)
         }
     }
 
@@ -424,7 +424,7 @@ pub mod encode {
             encoder: &'a AMF3Encoder,
         ) -> impl SerializeFn<W> + 'a {
             let data = elements.get(0).unwrap();
-            encoder.write_value(&data.value)
+            encoder.write_value_element(&data.value)
         }
     }
 
@@ -596,7 +596,7 @@ pub mod encode {
 
             let x = tuple((
                 write_flags(&flags),
-                all(new_elements.iter().map(move |v| encoder.write_value(v))),
+                all(new_elements.iter().map(move |v| encoder.write_value_element(v))),
             ))(out);
             x
         }
@@ -690,7 +690,7 @@ pub mod encode {
             let x = tuple((
                 write_abstract_message(elements, encoder),
                 write_flags(&flags),
-                all(new_elements.iter().map(move |v| encoder.write_value(v))),
+                all(new_elements.iter().map(move |v| encoder.write_value_element(v))),
             ))(out);
             x
         }
@@ -750,7 +750,7 @@ pub mod encode {
             let x = tuple((
                 write_async_message(elements, encoder),
                 write_flags(&flags),
-                all(new_elements.iter().map(move |v| encoder.write_value(v))),
+                all(new_elements.iter().map(move |v| encoder.write_value_element(v))),
             ))(out);
             x
         }
@@ -835,7 +835,7 @@ pub mod encode {
             let x = tuple((
                 write_async_message(elements, encoder),
                 write_flags(&flags),
-                all(new_elements.iter().map(move |v| encoder.write_value(v))),
+                all(new_elements.iter().map(move |v| encoder.write_value_element(v))),
             ))(out);
             x
         }
