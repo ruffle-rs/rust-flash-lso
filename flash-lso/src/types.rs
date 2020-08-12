@@ -1,7 +1,7 @@
 use enumset::EnumSet;
 use enumset::EnumSetType;
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 /// A container for sol files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

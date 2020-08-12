@@ -2,6 +2,7 @@ pub mod decoder {
     use crate::types::amf0::TypeMarker;
     use crate::types::{SolElement, SolValue};
     use crate::{amf3, PADDING};
+    use enumset::__internal::core_export::cell::RefCell;
     use nom::bytes::complete::tag;
     use nom::combinator::map;
     use nom::error::{make_error, ErrorKind};
@@ -11,9 +12,8 @@ pub mod decoder {
     use nom::Err;
     use nom::IResult;
     use std::convert::{TryFrom, TryInto};
-    use enumset::__internal::core_export::cell::RefCell;
-    use std::rc::Rc;
     use std::ops::Deref;
+    use std::rc::Rc;
 
     pub fn parse_string(i: &[u8]) -> IResult<&[u8], &str> {
         let (i, length) = be_u16(i)?;
@@ -74,7 +74,15 @@ pub mod decoder {
         // This must parse length elements
         let (i, elements) = many_m_n(length_usize, length_usize, parse_single_element)(i)?;
 
-        Ok((i, SolValue::StrictArray(elements.into_iter().map(|e| Rc::new(RefCell::new(e))).collect())))
+        Ok((
+            i,
+            SolValue::StrictArray(
+                elements
+                    .into_iter()
+                    .map(|e| Rc::new(RefCell::new(e)))
+                    .collect(),
+            ),
+        ))
     }
 
     fn parse_element_date(i: &[u8]) -> IResult<&[u8], SolValue> {
@@ -202,7 +210,7 @@ pub mod decoder {
 
 pub mod encoder {
     use crate::types::amf0::TypeMarker;
-    use crate::types::{SolElement, SolValue, Element};
+    use crate::types::{Element, SolElement, SolValue};
     use crate::PADDING;
     use cookie_factory::bytes::{be_f64, be_u16, be_u32, be_u8};
     use cookie_factory::{SerializeFn, WriteContext};

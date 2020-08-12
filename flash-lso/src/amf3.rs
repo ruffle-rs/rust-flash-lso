@@ -809,7 +809,7 @@ impl AMF3Decoder {
 pub mod encoder {
     use crate::amf3::{either, CustomEncoder, Length, TypeMarker};
     use crate::element_cache::ElementCache;
-    use crate::types::{Attribute, ClassDefinition, SolElement, SolValue, Element};
+    use crate::types::{Attribute, ClassDefinition, Element, SolElement, SolValue};
     use crate::PADDING;
     use cookie_factory::bytes::{be_f64, be_i32, be_u32, be_u8};
     use cookie_factory::combinator::{cond, slice};
@@ -1394,9 +1394,12 @@ pub mod encoder {
                     len.is_size(),
                     tuple((
                         be_u8(weak_keys as u8),
-                        all(items
-                            .iter()
-                            .map(move |i| tuple((self.write_value_element(&i.0), self.write_value_element(&i.1))))),
+                        all(items.iter().map(move |i| {
+                            tuple((
+                                self.write_value_element(&i.0),
+                                self.write_value_element(&i.1),
+                            ))
+                        })),
                     )),
                 ),
             ))
@@ -1415,9 +1418,7 @@ pub mod encoder {
             &'b self,
             s: &'b Element,
         ) -> impl SerializeFn<W> + 'a {
-            move |out| {
-                self.write_value(s.borrow_mut().deref())(out)
-            }
+            move |out| self.write_value(s.borrow_mut().deref())(out)
         }
 
         pub fn write_value<'a, 'b: 'a, W: Write + 'a>(

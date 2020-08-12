@@ -5,9 +5,9 @@ use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
-use flash_lso::types::{Sol, SolElement, SolValue, Attribute, Element};
-use flash_lso::LSODeserializer;
 use flash_lso::flex;
+use flash_lso::types::{Attribute, Element, Sol, SolElement, SolValue};
+use flash_lso::LSODeserializer;
 
 pub mod component_tab;
 pub mod component_tabs;
@@ -59,10 +59,7 @@ impl Component for Model {
                 let mut parser = LSODeserializer::default();
                 flex::decode::register_decoders(&mut parser.amf3_decoder);
 
-                let sol = parser
-                    .parse_full(&file.content)
-                    .unwrap()
-                    .1;
+                let sol = parser.parse_full(&file.content).unwrap().1;
                 self.files.push(sol);
             }
             Msg::Selection(val) => self.current_selection = Some(val),

@@ -596,7 +596,9 @@ pub mod encode {
 
             let x = tuple((
                 write_flags(&flags),
-                all(new_elements.iter().map(move |v| encoder.write_value_element(v))),
+                all(new_elements
+                    .iter()
+                    .map(move |v| encoder.write_value_element(v))),
             ))(out);
             x
         }
@@ -690,7 +692,9 @@ pub mod encode {
             let x = tuple((
                 write_abstract_message(elements, encoder),
                 write_flags(&flags),
-                all(new_elements.iter().map(move |v| encoder.write_value_element(v))),
+                all(new_elements
+                    .iter()
+                    .map(move |v| encoder.write_value_element(v))),
             ))(out);
             x
         }
@@ -750,7 +754,9 @@ pub mod encode {
             let x = tuple((
                 write_async_message(elements, encoder),
                 write_flags(&flags),
-                all(new_elements.iter().map(move |v| encoder.write_value_element(v))),
+                all(new_elements
+                    .iter()
+                    .map(move |v| encoder.write_value_element(v))),
             ))(out);
             x
         }
@@ -835,7 +841,9 @@ pub mod encode {
             let x = tuple((
                 write_async_message(elements, encoder),
                 write_flags(&flags),
-                all(new_elements.iter().map(move |v| encoder.write_value_element(v))),
+                all(new_elements
+                    .iter()
+                    .map(move |v| encoder.write_value_element(v))),
             ))(out);
             x
         }
