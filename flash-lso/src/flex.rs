@@ -16,7 +16,11 @@ const CORRELATION_ID_BYTES_FLAG: u8 = 2;
 
 pub mod decode {
     use crate::amf3::AMF3Decoder;
-    use crate::flex::{NEXT_FLAG, BODY_FLAG, CLIENT_ID_FLAG, DESTINATION_ID_FLAG, HEADERS_FLAG, MESSAGE_ID_FLAG, TIMESTAMP_FLAG, TTL_FLAG, CLIENT_ID_BYTES_FLAG, MESSAGE_ID_BYTES_FLAG, CORRELATION_ID_FLAG, CORRELATION_ID_BYTES_FLAG};
+    use crate::flex::{
+        BODY_FLAG, CLIENT_ID_BYTES_FLAG, CLIENT_ID_FLAG, CORRELATION_ID_BYTES_FLAG,
+        CORRELATION_ID_FLAG, DESTINATION_ID_FLAG, HEADERS_FLAG, MESSAGE_ID_BYTES_FLAG,
+        MESSAGE_ID_FLAG, NEXT_FLAG, TIMESTAMP_FLAG, TTL_FLAG,
+    };
     use crate::types::SolElement;
     use nom::number::complete::be_u8;
     use nom::IResult;
@@ -360,13 +364,17 @@ pub mod decode {
 pub mod encode {
     use crate::amf3::encoder::AMF3Encoder;
     use crate::amf3::CustomEncoder;
-    use crate::flex::{NEXT_FLAG, BODY_FLAG, CLIENT_ID_FLAG, DESTINATION_ID_FLAG, HEADERS_FLAG, MESSAGE_ID_FLAG, TIMESTAMP_FLAG, TTL_FLAG, CLIENT_ID_BYTES_FLAG, MESSAGE_ID_BYTES_FLAG};
+    use crate::flex::{
+        BODY_FLAG, CLIENT_ID_BYTES_FLAG, CLIENT_ID_FLAG, DESTINATION_ID_FLAG, HEADERS_FLAG,
+        MESSAGE_ID_BYTES_FLAG, MESSAGE_ID_FLAG, NEXT_FLAG, TIMESTAMP_FLAG, TTL_FLAG,
+    };
     use crate::types::{ClassDefinition, SolElement, SolValue};
     use cookie_factory::bytes::be_u8;
-    use cookie_factory::{gen, SerializeFn};
-    use std::io::Write;
-    use nom::InputIter;
     use cookie_factory::multi::all;
+    use cookie_factory::sequence::tuple;
+    use cookie_factory::{gen, SerializeFn};
+    use nom::InputIter;
+    use std::io::Write;
 
     pub struct ArrayCollection;
 
@@ -451,67 +459,149 @@ pub mod encode {
             elements: &'b [SolElement],
             encoder: &'a AMF3Encoder,
         ) -> impl SerializeFn<W> + 'a {
+            move |out| {
+                let mut flags = Vec::new();
+                let mut new_elements = Vec::new();
+                {
+                    let mut flag = 0;
 
-            let mut flags = Vec::new();
-            let mut new_elements = Vec::new();
-            {
-                let mut flag = 0;
+                    if let Some(v) = elements
+                        .iter()
+                        .find(|e| e.name == "body")
+                        .map(|e| e.value.clone())
+                    {
+                        flag |= BODY_FLAG;
+                        new_elements.push(v);
+                    }
+                    if let Some(v) = elements
+                        .iter()
+                        .find(|e| e.name == "client_id")
+                        .map(|e| e.value.clone())
+                    {
+                        flag |= CLIENT_ID_FLAG;
+                        new_elements.push(v);
+                    }
+                    if let Some(v) = elements
+                        .iter()
+                        .find(|e| e.name == "destination")
+                        .map(|e| e.value.clone())
+                    {
+                        flag |= DESTINATION_ID_FLAG;
+                        new_elements.push(v);
+                    }
+                    if let Some(v) = elements
+                        .iter()
+                        .find(|e| e.name == "headers")
+                        .map(|e| e.value.clone())
+                    {
+                        flag |= HEADERS_FLAG;
+                        new_elements.push(v);
+                    }
+                    if let Some(v) = elements
+                        .iter()
+                        .find(|e| e.name == "message_id")
+                        .map(|e| e.value.clone())
+                    {
+                        flag |= MESSAGE_ID_FLAG;
+                        new_elements.push(v);
+                    }
+                    if let Some(v) = elements
+                        .iter()
+                        .find(|e| e.name == "timestamp")
+                        .map(|e| e.value.clone())
+                    {
+                        flag |= TIMESTAMP_FLAG;
+                        new_elements.push(v);
+                    }
+                    if let Some(v) = elements
+                        .iter()
+                        .find(|e| e.name == "ttl")
+                        .map(|e| e.value.clone())
+                    {
+                        flag |= TTL_FLAG;
+                        new_elements.push(v);
+                    }
 
-                if let Some(v) = elements.iter().find(|e| e.name == "body").map(|e| e.value.clone()) {
-                    flag |= BODY_FLAG;
-                    new_elements.push(v);
+                    if let Some(v) = elements
+                        .iter()
+                        .find(|e| e.name == "children_1")
+                        .map(|e| e.value.clone())
+                    {
+                        flag |= 0b1000_000;
+                        new_elements.push(v);
+                    }
+
+                    flags.push(flag);
                 }
-                if let Some(v) = elements.iter().find(|e| e.name == "client_id").map(|e| e.value.clone()) {
-                    flag |= CLIENT_ID_FLAG;
-                    new_elements.push(v);
-                }
-                if let Some(v) = elements.iter().find(|e| e.name == "destination").map(|e| e.value.clone()) {
-                    flag |= DESTINATION_ID_FLAG;
-                    new_elements.push(v);
-                }
-                if let Some(v) = elements.iter().find(|e| e.name == "headers").map(|e| e.value.clone()) {
-                    flag |= HEADERS_FLAG;
-                    new_elements.push(v);
-                }
-                if let Some(v) = elements.iter().find(|e| e.name == "message_id").map(|e| e.value.clone()) {
-                    flag |= MESSAGE_ID_FLAG;
-                    new_elements.push(v);
-                }
-                if let Some(v) = elements.iter().find(|e| e.name == "timestamp").map(|e| e.value.clone()) {
-                    flag |= TIMESTAMP_FLAG;
-                    new_elements.push(v);
-                }
-                if let Some(v) = elements.iter().find(|e| e.name == "ttl").map(|e| e.value.clone()) {
-                    flag |= TTL_FLAG;
-                    new_elements.push(v);
+                {
+                    let mut flag = 0;
+
+                    if let Some(v) = elements
+                        .iter()
+                        .find(|e| e.name == "client_id_bytes")
+                        .map(|e| e.value.clone())
+                    {
+                        flag |= CLIENT_ID_BYTES_FLAG;
+                        new_elements.push(v);
+                    }
+                    if let Some(v) = elements
+                        .iter()
+                        .find(|e| e.name == "message_id_bytes")
+                        .map(|e| e.value.clone())
+                    {
+                        flag |= MESSAGE_ID_BYTES_FLAG;
+                        new_elements.push(v);
+                    }
+
+                    for n in 2..7 {
+                        if let Some(v) = elements
+                            .iter()
+                            .find(|e| e.name == format!("children_{}", n))
+                            .map(|e| e.value.clone())
+                        {
+                            flag |= (0b1 << n);
+                            new_elements.push(v);
+                        }
+                    }
+
+                    flags.push(flag);
                 }
 
-                //TODO: if we have any children then the last bit can be used for it
+                {
+                    let mut n = 0;
+                    let mut base = 8;
+                    let mut flag = 0;
+                    loop {
+                        if let Some(v) = elements
+                            .iter()
+                            .find(|e| e.name == format!("children_{}", n + base))
+                            .map(|e| e.value.clone())
+                        {
+                            flag |= (0b1 << n);
+                            new_elements.push(v);
+                        } else {
+                            if flag != 0 {
+                                flags.push(flag);
+                            }
+                            break;
+                        }
 
-                flags.push(flag);
+                        n += 1;
+                        if n > 7 {
+                            n = 0;
+                            base += 7;
+                            flags.push(flag);
+                            flag = 0;
+                        }
+                    }
+                }
+
+                let x = tuple((
+                    write_flags(&flags),
+                    all(new_elements.iter().map(move |v| encoder.write_value(v))),
+                ))(out);
+                x
             }
-            {
-                let mut flag = 0;
-
-                if let Some(v) = elements.iter().find(|e| e.name == "client_id_bytes").map(|e| e.value.clone()) {
-                    flag |= CLIENT_ID_BYTES_FLAG;
-                    new_elements.push(v);
-                }
-                if let Some(v) = elements.iter().find(|e| e.name == "message_id_bytes").map(|e| e.value.clone()) {
-                    flag |= MESSAGE_ID_BYTES_FLAG;
-                    new_elements.push(v);
-                }
-
-                //TODO: if we have any children then the last 7 bits can be used for them
-
-                flags.push(flag);
-            }
-
-            //TODO: if we have any children then all the other bits can be used for them
-
-
-            let data = elements.get(0).unwrap();
-            encoder.write_value(&data.value)
         }
     }
 
