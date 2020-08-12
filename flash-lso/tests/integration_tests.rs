@@ -1,6 +1,5 @@
 use core::fmt;
 use flash_lso::encoder;
-use flash_lso::encoder::LSOSerializer;
 use flash_lso::LSODeserializer;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
@@ -94,6 +93,8 @@ macro_rules! auto_test_flex {
         pub fn $name() {
             use flash_lso::flex;
             use cookie_factory::gen;
+            use flash_lso::encoder::LSOSerializer;
+
             let mut x = File::open(concat!("tests/sol/", $path, ".sol")).expect("Couldn't open file");
             let mut data = Vec::new();
             let _ = x.read_to_end(&mut data).expect("Unable to read file");

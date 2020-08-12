@@ -18,7 +18,6 @@ use nom::take;
 use nom::take_str;
 use nom::Err;
 use nom::IResult;
-use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
@@ -180,7 +179,7 @@ pub fn parse_element_number(i: &[u8]) -> IResult<&[u8], Element> {
 impl AMF3Decoder {
     fn parse_element_string<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, s) = map(|i| self.parse_string(i), SolValue::String)(i)?;
-        return Ok((i, Rc::new(RefCell::new(s))));
+        Ok((i, Rc::new(RefCell::new(s))))
     }
 
     pub fn parse_string<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], String> {
@@ -321,7 +320,6 @@ impl AMF3Decoder {
         }
         length >>= 1;
 
-        let old_len = self.object_reference_table.borrow().len();
         let obj = Rc::new(RefCell::new(SolValue::Object(Vec::new(), None)));
         self.object_reference_table
             .borrow_mut()
@@ -335,7 +333,7 @@ impl AMF3Decoder {
         }
 
         let mut elements = Vec::new();
-        let mut external_elements = Vec::new();
+        let external_elements;
 
         let mut i = i;
         if class_def.attributes.contains(Attribute::EXTERNAL) {
@@ -598,7 +596,6 @@ impl AMF3Decoder {
         }
         //TODO: this wont work properly till we have one type for all
 
-        let old_len = self.object_reference_table.borrow().len();
         let obj = Rc::new(RefCell::new(SolValue::Null));
         self.object_reference_table
             .borrow_mut()

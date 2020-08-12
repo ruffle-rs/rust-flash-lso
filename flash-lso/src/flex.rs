@@ -369,12 +369,11 @@ pub mod encode {
         CORRELATION_ID_FLAG, DESTINATION_ID_FLAG, HEADERS_FLAG, MESSAGE_ID_BYTES_FLAG,
         MESSAGE_ID_FLAG, NEXT_FLAG, OPERATION_FLAG, TIMESTAMP_FLAG, TTL_FLAG,
     };
-    use crate::types::{ClassDefinition, SolElement, SolValue};
+    use crate::types::{ClassDefinition, SolElement};
     use cookie_factory::bytes::be_u8;
     use cookie_factory::multi::all;
     use cookie_factory::sequence::tuple;
     use cookie_factory::{gen, SerializeFn};
-    use nom::InputIter;
     use std::io::Write;
 
     pub struct ArrayCollection;
@@ -558,7 +557,7 @@ pub mod encode {
                         .find(|e| e.name == format!("children_{}", n))
                         .map(|e| e.value.clone())
                     {
-                        flag |= (0b1 << n);
+                        flag |= 0b1 << n;
                         new_elements.push(v);
                     }
                 }
@@ -576,7 +575,7 @@ pub mod encode {
                         .find(|e| e.name == format!("children_{}", n + base))
                         .map(|e| e.value.clone())
                     {
-                        flag |= (0b1 << n);
+                        flag |= 0b1 << n;
                         new_elements.push(v);
                     } else {
                         if flag != 0 {
@@ -652,7 +651,7 @@ pub mod encode {
                         .find(|e| e.name == format!("children_async_{}", n))
                         .map(|e| e.value.clone())
                     {
-                        flag |= (0b1 << n);
+                        flag |= 0b1 << n;
                         new_elements.push(v);
                     }
                 }
@@ -669,7 +668,7 @@ pub mod encode {
                         .find(|e| e.name == format!("children_async_{}", n + base))
                         .map(|e| e.value.clone())
                     {
-                        flag |= (0b1 << n);
+                        flag |= 0b1 << n;
                         new_elements.push(v);
                     } else {
                         if flag != 0 {
@@ -729,7 +728,7 @@ pub mod encode {
                         .find(|e| e.name == format!("children_acknowledge_{}", n + base))
                         .map(|e| e.value.clone())
                     {
-                        flag |= (0b1 << n);
+                        flag |= 0b1 << n;
                         new_elements.push(v);
                     } else {
                         if flag != 0 {
@@ -797,7 +796,7 @@ pub mod encode {
                         .find(|e| e.name == format!("children_command_{}", n))
                         .map(|e| e.value.clone())
                     {
-                        flag |= (0b1 << n);
+                        flag |= 0b1 << n;
                         new_elements.push(v);
                     }
                 }
@@ -814,7 +813,7 @@ pub mod encode {
                         .find(|e| e.name == format!("children_command_{}", n + base))
                         .map(|e| e.value.clone())
                     {
-                        flag |= (0b1 << n);
+                        flag |= 0b1 << n;
                         new_elements.push(v);
                     } else {
                         if flag != 0 {
