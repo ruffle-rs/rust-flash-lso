@@ -28,3 +28,4 @@ pretty_assertions = "0.6.1"
 [features]
 default = []
 flex = []
+all = ["flex", "serde"]
