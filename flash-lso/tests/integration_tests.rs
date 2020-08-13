@@ -247,7 +247,7 @@ auto_test! {
 // Samples that can be parsed but not written
 test_parse_only! {
     [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
-    [slot_1, "slot1"], // malloc error
+    [slot_1, "slot1"],
     [party_1, "Party1"],
 
     // External classes
@@ -255,7 +255,7 @@ test_parse_only! {
 }
 
 auto_test_flex! {
-    [opp_detail_prefs, "oppDetailPrefs"] //TODO: uses flex, probably wont parse for a while
+    [opp_detail_prefs, "oppDetailPrefs"]
 }
 
 use nom::error::ErrorKind::Tag;

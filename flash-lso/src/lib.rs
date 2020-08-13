@@ -13,13 +13,10 @@ mod element_cache;
 pub mod types;
 
 use crate::amf3::AMF3Decoder;
-use crate::types::{Sol, SolHeader};
+use crate::types::{Sol, SolHeader, AMFVersion};
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::combinator::map;
-use nom::error::{make_error, ErrorKind};
 use nom::number::complete::be_u32;
-use nom::Err;
 use nom::IResult;
 use std::convert::TryInto;
 
@@ -49,18 +46,11 @@ pub struct LSODeserializer {
 }
 
 impl LSODeserializer {
-    pub fn parse_version<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], [u8; 2]> {
-        map(tag(HEADER_VERSION), |v: &[u8]| v.try_into().unwrap())(i)
-    }
-
-    pub fn parse_signature<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], [u8; 10]> {
-        map(tag(HEADER_SIGNATURE), |sig: &[u8]| sig.try_into().unwrap())(i)
-    }
 
     pub fn parse_header<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolHeader> {
-        let (i, v) = self.parse_version(i)?;
+        let (i, _) = tag(HEADER_VERSION)(i)?;
         let (i, l) = be_u32(i)?;
-        let (i, sig) = self.parse_signature(i)?;
+        let (i, _) = tag(HEADER_SIGNATURE)(i)?;
 
         let (i, name) = amf0::decoder::parse_string(i)?;
 
@@ -68,17 +58,16 @@ impl LSODeserializer {
         let (i, _) = tag(PADDING)(i)?;
         let (i, _) = tag(PADDING)(i)?;
 
-        let (i, format_version) = map(
-            alt((tag(&[FORMAT_VERSION_AMF0]), tag(&[FORMAT_VERSION_AMF3]))),
-            |v: &[u8]| v[0],
-        )(i)?;
+        let (i, version) = alt((tag(&[FORMAT_VERSION_AMF0]), tag(&[FORMAT_VERSION_AMF3])))(i)?;
+
+        // This unwrap can't fail because of the alt above
+        let format_version: AMFVersion = version[0].try_into().unwrap();
 
         Ok((
             i,
+
             SolHeader {
-                version: v,
                 length: l,
-                signature: sig,
                 name: name.to_string(),
                 format_version,
             },
@@ -88,22 +77,21 @@ impl LSODeserializer {
     pub fn parse_full<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Sol> {
         let (i, header) = self.parse_header(i)?;
         match header.format_version {
-            FORMAT_VERSION_AMF0 => {
+             AMFVersion::AMF0 => {
                 let (i, body) = amf0::decoder::parse_body(i)?;
                 Ok((i, Sol { header, body }))
             }
-            FORMAT_VERSION_AMF3 => {
+            AMFVersion::AMF3 => {
                 let (i, body) = self.amf3_decoder.parse_body(i)?;
                 Ok((i, Sol { header, body }))
             }
-            _ => Err(Err::Error(make_error(i, ErrorKind::Digit))),
         }
     }
 }
 
 pub mod encoder {
-    use crate::types::{Sol, SolHeader};
-    use crate::{FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, PADDING};
+    use crate::types::{Sol, SolHeader, AMFVersion};
+    use crate::{FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, PADDING, HEADER_VERSION, HEADER_SIGNATURE};
     use cookie_factory::bytes::{be_u16, be_u32};
     use cookie_factory::SerializeFn;
     use std::io::Write;
@@ -127,11 +115,11 @@ pub mod encoder {
             lso: &'b Sol,
         ) -> impl SerializeFn<W> + 'a {
             let amf0 = cond(
-                lso.header.format_version == 0,
+                lso.header.format_version == AMFVersion::AMF0,
                 amf0_encoder::write_body(&lso.body),
             );
             let amf3 = cond(
-                lso.header.format_version == 3,
+                lso.header.format_version == AMFVersion::AMF3,
                 self.amf3_encoder.write_body(&lso.body),
             );
 
@@ -147,15 +135,15 @@ pub mod encoder {
         header: &'b SolHeader,
     ) -> impl SerializeFn<W> + 'a {
         tuple((
-            slice(header.version),
+            slice(HEADER_VERSION),
             be_u32(header.length),
-            slice(header.signature),
+            slice(HEADER_SIGNATURE),
             write_string(&header.name),
             slice(PADDING),
             slice(PADDING),
             slice(PADDING),
-            cond(header.format_version == 0, slice(&[FORMAT_VERSION_AMF0])),
-            cond(header.format_version == 3, slice(&[FORMAT_VERSION_AMF3])),
+            cond(header.format_version == AMFVersion::AMF0, slice(&[FORMAT_VERSION_AMF0])),
+            cond(header.format_version == AMFVersion::AMF3, slice(&[FORMAT_VERSION_AMF3])),
         ))
     }
 

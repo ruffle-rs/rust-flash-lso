@@ -139,7 +139,7 @@ fn parse_element_int(i: &[u8]) -> IResult<&[u8], Element> {
     Ok((i, Rc::new(RefCell::new(s))))
 }
 
-//TODO: could this be combined
+//TODO: could this be combined with the trait
 type ExternalDecoderFn =
     Box<dyn for<'a> Fn(&'a [u8], &AMF3Decoder) -> IResult<&'a [u8], Vec<SolElement>>>;
 
@@ -308,12 +308,11 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            let obj = self
+            let obj = Rc::clone(self
                 .object_reference_table
                 .borrow()
                 .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
-                .clone();
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
 
             return Ok((i, obj));
         }
@@ -387,9 +386,6 @@ impl AMF3Decoder {
             *elements_inner = elements;
         }
 
-        // self.object_reference_table.borrow_mut().push(obj.clone());
-        // self.object_reference_table.borrow_mut()[old_len] = obj.clone();
-
         Ok((i, Rc::clone(&obj)))
     }
 
@@ -401,12 +397,11 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            let obj = self
+            let obj = Rc::clone(self
                 .object_reference_table
                 .borrow()
                 .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
-                .clone();
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
 
             Ok((i, obj))
         } else {
@@ -432,12 +427,11 @@ impl AMF3Decoder {
         }
 
         if reference {
-            let obj = self
+            let obj = Rc::clone(self
                 .object_reference_table
                 .borrow()
                 .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
-                .clone();
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
 
             return Ok((i, obj));
         }
@@ -466,12 +460,11 @@ impl AMF3Decoder {
         }
 
         if reference {
-            let obj = self
+            let obj = Rc::clone(self
                 .object_reference_table
                 .borrow()
                 .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
-                .clone();
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
 
             return Ok((i, obj));
         }
@@ -480,7 +473,6 @@ impl AMF3Decoder {
 
         let (i, ints) = many_m_n(len_usize, len_usize, be_u32)(i)?;
 
-        //TODO: move up and others
         let obj = Rc::new(RefCell::new(SolValue::VectorUInt(ints, fixed_length == 1)));
         self.object_reference_table
             .borrow_mut()
@@ -500,12 +492,11 @@ impl AMF3Decoder {
         }
 
         if reference {
-            let obj = self
+            let obj = Rc::clone(self
                 .object_reference_table
                 .borrow()
                 .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
-                .clone();
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
 
             return Ok((i, obj));
         }
@@ -537,12 +528,11 @@ impl AMF3Decoder {
         }
 
         if reference {
-            let obj = self
+            let obj = Rc::clone(self
                 .object_reference_table
                 .borrow()
                 .get(length_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
-                .clone();
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
 
             return Ok((i, obj));
         }
@@ -551,17 +541,18 @@ impl AMF3Decoder {
 
         let (i, object_type_name) = self.parse_string(i)?;
 
-        let (i, elems) = many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
-
-        //TODO: move up
-        let obj = Rc::new(RefCell::new(SolValue::VectorObject(
-            elems,
-            object_type_name,
-            fixed_length == 1,
-        )));
+        let obj = Rc::new(RefCell::new(SolValue::VectorObject(Vec::new(), object_type_name, fixed_length == 1)));
         self.object_reference_table
             .borrow_mut()
             .push(Rc::clone(&obj));
+
+        let (i, elems) = many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
+
+        if let SolValue::VectorObject(elements, _, _) = obj.deref().borrow_mut().deref_mut() {
+            *elements = elems;
+        }
+
+
         Ok((i, obj))
     }
 
@@ -573,13 +564,11 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            let obj = self
+            let obj = Rc::clone(self
                 .object_reference_table
                 .borrow()
                 .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
-                //TODO: all these clone should be Rc::clone()
-                .clone();
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
 
             return Ok((i, obj));
         }
@@ -593,7 +582,6 @@ impl AMF3Decoder {
         if i.len() < length_usize {
             return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
         }
-        //TODO: this wont work properly till we have one type for all
 
         let obj = Rc::new(RefCell::new(SolValue::Null));
         self.object_reference_table
@@ -610,7 +598,6 @@ impl AMF3Decoder {
             *x = SolValue::StrictArray(elements);
             drop(x);
 
-            // self.object_reference_table.borrow_mut()[old_len] = Rc::clone(&obj);
             return Ok((i, obj));
         }
 
@@ -635,11 +622,10 @@ impl AMF3Decoder {
         let (i, el) = many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
 
         let elements_len = elements.len() as u32;
-        // let obj = Rc::new(RefCell::new(SolValue::ECMAArray(el, elements, elements_len)));
-        // self.object_reference_table.borrow_mut()[old_len] = obj.clone();
         let mut x = obj.deref().borrow_mut();
         *x = SolValue::ECMAArray(el, elements, elements_len);
         drop(x);
+
         Ok((i, obj))
     }
 
@@ -651,12 +637,11 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            let obj_ref = self
+            let obj_ref = Rc::clone(self
                 .object_reference_table
                 .borrow()
                 .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
-                .clone();
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
 
             return Ok((i, obj_ref));
         }
@@ -696,8 +681,6 @@ impl AMF3Decoder {
         }
         drop(x);
 
-        // let obj = SolValue::Dictionary(pairs, weak_keys == 1);
-        // self.object_reference_table.borrow_mut().push(obj.clone());
         Ok((i, obj))
     }
 
@@ -735,12 +718,11 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            let obj = self
+            let obj = Rc::clone(self
                 .object_reference_table
                 .borrow()
                 .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
-                .clone();
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
 
             return Ok((i, obj));
         }
@@ -904,7 +886,6 @@ pub mod encoder {
             &self,
             s: &'b str,
         ) -> impl SerializeFn<W> + 'a {
-            //TODO: references (handle in byte str?)
             self.write_byte_string(s.as_bytes())
         }
 
@@ -1250,42 +1231,42 @@ pub mod encoder {
                 .store(SolValue::Object(children.to_vec(), class_def.clone()));
 
             move |out| {
-                if let Some(def) = class_def {
-                    let has_trait = self
-                        .trait_reference_table
-                        .borrow()
-                        .iter()
-                        .position(|cd| *cd == *def);
+                let def = class_def.clone().unwrap_or_default();
+                let def2 = def.clone();
 
-                    tuple((
-                        self.write_type_marker(TypeMarker::Object),
-                        cond(had_object.is_reference(), move |out| {
-                            self.write_object_reference(had_object.to_position().unwrap() as u32)(
-                                out,
-                            )
-                        }),
-                        cond(
-                            !had_object.is_reference(),
-                            tuple((
-                                cond(has_trait.is_some(), move |out| {
-                                    self.write_trait_reference(
-                                        has_trait.unwrap() as u32,
-                                        children,
-                                        custom_props,
-                                        def,
-                                    )(out)
-                                }),
-                                cond(
-                                    has_trait.is_none(),
-                                    self.write_object_full(custom_props, children, def),
-                                ),
-                            )),
-                        ),
-                    ))(out)
-                } else {
-                    //TODO: should have a default class def, this should only be possible if the input was parsed from an amf0 file
-                    Err(GenError::NotYetImplemented)
-                }
+                let has_trait = self
+                    .trait_reference_table
+                    .borrow()
+                    .iter()
+                    .position(|cd| *cd == def);
+
+                let x = tuple((
+                    self.write_type_marker(TypeMarker::Object),
+                    cond(had_object.is_reference(), move |out| {
+                        self.write_object_reference(had_object.to_position().unwrap() as u32)(
+                            out,
+                        )
+                    }),
+                    cond(
+                        !had_object.is_reference(),
+                        tuple((
+                            cond(has_trait.is_some(), move |out| {
+                                self.write_trait_reference(
+                                    has_trait.unwrap() as u32,
+                                    children,
+                                    custom_props,
+                                    &def2,
+                                )(out)
+                            }),
+                            cond(
+                                has_trait.is_none(),
+                                self.write_object_full(custom_props, children, &def),
+                            ),
+                        )),
+                    ),
+                ))(out);
+
+                x
             }
         }
 
@@ -1405,15 +1386,6 @@ pub mod encoder {
             ))
         }
 
-        //TODO: eventually remove
-        #[allow(unreachable_code)]
-        pub fn write_unsupported_element<'a, 'b: 'a, W: Write + 'a>(
-            &self,
-        ) -> impl SerializeFn<W> + 'a {
-            unimplemented!();
-            self.write_type_marker(TypeMarker::Undefined)
-        }
-
         pub fn write_value_element<'a, 'b: 'a, W: Write + 'a>(
             &'b self,
             s: &'b Element,
@@ -1461,8 +1433,8 @@ pub mod encoder {
                 SolValue::Custom(elements, dynamic_elements, def) => {
                     self.write_object_element(dynamic_elements, Some(elements), def)(out)
                 }
-                SolValue::TypedObject(_, _) => self.write_unsupported_element()(out),
-                SolValue::Unsupported => self.write_unsupported_element()(out),
+                SolValue::TypedObject(name, elements) => self.write_object_element(elements, None, &Some(ClassDefinition::default_with_name(name.clone())))(out),
+                SolValue::Unsupported => self.write_undefined_element()(out),
             }
         }
 

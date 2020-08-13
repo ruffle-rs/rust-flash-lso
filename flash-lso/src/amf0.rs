@@ -46,7 +46,7 @@ pub mod decoder {
     #[allow(clippy::let_and_return)]
     fn parse_element_mixed_array(i: &[u8]) -> IResult<&[u8], SolValue> {
         let (i, array_length) = be_u32(i)?;
-        //TODO: this `let x = ...` fixes a borrow error on array_length
+        // this `let x = ...` fixes a borrow error on array_length
         let x = map(parse_array_element, |elms: Vec<SolElement>| {
             SolValue::ECMAArray(Vec::new(), elms, array_length)
         })(i);

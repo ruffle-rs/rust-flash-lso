@@ -2,6 +2,10 @@ use enumset::EnumSet;
 use enumset::EnumSetType;
 use std::cell::RefCell;
 use std::rc::Rc;
+use derive_try_from_primitive::TryFromPrimitive;
+use core::fmt;
+use cookie_factory::lib::std::fmt::Formatter;
+
 
 /// A container for sol files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -11,16 +15,30 @@ pub struct Sol {
     pub body: Vec<SolElement>,
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(TryFromPrimitive, Eq, PartialEq, Debug, Copy, Clone)]
+#[repr(u8)]
+pub enum AMFVersion {
+    AMF0 = 0,
+    AMF3 = 3
+}
+
+impl fmt::Display for AMFVersion {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            AMFVersion::AMF0 => f.write_str("AMF0"),
+            AMFVersion::AMF3 => f.write_str("AMF3"),
+        }
+    }
+}
+
 /// The header of a sol file
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct SolHeader {
-    pub version: [u8; 2],
     pub length: u32,
-    pub signature: [u8; 10],
     pub name: String,
-    //TODO: this could be an enum
-    pub format_version: u8,
+    pub format_version: AMFVersion,
 }
 
 pub type Element = Rc<RefCell<SolValue>>;
@@ -94,6 +112,28 @@ pub struct ClassDefinition {
     pub attributes: EnumSet<Attribute>,
     pub attribute_count: u32,
     pub static_properties: Vec<String>,
+}
+
+impl Default for ClassDefinition {
+    fn default() -> Self {
+        Self {
+            name: "Object".to_string(),
+            attributes: EnumSet::empty(),
+            attribute_count: 0,
+            static_properties: Vec::new()
+        }
+    }
+}
+
+impl ClassDefinition {
+    pub fn default_with_name(name: String) -> Self {
+        Self {
+            name,
+            attributes: EnumSet::empty(),
+            attribute_count: 0,
+            static_properties: Vec::new()
+        }
+    }
 }
 
 /// Encodes the possible attributes that can be given to a trait
