@@ -301,7 +301,6 @@ impl AMF3Decoder {
 
     pub fn parse_element_object<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, mut length) = read_int(i)?;
-        println!("Obj length = {}", length);
 
         if length & REFERENCE_FLAG == 0 {
             let len_usize: usize = (length >> 1)
