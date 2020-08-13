@@ -1433,7 +1433,7 @@ pub mod encoder {
                 SolValue::Custom(elements, dynamic_elements, def) => {
                     self.write_object_element(dynamic_elements, Some(elements), def)(out)
                 }
-                SolValue::TypedObject(name, elements) => self.write_object_element(elements, None, &Some(ClassDefinition::default_with_name(name.clone())))(out),
+                SolValue::AMF3(e) => self.write_value_element(e)(out),
                 SolValue::Unsupported => self.write_undefined_element()(out),
             }
         }

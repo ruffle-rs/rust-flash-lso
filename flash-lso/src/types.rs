@@ -76,9 +76,10 @@ pub enum SolValue {
     Date(f64, Option<u16>),
     /// Represent the unsupported type
     Unsupported,
+    /// Represent the XML type, (value, is_string)
     XML(String, bool),
-    // TODo can this just be an object with the name in class def
-    TypedObject(String, Vec<SolElement>),
+    /// Represent an amf3 element embedded in an AMF0 file
+    AMF3(Element),
     // AMF3
     /// Represent the integer type (u29) (amf3)
     Integer(i32),

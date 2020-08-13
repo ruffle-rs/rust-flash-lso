@@ -1,6 +1,6 @@
 pub mod decoder {
     use crate::types::amf0::TypeMarker;
-    use crate::types::{SolElement, SolValue};
+    use crate::types::{SolElement, SolValue, ClassDefinition};
     use crate::{amf3, PADDING};
     use enumset::__internal::core_export::cell::RefCell;
     use nom::bytes::complete::tag;
@@ -12,7 +12,6 @@ pub mod decoder {
     use nom::Err;
     use nom::IResult;
     use std::convert::{TryFrom, TryInto};
-    use std::ops::Deref;
     use std::rc::Rc;
 
     pub fn parse_string(i: &[u8]) -> IResult<&[u8], &str> {
@@ -115,21 +114,18 @@ pub mod decoder {
     }
 
     fn parse_element_typed_object(i: &[u8]) -> IResult<&[u8], SolValue> {
-        let (i, s) = parse_string(i)?;
-        let (i, obj) = parse_element_object(i)?;
-        if let SolValue::Object(obj_content, _class_def) = obj {
-            Ok((i, SolValue::TypedObject(s.to_string(), obj_content)))
-        } else {
-            // Will never happen
-            Err(Err::Error(make_error(i, ErrorKind::Digit)))
-        }
+        let (i, name) = parse_string(i)?;
+
+        let x = map(parse_array_element, |elms: Vec<SolElement>| {
+            SolValue::Object(elms, Some(ClassDefinition::default_with_name(name.to_string())))
+        })(i);
+        x
     }
 
     fn parse_element_amf3(i: &[u8]) -> IResult<&[u8], SolValue> {
         // Hopefully amf3 objects wont have references
         let (i, x) = amf3::AMF3Decoder::default().parse_element_object(i)?;
-        let y = x.deref().borrow();
-        Ok((i, y.deref().clone()))
+        Ok((i, SolValue::AMF3(x)))
     }
 
     fn read_type_marker(i: &[u8]) -> IResult<&[u8], TypeMarker> {
@@ -222,6 +218,7 @@ pub mod encoder {
     use cookie_factory::multi::all;
     use cookie_factory::sequence::tuple;
     use std::ops::Deref;
+    use crate::amf3::encoder::AMF3Encoder;
 
     pub fn write_type_marker<'a, 'b: 'a, W: Write + 'a>(
         type_: TypeMarker,
@@ -358,18 +355,24 @@ pub mod encoder {
                     write_string_element(s)(out)
                 }
             }
-            SolValue::Object(o, _class_def) => write_object_element(o)(out),
+            SolValue::Object(elements, class_def) => {
+                if let Some(class_def) = class_def {
+                    write_typed_object_element(&class_def.name, elements)(out)
+                } else {
+                    write_object_element(elements)(out)
+                }
+            }
             SolValue::Null => write_null_element()(out),
             SolValue::Undefined => write_undefined_element()(out),
             SolValue::StrictArray(a) => write_strict_array_element(a)(out),
             SolValue::Date(d, tz) => write_date_element(*d, *tz)(out),
             SolValue::Unsupported => write_unsupported_element()(out),
             SolValue::XML(x, _string) => write_xml_element(x)(out),
-            SolValue::TypedObject(name, elements) => {
-                write_typed_object_element(name, elements)(out)
-            }
             SolValue::ECMAArray(_dense, elems, elems_length) => {
                 write_mixed_array(elems, *elems_length)(out)
+            }
+            SolValue::AMF3(e) => {
+                AMF3Encoder::default().write_value_element(e)(out)
             }
             _ => {
                 write_unsupported_element()(out) /* Not in amf0, TODO: use the amf3 embedding for every thing else */
