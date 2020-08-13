@@ -114,12 +114,6 @@ impl Model {
                     </ul>
                 </>
             },
-            SolValue::TypedObject(name, _) => html! {
-                <>
-                <p>{"name"}</p>
-                <p>{name}</p>
-                </>
-            },
             SolValue::VectorObject(_, name, _) => html! {
                 <>
                 <p>{"name"}</p>
@@ -161,6 +155,7 @@ impl Model {
             SolValue::XML(content, string) => html! {
                 <p>{ content }</p>
             },
+            SolValue::AMF3(e) => self.value_details(e.clone()),
             _ => html! {},
         }
     }
@@ -208,12 +203,8 @@ impl Model {
 
     fn view_sol_value(&self, data: Element) -> Html {
         match data.borrow_mut().deref() {
+            SolValue::AMF3(e) => self.view_sol_value(e.clone()),
             SolValue::Object(elements, _class_def) => html! {
-                <ul>
-                    { for elements.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
-                </ul>
-            },
-            SolValue::TypedObject(_name, elements) => html! {
                 <ul>
                     { for elements.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
                 </ul>
