@@ -308,11 +308,12 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            let obj = Rc::clone(self
-                .object_reference_table
-                .borrow()
-                .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
+            let obj = Rc::clone(
+                self.object_reference_table
+                    .borrow()
+                    .get(len_usize)
+                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
+            );
 
             return Ok((i, obj));
         }
@@ -397,11 +398,12 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            let obj = Rc::clone(self
-                .object_reference_table
-                .borrow()
-                .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
+            let obj = Rc::clone(
+                self.object_reference_table
+                    .borrow()
+                    .get(len_usize)
+                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
+            );
 
             Ok((i, obj))
         } else {
@@ -427,11 +429,12 @@ impl AMF3Decoder {
         }
 
         if reference {
-            let obj = Rc::clone(self
-                .object_reference_table
-                .borrow()
-                .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
+            let obj = Rc::clone(
+                self.object_reference_table
+                    .borrow()
+                    .get(len_usize)
+                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
+            );
 
             return Ok((i, obj));
         }
@@ -460,11 +463,12 @@ impl AMF3Decoder {
         }
 
         if reference {
-            let obj = Rc::clone(self
-                .object_reference_table
-                .borrow()
-                .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
+            let obj = Rc::clone(
+                self.object_reference_table
+                    .borrow()
+                    .get(len_usize)
+                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
+            );
 
             return Ok((i, obj));
         }
@@ -492,11 +496,12 @@ impl AMF3Decoder {
         }
 
         if reference {
-            let obj = Rc::clone(self
-                .object_reference_table
-                .borrow()
-                .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
+            let obj = Rc::clone(
+                self.object_reference_table
+                    .borrow()
+                    .get(len_usize)
+                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
+            );
 
             return Ok((i, obj));
         }
@@ -528,11 +533,12 @@ impl AMF3Decoder {
         }
 
         if reference {
-            let obj = Rc::clone(self
-                .object_reference_table
-                .borrow()
-                .get(length_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
+            let obj = Rc::clone(
+                self.object_reference_table
+                    .borrow()
+                    .get(length_usize)
+                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
+            );
 
             return Ok((i, obj));
         }
@@ -541,7 +547,11 @@ impl AMF3Decoder {
 
         let (i, object_type_name) = self.parse_string(i)?;
 
-        let obj = Rc::new(RefCell::new(SolValue::VectorObject(Vec::new(), object_type_name, fixed_length == 1)));
+        let obj = Rc::new(RefCell::new(SolValue::VectorObject(
+            Vec::new(),
+            object_type_name,
+            fixed_length == 1,
+        )));
         self.object_reference_table
             .borrow_mut()
             .push(Rc::clone(&obj));
@@ -551,7 +561,6 @@ impl AMF3Decoder {
         if let SolValue::VectorObject(elements, _, _) = obj.deref().borrow_mut().deref_mut() {
             *elements = elems;
         }
-
 
         Ok((i, obj))
     }
@@ -564,11 +573,12 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            let obj = Rc::clone(self
-                .object_reference_table
-                .borrow()
-                .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
+            let obj = Rc::clone(
+                self.object_reference_table
+                    .borrow()
+                    .get(len_usize)
+                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
+            );
 
             return Ok((i, obj));
         }
@@ -637,11 +647,12 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            let obj_ref = Rc::clone(self
-                .object_reference_table
-                .borrow()
-                .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
+            let obj_ref = Rc::clone(
+                self.object_reference_table
+                    .borrow()
+                    .get(len_usize)
+                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
+            );
 
             return Ok((i, obj_ref));
         }
@@ -718,11 +729,12 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            let obj = Rc::clone(self
-                .object_reference_table
-                .borrow()
-                .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?);
+            let obj = Rc::clone(
+                self.object_reference_table
+                    .borrow()
+                    .get(len_usize)
+                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
+            );
 
             return Ok((i, obj));
         }
@@ -1243,9 +1255,7 @@ pub mod encoder {
                 let x = tuple((
                     self.write_type_marker(TypeMarker::Object),
                     cond(had_object.is_reference(), move |out| {
-                        self.write_object_reference(had_object.to_position().unwrap() as u32)(
-                            out,
-                        )
+                        self.write_object_reference(had_object.to_position().unwrap() as u32)(out)
                     }),
                     cond(
                         !had_object.is_reference(),

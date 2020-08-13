@@ -1,11 +1,10 @@
+use cookie_factory::lib::std::fmt::Formatter;
+use core::fmt;
+use derive_try_from_primitive::TryFromPrimitive;
 use enumset::EnumSet;
 use enumset::EnumSetType;
 use std::cell::RefCell;
 use std::rc::Rc;
-use derive_try_from_primitive::TryFromPrimitive;
-use core::fmt;
-use cookie_factory::lib::std::fmt::Formatter;
-
 
 /// A container for sol files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -20,7 +19,7 @@ pub struct Sol {
 #[repr(u8)]
 pub enum AMFVersion {
     AMF0 = 0,
-    AMF3 = 3
+    AMF3 = 3,
 }
 
 impl fmt::Display for AMFVersion {
@@ -121,7 +120,7 @@ impl Default for ClassDefinition {
             name: "Object".to_string(),
             attributes: EnumSet::empty(),
             attribute_count: 0,
-            static_properties: Vec::new()
+            static_properties: Vec::new(),
         }
     }
 }
@@ -132,7 +131,7 @@ impl ClassDefinition {
             name,
             attributes: EnumSet::empty(),
             attribute_count: 0,
-            static_properties: Vec::new()
+            static_properties: Vec::new(),
         }
     }
 }

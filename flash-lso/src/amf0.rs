@@ -1,6 +1,6 @@
 pub mod decoder {
     use crate::types::amf0::TypeMarker;
-    use crate::types::{SolElement, SolValue, ClassDefinition};
+    use crate::types::{ClassDefinition, SolElement, SolValue};
     use crate::{amf3, PADDING};
     use enumset::__internal::core_export::cell::RefCell;
     use nom::bytes::complete::tag;
@@ -117,7 +117,10 @@ pub mod decoder {
         let (i, name) = parse_string(i)?;
 
         let x = map(parse_array_element, |elms: Vec<SolElement>| {
-            SolValue::Object(elms, Some(ClassDefinition::default_with_name(name.to_string())))
+            SolValue::Object(
+                elms,
+                Some(ClassDefinition::default_with_name(name.to_string())),
+            )
         })(i);
         x
     }
@@ -212,13 +215,13 @@ pub mod encoder {
     use cookie_factory::{SerializeFn, WriteContext};
     use std::io::Write;
 
+    use crate::amf3::encoder::AMF3Encoder;
     use crate::encoder::write_string;
     use cookie_factory::combinator::slice;
     use cookie_factory::combinator::string;
     use cookie_factory::multi::all;
     use cookie_factory::sequence::tuple;
     use std::ops::Deref;
-    use crate::amf3::encoder::AMF3Encoder;
 
     pub fn write_type_marker<'a, 'b: 'a, W: Write + 'a>(
         type_: TypeMarker,
@@ -371,9 +374,7 @@ pub mod encoder {
             SolValue::ECMAArray(_dense, elems, elems_length) => {
                 write_mixed_array(elems, *elems_length)(out)
             }
-            SolValue::AMF3(e) => {
-                AMF3Encoder::default().write_value_element(e)(out)
-            }
+            SolValue::AMF3(e) => AMF3Encoder::default().write_value_element(e)(out),
             _ => {
                 write_unsupported_element()(out) /* Not in amf0, TODO: use the amf3 embedding for every thing else */
             }
