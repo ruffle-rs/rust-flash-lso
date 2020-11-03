@@ -113,6 +113,7 @@ pub mod decoder {
         }
     }
 
+    #[allow(clippy::let_and_return)]
     fn parse_element_typed_object(i: &[u8]) -> IResult<&[u8], SolValue> {
         let (i, name) = parse_string(i)?;
 

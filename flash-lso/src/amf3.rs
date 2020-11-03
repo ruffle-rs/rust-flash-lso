@@ -11,7 +11,7 @@ use nom::bytes::complete::tag;
 use nom::combinator::map;
 use nom::error::{make_error, ErrorKind};
 use nom::lib::std::collections::HashMap;
-use nom::multi::{many_m_n, separated_list};
+use nom::multi::{many_m_n, separated_list0};
 use nom::number::complete::{be_f64, be_i32, be_u32, be_u8};
 use nom::sequence::tuple;
 use nom::take;
@@ -793,7 +793,7 @@ impl AMF3Decoder {
     }
 
     pub fn parse_body<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Vec<SolElement>> {
-        let (i, elements) = separated_list(tag(PADDING), |i| self.parse_element(i))(i)?;
+        let (i, elements) = separated_list0(tag(PADDING), |i| self.parse_element(i))(i)?;
         let (i, _) = tag(PADDING)(i)?;
         Ok((i, elements))
     }

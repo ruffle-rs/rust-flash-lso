@@ -63,7 +63,6 @@ impl Component for Model {
                 self.files.push(sol);
             }
             Msg::Selection(val) => self.current_selection = Some(val),
-            _ => return false,
         }
         true
     }
@@ -152,7 +151,7 @@ impl Model {
                 <p>{ format!("{:?}", tz) }</p>
                 </>
             },
-            SolValue::XML(content, string) => html! {
+            SolValue::XML(content, _string) => html! {
                 <p>{ content }</p>
             },
             SolValue::AMF3(e) => self.value_details(e.clone()),
@@ -250,7 +249,7 @@ impl Model {
                         })}
                 </ul>
             },
-            SolValue::Custom(el, el2, class_def) => html! {
+            SolValue::Custom(el, el2, _class_def) => html! {
                 <ul>
                     <li>
                         {"Custom elements"}
@@ -270,6 +269,7 @@ impl Model {
         }
     }
 
+    #[allow(clippy::boxed_local)]
     fn view_sol_element(&self, data: Box<SolElement>) -> Html {
         let name = data.name.clone();
         let value = data.value.clone();
@@ -282,7 +282,7 @@ impl Model {
         }
     }
 
-    fn view_file(&self, index: usize, data: &Sol) -> Html {
+    fn view_file(&self, _index: usize, data: &Sol) -> Html {
         html! {
 
 
@@ -301,7 +301,18 @@ impl Model {
                     <div class="col-8">
                         {
                             if let Some(selection) = &self.current_selection {
-                                self.value_details(selection.clone())
+                                let details_content = self.value_details(selection.clone());
+                                let value_type = match selection.borrow().deref() {
+                                    SolValue::Number(_) => "Number",
+                                    _ => "Boolean"
+                                };
+
+                                html! {
+                                    <>
+                                    <p>{"Type: "}{{value_type}}</p>
+                                    {{details_content}}
+                                    </>
+                                }
                             } else {
                                 html! { <p>{"Select an item"}</p> }
                             }

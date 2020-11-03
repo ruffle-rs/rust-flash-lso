@@ -19,7 +19,7 @@ impl Component for Tab {
         Self { props }
     }
 
-    fn update(&mut self, msg: Self::Message) -> bool {
+    fn update(&mut self, _msg: Self::Message) -> bool {
         false
     }
 

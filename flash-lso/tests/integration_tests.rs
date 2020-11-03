@@ -1,6 +1,9 @@
 use core::fmt;
 use flash_lso::encoder;
 use flash_lso::LSODeserializer;
+use nom::error::ErrorKind::Tag;
+use nom::Err::Incomplete;
+use nom::Needed;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 use std::fs::File;
@@ -142,11 +145,8 @@ macro_rules! auto_test_flex {
     }
 }
 
-use nom::Err::Error;
-use nom::Err::Incomplete;
-
 macro_rules! should_fail {
-    ($([$name: ident, $path: expr, $error_enum: ident, $error: expr]),*) => {
+    ($([$name: ident, $path: expr, $error: expr]),*) => {
         $(
         #[test]
         pub fn $name() {
@@ -156,7 +156,7 @@ macro_rules! should_fail {
             let parse_res = LSODeserializer::default().parse_full(&data);
 
             if let Err(x) = parse_res {
-                assert_eq!(x, $error_enum($error));
+                assert_eq!(x, $error);
             } else {
                 println!("error: {:?}", parse_res);
                 assert_eq!("Correct error type", "Wrong error type");
@@ -221,19 +221,15 @@ auto_test! {
     [flagstaff_2, "flagstaff"],
     [flash_viewer, "flash.viewer"],
     [hiro_network_capping_cookie, "HIRO_NETWORK_CAPPING_COOKIE"],
-    // [infectonator_survivors_76561198009932603_, "InfectonatorSurvivors76561198009932603"],
     [jy1, "JY1"],
     [labrat_2, "Labrat2"],
     [mardek_v3_sg_1, "MARDEKv3__sg_1"],
     [media_player_user_settings, "mediaPlayerUserSettings"],
-    // [metadata_history_, "MetadataHistory"],
     [minimal, "Minimal"],
     [minimal_2, "Minimalv2"],
-    // [party_1_, "Party1"],
     [previous_video, "previousVideo"],
     [robokill, "robokill"],
     [settings, "settings"],
-    // [slot_1_, "slot1"],
     [slot_1_party, "slot1_party"],
     [sound_data, "soundData"],
     [sound_data_level_0, "soundData_level0"],
@@ -258,11 +254,9 @@ auto_test_flex! {
     [opp_detail_prefs, "oppDetailPrefs"]
 }
 
-use nom::error::ErrorKind::Tag;
-use nom::Needed;
 should_fail! {
     // Corrupt/invalid file
-    [two, "2", Error, (vec![17, 112, 99, 95, 112, 97, 114, 116, 121, 10, 130, 51, 21, 80, 97, 114, 116, 121, 65, 108, 105, 97, 115, 0, 13, 98, 97, 116, 116, 108, 101, 2, 0].as_slice(), Tag)],
+    [two, "2", nom::Err::Error(nom::error::Error::new(vec![17, 112, 99, 95, 112, 97, 114, 116, 121, 10, 130, 51, 21, 80, 97, 114, 116, 121, 65, 108, 105, 97, 115, 0, 13, 98, 97, 116, 116, 108, 101, 2, 0].as_slice(), Tag))],
     // OOB read
-    [zero_four, "00000004", Incomplete, Needed::Size(255)]
+    [zero_four, "00000004", Incomplete(Needed::new(165))]
 }

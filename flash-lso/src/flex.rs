@@ -525,7 +525,7 @@ pub mod encode {
                     .find(|e| e.name == "children_1")
                     .map(|e| e.value.clone())
                 {
-                    flag |= 0b1000_000;
+                    flag |= 0b0100_0000;
                     new_elements.push(v);
                 }
 
