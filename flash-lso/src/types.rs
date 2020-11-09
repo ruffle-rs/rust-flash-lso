@@ -110,6 +110,7 @@ pub enum SolValue {
 pub struct ClassDefinition {
     pub name: String,
     pub attributes: EnumSet<Attribute>,
+    #[serde(skip)]
     pub attribute_count: u32,
     pub static_properties: Vec<String>,
 }

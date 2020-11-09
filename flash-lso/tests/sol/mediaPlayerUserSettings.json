@@ -1,0 +1,1 @@
+{"header":{"length":88,"name":"mediaPlayerUserSettings","format_version":"AMF0"},"body":[{"name":"volume","value":{"Number":1.0}},{"name":"smoothing","value":{"Bool":false}},{"name":"sizeMode","value":{"String":"fit"}}]}

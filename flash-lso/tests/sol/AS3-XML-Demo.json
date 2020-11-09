@@ -1,0 +1,1 @@
+{"header":{"length":82,"name":"AS3-XML-Demo","format_version":"AMF3"},"body":[{"name":"myXML","value":{"XML":["<start>\n  <p>test</p>\n  <p>test2</p>\n</start>",true]}}]}

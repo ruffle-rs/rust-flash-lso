@@ -1,0 +1,1 @@
+{"header":{"length":79,"name":"AS2-XML-Demo","format_version":"AMF0"},"body":[{"name":"myXML","value":{"XML":["<start><p>test</p><p>test2</p></start>",true]}}]}
