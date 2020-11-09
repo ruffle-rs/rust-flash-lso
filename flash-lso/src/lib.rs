@@ -1,5 +1,3 @@
-//#![type_length_limit = "1193167"]
-// missing_debug_implementations ,missing_docs
 #![warn(
     anonymous_parameters,
     nonstandard_style,
@@ -11,6 +9,8 @@
     unused_qualifications,
     variant_size_differences
 )]
+
+// #![warn(missing_docs, missing_debug_implementations)]
 
 use crate::amf3::AMF3Decoder;
 use crate::types::{AMFVersion, Sol, SolHeader};
