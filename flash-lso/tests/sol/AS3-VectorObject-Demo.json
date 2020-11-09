@@ -1,0 +1,1 @@
+{"header":{"length":73,"name":"AS3-VectorObject-Demo","format_version":"AMF3"},"body":[{"name":"myVectorObject","value":{"VectorObject":[[{"Number":4.1},{"Integer":3},{"String":"aaa"}],"",false]}}]}
