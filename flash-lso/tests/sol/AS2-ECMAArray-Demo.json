@@ -1,0 +1,1 @@
+{"header":{"length":82,"name":"AS2-ECMAArray-Demo","format_version":"AMF0"},"body":[{"name":"myStringArray","value":{"ECMAArray":[[],[{"name":"one","value":{"String":"eins"}},{"name":"two","value":{"String":"zwei"}}],0]}}]}

@@ -1,0 +1,1 @@
+{"header":{"length":79,"name":"AS3-TypedObject-Demo","format_version":"AMF3"},"body":[{"name":"myTypedObject","value":{"Object":[[{"name":"foo","value":{"Integer":6}}],{"name":"com.AS3SolTestClass","attributes":0,"static_properties":["foo"]}]}}]}

@@ -20,7 +20,7 @@ fn main() {
 
     let file = Path::new(file_name);
     if let Some(sol) = read_file(file.into()) {
-        let json = serde_json::to_string_pretty(&sol).expect("Unable to encode lso as json");
+        let json = serde_json::to_string(&sol).expect("Unable to encode lso as json");
         println!("{}", json);
     } else {
         eprintln!("Couldn't read lso file, maybe open a issue on github at https://github.com/CUB3D/rust-flash-lso");
