@@ -53,7 +53,6 @@ macro_rules! auto_test {
                 // assert_eq!(bytes, data, "library output != input");
                 assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
             } else {
-                // println!("Input: {:?}", data);
                 println!("parse failed: {:?}", parse_res);
                 assert_eq!(false, true)
             }

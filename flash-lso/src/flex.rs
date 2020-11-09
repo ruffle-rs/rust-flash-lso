@@ -44,7 +44,7 @@ pub mod decode {
         Ok((k, flags))
     }
 
-    pub fn parse_abstract_message<'a>(
+    fn parse_abstract_message<'a>(
         i: &'a [u8],
         amf3: &AMF3Decoder,
     ) -> IResult<&'a [u8], Vec<SolElement>> {
@@ -152,7 +152,7 @@ pub mod decode {
         Ok((i, elements))
     }
 
-    pub fn parse_async_message<'a>(
+    fn parse_async_message<'a>(
         i: &'a [u8],
         amf3: &AMF3Decoder,
     ) -> IResult<&'a [u8], Vec<SolElement>> {
@@ -202,7 +202,7 @@ pub mod decode {
         Ok((k, elements))
     }
 
-    pub fn parse_acknowledge_message<'a>(
+    fn parse_acknowledge_message<'a>(
         i: &'a [u8],
         amf3: &AMF3Decoder,
     ) -> IResult<&'a [u8], Vec<SolElement>> {
@@ -231,7 +231,7 @@ pub mod decode {
         Ok((k, elements))
     }
 
-    pub fn parse_command_message<'a>(
+    fn parse_command_message<'a>(
         i: &'a [u8],
         amf3: &AMF3Decoder,
     ) -> IResult<&'a [u8], Vec<SolElement>> {
@@ -275,7 +275,7 @@ pub mod decode {
     }
 
     // all arrays
-    pub fn parse_array_collection<'a>(
+    fn parse_array_collection<'a>(
         i: &'a [u8],
         amf3: &AMF3Decoder,
     ) -> IResult<&'a [u8], Vec<SolElement>> {
@@ -290,7 +290,7 @@ pub mod decode {
     }
 
     // all proxies
-    pub fn parse_object_proxy<'a>(
+    fn parse_object_proxy<'a>(
         i: &'a [u8],
         amf3: &AMF3Decoder,
     ) -> IResult<&'a [u8], Vec<SolElement>> {
@@ -304,6 +304,8 @@ pub mod decode {
         Ok((i, el))
     }
 
+    /// Register the flex decoders into the given AMF3Decoder
+    #[inline]
     pub fn register_decoders(decoder: &mut AMF3Decoder) {
         decoder.external_decoders.insert(
             "flex.messaging.io.AbstractMessage".to_string(),
@@ -376,7 +378,7 @@ pub mod encode {
     use cookie_factory::{gen, SerializeFn};
     use std::io::Write;
 
-    pub struct ArrayCollection;
+    struct ArrayCollection;
 
     impl CustomEncoder for ArrayCollection {
         fn encode<'a>(
@@ -402,7 +404,7 @@ pub mod encode {
         }
     }
 
-    pub struct ObjectProxy;
+    struct ObjectProxy;
 
     impl CustomEncoder for ObjectProxy {
         fn encode<'a>(
@@ -428,7 +430,7 @@ pub mod encode {
         }
     }
 
-    pub fn write_flags<'a, 'b: 'a, W: Write + 'a>(flags: &'a [u8]) -> impl SerializeFn<W> + 'a {
+    fn write_flags<'a, 'b: 'a, W: Write + 'a>(flags: &'a [u8]) -> impl SerializeFn<W> + 'a {
         all(flags.iter().enumerate().map(move |(index, flag)| {
             if index == flags.len() {
                 be_u8(*flag & !NEXT_FLAG)
@@ -438,7 +440,7 @@ pub mod encode {
         }))
     }
 
-    pub struct AbstractMessage;
+    struct AbstractMessage;
 
     impl CustomEncoder for AbstractMessage {
         fn encode<'a>(
@@ -604,7 +606,7 @@ pub mod encode {
         }
     }
 
-    pub struct AsyncMessage;
+    struct AsyncMessage;
 
     impl CustomEncoder for AsyncMessage {
         fn encode<'a>(
@@ -849,6 +851,8 @@ pub mod encode {
         }
     }
 
+    /// Register the flex encoders into the given AMF3Encoder
+    #[inline]
     pub fn register_encoders(encoder: &mut AMF3Encoder) {
         encoder.external_encoders.insert(
             "flex.messaging.io.ArrayCollection".to_string(),

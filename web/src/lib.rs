@@ -1,4 +1,4 @@
-#![recursion_limit = "256"]
+#![recursion_limit = "512"]
 
 use std::string::ToString;
 use wasm_bindgen::prelude::*;
@@ -304,6 +304,25 @@ impl Model {
                                 let details_content = self.value_details(selection.clone());
                                 let value_type = match selection.borrow().deref() {
                                     SolValue::Number(_) => "Number",
+                                    SolValue::Bool(_) => "Boolean",
+                                    SolValue::String(_) => "String",
+                                    SolValue::Object(_, _) => "Object",
+                                    SolValue::Null => "Null",
+                                    SolValue::Undefined => "Undefined",
+                                    SolValue::ECMAArray(_, _, _) => "ECMAArray",
+                                    SolValue::StrictArray(_) => "StrictArray",
+                                    SolValue::Date(_, _) => "Date",
+                                    SolValue::Unsupported => "Unsupported",
+                                    SolValue::XML(_, _) => "XML",
+                                    SolValue::AMF3(_) => "AMF3<TODO>",
+                                    SolValue::Integer(_) => "Integer",
+                                    SolValue::ByteArray(_) => "ByteArray",
+                                    SolValue::VectorInt(_, _) => "Vector<Int>",
+                                    SolValue::VectorUInt(_, _) => "Vector<UInt>",
+                                    SolValue::VectorDouble(_, _) => "Vector<Double>",
+                                    SolValue::VectorObject(_, _, _) => "Vector<Object>",
+                                    SolValue::Dictionary(_, _) => "Dictionary",
+                                    SolValue::Custom(_, _, _) => "Custom<TODO>",
                                     _ => "Boolean"
                                 };
 

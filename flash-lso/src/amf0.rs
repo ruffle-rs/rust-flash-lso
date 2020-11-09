@@ -1,5 +1,7 @@
+mod type_marker;
+
 pub mod decoder {
-    use crate::types::amf0::TypeMarker;
+    use crate::amf0::type_marker::TypeMarker;
     use crate::types::{ClassDefinition, SolElement, SolValue};
     use crate::{amf3, PADDING};
     use enumset::__internal::core_export::cell::RefCell;
@@ -14,20 +16,20 @@ pub mod decoder {
     use std::convert::{TryFrom, TryInto};
     use std::rc::Rc;
 
-    pub fn parse_string(i: &[u8]) -> IResult<&[u8], &str> {
+    pub(crate) fn parse_string(i: &[u8]) -> IResult<&[u8], &str> {
         let (i, length) = be_u16(i)?;
         take_str!(i, length)
     }
 
-    pub fn parse_element_number(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_number(i: &[u8]) -> IResult<&[u8], SolValue> {
         map(be_f64, SolValue::Number)(i)
     }
 
-    pub fn parse_element_bool(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_bool(i: &[u8]) -> IResult<&[u8], SolValue> {
         map(be_u8, |num: u8| SolValue::Bool(num > 0))(i)
     }
 
-    pub fn parse_element_string(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_string(i: &[u8]) -> IResult<&[u8], SolValue> {
         map(parse_string, |s: &str| SolValue::String(s.to_string()))(i)
     }
 
@@ -58,7 +60,7 @@ pub mod decoder {
         Err(Err::Error(make_error(i, ErrorKind::Tag)))
     }
 
-    pub fn parse_element_array(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_array(i: &[u8]) -> IResult<&[u8], SolValue> {
         let (i, length) = be_u32(i)?;
 
         let length_usize = length
@@ -91,7 +93,7 @@ pub mod decoder {
         Ok((i, SolValue::Date(millis, Some(time_zone))))
     }
 
-    pub fn parse_element_long_string(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_long_string(i: &[u8]) -> IResult<&[u8], SolValue> {
         let (i, length) = be_u32(i)?;
         let (i, str) = take_str!(i, length)?;
 
@@ -209,13 +211,13 @@ pub mod decoder {
 }
 
 pub mod encoder {
-    use crate::types::amf0::TypeMarker;
     use crate::types::{Element, SolElement, SolValue};
     use crate::PADDING;
     use cookie_factory::bytes::{be_f64, be_u16, be_u32, be_u8};
     use cookie_factory::{SerializeFn, WriteContext};
     use std::io::Write;
 
+    use crate::amf0::type_marker::TypeMarker;
     use crate::amf3::encoder::AMF3Encoder;
     use crate::encoder::write_string;
     use cookie_factory::combinator::slice;
@@ -224,30 +226,28 @@ pub mod encoder {
     use cookie_factory::sequence::tuple;
     use std::ops::Deref;
 
-    pub fn write_type_marker<'a, 'b: 'a, W: Write + 'a>(
-        type_: TypeMarker,
-    ) -> impl SerializeFn<W> + 'a {
+    fn write_type_marker<'a, 'b: 'a, W: Write + 'a>(type_: TypeMarker) -> impl SerializeFn<W> + 'a {
         be_u8(type_ as u8)
     }
 
-    pub fn write_number_element<'a, 'b: 'a, W: Write + 'a>(s: f64) -> impl SerializeFn<W> + 'a {
+    fn write_number_element<'a, 'b: 'a, W: Write + 'a>(s: f64) -> impl SerializeFn<W> + 'a {
         tuple((write_type_marker(TypeMarker::Number), be_f64(s)))
     }
 
-    pub fn write_bool_element<'a, 'b: 'a, W: Write + 'a>(s: bool) -> impl SerializeFn<W> + 'a {
+    fn write_bool_element<'a, 'b: 'a, W: Write + 'a>(s: bool) -> impl SerializeFn<W> + 'a {
         tuple((
             write_type_marker(TypeMarker::Boolean),
             be_u8(if s { 1u8 } else { 0u8 }),
         ))
     }
 
-    pub fn write_long_string_content<'a, 'b: 'a, W: Write + 'a>(
+    fn write_long_string_content<'a, 'b: 'a, W: Write + 'a>(
         s: &'b str,
     ) -> impl SerializeFn<W> + 'a {
         tuple((be_u32(s.len() as u32), string(s)))
     }
 
-    pub fn write_long_string_element<'a, 'b: 'a, W: Write + 'a>(
+    fn write_long_string_element<'a, 'b: 'a, W: Write + 'a>(
         s: &'b str,
     ) -> impl SerializeFn<W> + 'a {
         tuple((
@@ -256,11 +256,11 @@ pub mod encoder {
         ))
     }
 
-    pub fn write_string_element<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
+    fn write_string_element<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
         tuple((write_type_marker(TypeMarker::String), write_string(s)))
     }
 
-    pub fn write_object_element<'a, 'b: 'a, W: Write + 'a>(
+    fn write_object_element<'a, 'b: 'a, W: Write + 'a>(
         o: &'b [SolElement],
     ) -> impl SerializeFn<W> + 'a {
         tuple((
@@ -271,19 +271,15 @@ pub mod encoder {
         ))
     }
 
-    pub fn write_null_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W> + 'a {
+    fn write_null_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W> + 'a {
         write_type_marker(TypeMarker::Null)
     }
 
-    pub fn write_undefined_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W> + 'a {
+    fn write_undefined_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W> + 'a {
         write_type_marker(TypeMarker::Undefined)
     }
 
-    pub fn write_object_end_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W> + 'a {
-        write_type_marker(TypeMarker::ObjectEnd)
-    }
-
-    pub fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(
+    fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(
         elements: &'b [Element],
     ) -> impl SerializeFn<W> + 'a {
         tuple((
@@ -293,7 +289,7 @@ pub mod encoder {
         ))
     }
 
-    pub fn write_date_element<'a, 'b: 'a, W: Write + 'a>(
+    fn write_date_element<'a, 'b: 'a, W: Write + 'a>(
         date: f64,
         tz: Option<u16>,
     ) -> impl SerializeFn<W> + 'a {
@@ -304,20 +300,18 @@ pub mod encoder {
         ))
     }
 
-    pub fn write_unsupported_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W> + 'a {
+    fn write_unsupported_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W> + 'a {
         write_type_marker(TypeMarker::Unsupported)
     }
 
-    pub fn write_xml_element<'a, 'b: 'a, W: Write + 'a>(
-        content: &'b str,
-    ) -> impl SerializeFn<W> + 'a {
+    fn write_xml_element<'a, 'b: 'a, W: Write + 'a>(content: &'b str) -> impl SerializeFn<W> + 'a {
         tuple((
             write_type_marker(TypeMarker::XML),
             write_long_string_content(content),
         ))
     }
 
-    pub fn write_typed_object_element<'a, 'b: 'a, W: Write + 'a>(
+    fn write_typed_object_element<'a, 'b: 'a, W: Write + 'a>(
         name: &'b str,
         elements: &'b [SolElement],
     ) -> impl SerializeFn<W> + 'a {
@@ -330,7 +324,7 @@ pub mod encoder {
         ))
     }
 
-    pub fn write_mixed_array<'a, 'b: 'a, W: Write + 'a>(
+    fn write_mixed_array<'a, 'b: 'a, W: Write + 'a>(
         elements: &'b [SolElement],
         length: u32,
     ) -> impl SerializeFn<W> + 'a {
@@ -346,9 +340,7 @@ pub mod encoder {
         ))
     }
 
-    pub fn write_value<'a, 'b: 'a, W: Write + 'a>(
-        element: &'b Element,
-    ) -> impl SerializeFn<W> + 'a {
+    fn write_value<'a, 'b: 'a, W: Write + 'a>(element: &'b Element) -> impl SerializeFn<W> + 'a {
         move |out: WriteContext<W>| match element.borrow_mut().deref() {
             SolValue::Number(n) => write_number_element(*n)(out),
             SolValue::Bool(b) => write_bool_element(*b)(out),
@@ -382,13 +374,13 @@ pub mod encoder {
         }
     }
 
-    pub fn write_element<'a, 'b: 'a, W: Write + 'a>(
+    fn write_element<'a, 'b: 'a, W: Write + 'a>(
         element: &'b SolElement,
     ) -> impl SerializeFn<W> + 'a {
         tuple((write_string(&element.name), write_value(&element.value)))
     }
 
-    pub fn write_element_and_padding<'a, 'b: 'a, W: Write + 'a>(
+    fn write_element_and_padding<'a, 'b: 'a, W: Write + 'a>(
         element: &'b SolElement,
     ) -> impl SerializeFn<W> + 'a {
         tuple((write_element(element), slice(PADDING)))

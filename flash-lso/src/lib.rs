@@ -1,16 +1,16 @@
-#![type_length_limit = "1193167"]
-
-const HEADER_VERSION: [u8; 2] = [0x00, 0xbf];
-const HEADER_SIGNATURE: [u8; 10] = [0x54, 0x43, 0x53, 0x4f, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00];
-const PADDING: [u8; 1] = [0x00];
-
-const FORMAT_VERSION_AMF0: u8 = 0x0;
-const FORMAT_VERSION_AMF3: u8 = 0x3;
-
-pub mod amf0;
-pub mod amf3;
-mod element_cache;
-pub mod types;
+//#![type_length_limit = "1193167"]
+// missing_debug_implementations ,missing_docs
+#![warn(
+    anonymous_parameters,
+    nonstandard_style,
+    rust_2018_idioms,
+    trivial_casts,
+    trivial_numeric_casts,
+    unreachable_pub,
+    unused_extern_crates,
+    unused_qualifications,
+    variant_size_differences
+)]
 
 use crate::amf3::AMF3Decoder;
 use crate::types::{AMFVersion, Sol, SolHeader};
@@ -20,12 +20,26 @@ use nom::number::complete::be_u32;
 use nom::IResult;
 use std::convert::TryInto;
 
+const HEADER_VERSION: [u8; 2] = [0x00, 0xbf];
+const HEADER_SIGNATURE: [u8; 10] = [0x54, 0x43, 0x53, 0x4f, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00];
+const PADDING: [u8; 1] = [0x00];
+
+const FORMAT_VERSION_AMF0: u8 = 0x0;
+const FORMAT_VERSION_AMF3: u8 = 0x3;
+
 #[cfg(feature = "serde")]
 #[macro_use]
 extern crate serde;
 
+pub mod amf0;
+pub mod amf3;
+mod element_cache;
+pub mod errors;
 #[cfg(feature = "flex")]
 pub mod flex;
+mod length;
+mod nom_utils;
+pub mod types;
 
 /// The main entry point of decoding a SOL file
 /// Example of use

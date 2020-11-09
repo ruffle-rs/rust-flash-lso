@@ -1,11 +1,13 @@
 #![allow(clippy::identity_op)]
 
+mod type_marker;
+
 use crate::amf3::encoder::AMF3Encoder;
-use crate::types::amf3::TypeMarker;
+use crate::amf3::type_marker::TypeMarker;
+use crate::length::Length;
 use crate::types::*;
 use crate::types::{SolElement, SolValue};
 use crate::PADDING;
-use cookie_factory::SerializeFn;
 use enumset::EnumSet;
 use nom::bytes::complete::tag;
 use nom::combinator::map;
@@ -20,51 +22,12 @@ use nom::Err;
 use nom::IResult;
 use std::cell::RefCell;
 use std::convert::{TryFrom, TryInto};
-use std::fmt::Debug;
-use std::io::Write;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
-pub fn either<Fa, Fb, W: Write>(b: bool, t: Fa, f: Fb) -> impl SerializeFn<W>
-where
-    Fa: SerializeFn<W>,
-    Fb: SerializeFn<W>,
-{
-    move |out| {
-        if b {
-            t(out)
-        } else {
-            f(out)
-        }
-    }
-}
-
 const REFERENCE_FLAG: u32 = 0x01;
 
-#[derive(Copy, Clone, Debug, Eq, Ord, PartialOrd, PartialEq)]
-pub enum Length {
-    Size(u32),
-    Reference(usize),
-}
-
-impl Length {
-    fn is_reference(&self) -> bool {
-        matches!(self, Length::Reference(_))
-    }
-
-    fn is_size(&self) -> bool {
-        matches!(self, Length::Size(_))
-    }
-
-    fn to_position(&self) -> Option<usize> {
-        match self {
-            Length::Reference(x) => Some(*x),
-            _ => None,
-        }
-    }
-}
-
-pub fn read_int_signed(i: &[u8]) -> IResult<&[u8], i32> {
+fn read_int_signed(i: &[u8]) -> IResult<&[u8], i32> {
     let mut vlu_len = 0;
     let mut result: i32 = 0;
 
@@ -95,7 +58,7 @@ pub fn read_int_signed(i: &[u8]) -> IResult<&[u8], i32> {
     Ok((i, result))
 }
 
-pub fn read_int(i: &[u8]) -> IResult<&[u8], u32> {
+fn read_int(i: &[u8]) -> IResult<&[u8], u32> {
     let mut n = 0;
     let mut result: u32 = 0;
 
@@ -127,11 +90,15 @@ pub fn read_int(i: &[u8]) -> IResult<&[u8], u32> {
     Ok((i, result))
 }
 
-/// (value, reference)
-fn read_length(i: &[u8]) -> IResult<&[u8], (u32, bool)> {
+fn read_length(i: &[u8]) -> IResult<&[u8], Length> {
     let (i, val) = read_int(i)?;
-
-    Ok((i, (val >> 1, val & REFERENCE_FLAG == 0)))
+    Ok((
+        i,
+        match val & REFERENCE_FLAG == 0 {
+            true => Length::Reference(val as usize >> 1),
+            false => Length::Size(val >> 1),
+        },
+    ))
 }
 
 fn parse_element_int(i: &[u8]) -> IResult<&[u8], Element> {
@@ -170,7 +137,7 @@ impl Default for AMF3Decoder {
     }
 }
 
-pub fn parse_element_number(i: &[u8]) -> IResult<&[u8], Element> {
+fn parse_element_number(i: &[u8]) -> IResult<&[u8], Element> {
     let (i, v) = map(be_f64, SolValue::Number)(i)?;
     Ok((i, Rc::new(RefCell::new(v))))
 }
@@ -181,7 +148,7 @@ impl AMF3Decoder {
         Ok((i, Rc::new(RefCell::new(s))))
     }
 
-    pub fn parse_string<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], String> {
+    fn parse_string<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], String> {
         let (i, bytes) = self.parse_byte_stream(i)?;
         let bytes_str =
             String::from_utf8(bytes).map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?;
@@ -240,7 +207,6 @@ impl AMF3Decoder {
         let class_def = ClassDefinition {
             name: name_str,
             attributes,
-            attribute_count: attributes_count,
             static_properties: static_props,
         };
 
@@ -250,34 +216,80 @@ impl AMF3Decoder {
         Ok((i, class_def))
     }
 
-    pub fn parse_byte_stream<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Vec<u8>> {
-        let (i, (len, reference)) = read_length(i)?;
+    fn parse_reference_or_val<'a>(
+        &self,
+        i: &'a [u8],
+        parser: impl FnOnce(&'a [u8], usize) -> IResult<&'a [u8], SolValue>,
+    ) -> IResult<&'a [u8], Element> {
+        let (i, len) = read_length(i)?;
 
-        if reference {
-            let length_usize: usize = len
-                .try_into()
-                .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+        match len {
+            Length::Reference(index) => {
+                let ref_result = Rc::clone(
+                    self.object_reference_table
+                        .borrow()
+                        .get(index)
+                        .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
+                );
 
-            let ref_result = self
-                .string_reference_table
-                .borrow()
-                .get(length_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
-                .clone();
+                Ok((i, ref_result))
+            }
+            Length::Size(len) => {
+                let len_usize: usize = len
+                    .try_into()
+                    .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            Ok((i, ref_result))
-        } else if len == 0 {
-            Ok((i, vec![]))
-        } else {
-            let (i, bytes) = take!(i, len)?;
-            self.string_reference_table
-                .borrow_mut()
-                .push(bytes.to_vec());
-            Ok((i, bytes.to_vec()))
+                let (i, res) = parser(i, len_usize)?;
+
+                let cache_index = self.object_reference_table.borrow().len();
+                self.object_reference_table
+                    .borrow_mut()
+                    .push(Rc::new(RefCell::new(SolValue::Null)));
+
+                let res = Element::new(RefCell::new(res));
+
+                // self.object_reference_table
+                //     .borrow_mut()
+                //     .push(Rc::clone(&res));
+
+                self.object_reference_table
+                    .borrow_mut()
+                    .insert(cache_index, Rc::clone(&res));
+
+                Ok((i, res))
+            }
         }
     }
 
-    pub fn parse_object_static<'a>(
+    fn parse_byte_stream<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Vec<u8>> {
+        let (i, len) = read_length(i)?;
+
+        match len {
+            Length::Size(len) => {
+                if len == 0 {
+                    Ok((i, vec![]))
+                } else {
+                    let (i, bytes) = take!(i, len)?;
+                    self.string_reference_table
+                        .borrow_mut()
+                        .push(bytes.to_vec());
+                    Ok((i, bytes.to_vec()))
+                }
+            }
+            Length::Reference(index) => {
+                let ref_result = self
+                    .string_reference_table
+                    .borrow()
+                    .get(index)
+                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?
+                    .clone();
+
+                Ok((i, ref_result))
+            }
+        }
+    }
+
+    fn parse_object_static<'a>(
         &self,
         i: &'a [u8],
         class_def: &ClassDefinition,
@@ -299,7 +311,7 @@ impl AMF3Decoder {
         Ok((i, elements))
     }
 
-    pub fn parse_element_object<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
+    pub(crate) fn parse_element_object<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, mut length) = read_int(i)?;
 
         if length & REFERENCE_FLAG == 0 {
@@ -335,21 +347,21 @@ impl AMF3Decoder {
 
         let mut i = i;
         if class_def.attributes.contains(Attribute::EXTERNAL) {
-            if self.external_decoders.contains_key(&class_def.name) {
+            return if self.external_decoders.contains_key(&class_def.name) {
                 let (j, v) = self.external_decoders[&class_def.name](i, self)?;
                 external_elements = v;
                 i = j;
                 //TODO: should it be possible to have both dynamic and external together
-                return Ok((
+                Ok((
                     i,
                     Rc::new(RefCell::new(SolValue::Custom(
                         external_elements,
                         vec![],
                         Some(class_def.clone()),
                     ))),
-                ));
+                ))
             } else {
-                return Err(Err::Error(make_error(i, ErrorKind::Tag)));
+                Err(Err::Error(make_error(i, ErrorKind::Tag)))
             };
         }
 
@@ -390,178 +402,76 @@ impl AMF3Decoder {
     }
 
     fn parse_element_byte_array<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
-        let (i, (len, reference)) = read_length(i)?;
-
-        if reference {
-            let len_usize: usize = len
-                .try_into()
-                .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
-
-            let obj = Rc::clone(
-                self.object_reference_table
-                    .borrow()
-                    .get(len_usize)
-                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
-            );
-
-            Ok((i, obj))
-        } else {
+        let (i, res) = self.parse_reference_or_val(i, |i, len| {
             let (i, bytes) = take!(i, len)?;
-            let obj = Rc::new(RefCell::new(SolValue::ByteArray(bytes.to_vec())));
-            self.object_reference_table
-                .borrow_mut()
-                .push(Rc::clone(&obj));
-            Ok((i, obj))
-        }
+            Ok((i, SolValue::ByteArray(bytes.to_vec())))
+        })?;
+        Ok((i, res))
     }
 
     fn parse_element_vector_int<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
-        let (i, (len, reference)) = read_length(i)?;
+        let (i, res) = self.parse_reference_or_val(i, |i, len| {
+            // There must be at least `len * 4` (i32 = 4 bytes) bytes to read this, this prevents OOM errors with v.large vecs
+            if i.len() < len * 4 {
+                return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+            }
 
-        let len_usize: usize = len
-            .try_into()
-            .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+            let (i, fixed_length) = be_u8(i)?;
 
-        // There must be at least `length_usize * 4` (i32 = 4 bytes) bytes to read this, this prevents OOM errors with v.large vecs
-        if i.len() < len_usize * 4 {
-            return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
-        }
+            let (i, ints) = many_m_n(len, len, be_i32)(i)?;
 
-        if reference {
-            let obj = Rc::clone(
-                self.object_reference_table
-                    .borrow()
-                    .get(len_usize)
-                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
-            );
+            Ok((i, SolValue::VectorInt(ints, fixed_length == 1)))
+        })?;
 
-            return Ok((i, obj));
-        }
-
-        let (i, fixed_length) = be_u8(i)?;
-
-        let (i, ints) = many_m_n(len_usize, len_usize, be_i32)(i)?;
-
-        let obj = Rc::new(RefCell::new(SolValue::VectorInt(ints, fixed_length == 1)));
-        self.object_reference_table
-            .borrow_mut()
-            .push(Rc::clone(&obj));
-        Ok((i, obj))
+        Ok((i, res))
     }
 
     fn parse_element_vector_uint<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
-        let (i, (len, reference)) = read_length(i)?;
+        let (i, res) = self.parse_reference_or_val(i, |i, len| {
+            // There must be at least `len * 4` (u32 = 4 bytes) bytes to read this, this prevents OOM errors with v.large vecs
+            if i.len() < len * 4 {
+                return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+            }
+            let (i, fixed_length) = be_u8(i)?;
 
-        let len_usize: usize = len
-            .try_into()
-            .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+            let (i, ints) = many_m_n(len, len, be_u32)(i)?;
 
-        // There must be at least `length_usize * 4` (u32 = 4 bytes) bytes to read this, this prevents OOM errors with v.large vecs
-        if i.len() < len_usize * 4 {
-            return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
-        }
+            Ok((i, SolValue::VectorUInt(ints, fixed_length == 1)))
+        })?;
 
-        if reference {
-            let obj = Rc::clone(
-                self.object_reference_table
-                    .borrow()
-                    .get(len_usize)
-                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
-            );
-
-            return Ok((i, obj));
-        }
-
-        let (i, fixed_length) = be_u8(i)?;
-
-        let (i, ints) = many_m_n(len_usize, len_usize, be_u32)(i)?;
-
-        let obj = Rc::new(RefCell::new(SolValue::VectorUInt(ints, fixed_length == 1)));
-        self.object_reference_table
-            .borrow_mut()
-            .push(Rc::clone(&obj));
-        Ok((i, obj))
+        Ok((i, res))
     }
 
     fn parse_element_vector_double<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
-        let (i, (len, reference)) = read_length(i)?;
-        let len_usize: usize = len
-            .try_into()
-            .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+        let (i, res) = self.parse_reference_or_val(i, |i, len| {
+            // There must be at least `len * 8` (f64 = 8 bytes) bytes to read this, this prevents OOM errors with v.large dicts
+            if i.len() < len * 8 {
+                return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+            }
+            let (i, fixed_length) = be_u8(i)?;
 
-        // There must be at least `length_usize * 8` (f64 = 8 bytes) bytes to read this, this prevents OOM errors with v.large dicts
-        if i.len() < len_usize * 8 {
-            return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
-        }
+            let (i, numbers) = many_m_n(len, len, be_f64)(i)?;
 
-        if reference {
-            let obj = Rc::clone(
-                self.object_reference_table
-                    .borrow()
-                    .get(len_usize)
-                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
-            );
+            Ok((i, SolValue::VectorDouble(numbers, fixed_length == 1)))
+        })?;
 
-            return Ok((i, obj));
-        }
-
-        let (i, fixed_length) = be_u8(i)?;
-
-        let (i, ints) = many_m_n(len_usize, len_usize, be_f64)(i)?;
-
-        let obj = Rc::new(RefCell::new(SolValue::VectorDouble(
-            ints,
-            fixed_length == 1,
-        )));
-        self.object_reference_table
-            .borrow_mut()
-            .push(Rc::clone(&obj));
-        Ok((i, obj))
+        Ok((i, res))
     }
 
     fn parse_element_object_vector<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
-        let (i, (len, reference)) = read_length(i)?;
+        let (i, res) = self.parse_reference_or_val(i, |i, len| {
+            let (i, fixed_length) = be_u8(i)?;
 
-        let length_usize = len
-            .try_into()
-            .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+            let (i, object_type_name) = self.parse_string(i)?;
 
-        // There must be at least `length_usize` bytes to read this, this prevents OOM errors with v.large dicts
-        if i.len() < length_usize {
-            return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
-        }
+            let (i, elems) = many_m_n(len, len, |i| self.parse_single_element(i))(i)?;
 
-        if reference {
-            let obj = Rc::clone(
-                self.object_reference_table
-                    .borrow()
-                    .get(length_usize)
-                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
-            );
-
-            return Ok((i, obj));
-        }
-
-        let (i, fixed_length) = be_u8(i)?;
-
-        let (i, object_type_name) = self.parse_string(i)?;
-
-        let obj = Rc::new(RefCell::new(SolValue::VectorObject(
-            Vec::new(),
-            object_type_name,
-            fixed_length == 1,
-        )));
-        self.object_reference_table
-            .borrow_mut()
-            .push(Rc::clone(&obj));
-
-        let (i, elems) = many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
-
-        if let SolValue::VectorObject(elements, _, _) = obj.deref().borrow_mut().deref_mut() {
-            *elements = elems;
-        }
-
-        Ok((i, obj))
+            Ok((
+                i,
+                SolValue::VectorObject(elems, object_type_name, fixed_length == 1),
+            ))
+        })?;
+        Ok((i, res))
     }
 
     fn parse_element_array<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
@@ -639,111 +549,46 @@ impl AMF3Decoder {
     }
 
     fn parse_element_dict<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
-        let (i, (len, reference)) = read_length(i)?;
+        let (i, res) = self.parse_reference_or_val(i, |i, len| {
+            //TODO: implications of this
+            let (i, weak_keys) = be_u8(i)?;
 
-        if reference {
-            let len_usize: usize = len
-                .try_into()
-                .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+            // There must be at least `len * 2` bytes (due to (key,val) pairs) to read this, this prevents OOM errors with v.large dicts
+            if i.len() < len * 2 {
+                return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+            }
 
-            let obj_ref = Rc::clone(
-                self.object_reference_table
-                    .borrow()
-                    .get(len_usize)
-                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
-            );
+            let (i, pairs) = many_m_n(
+                len,
+                len,
+                tuple((
+                    |i| self.parse_single_element(i),
+                    |i| self.parse_single_element(i),
+                )),
+            )(i)?;
 
-            return Ok((i, obj_ref));
-        }
+            Ok((i, SolValue::Dictionary(pairs, weak_keys == 1)))
+        })?;
 
-        //TODO: implications of this
-        let (i, weak_keys) = be_u8(i)?;
-
-        let obj = Rc::new(RefCell::new(SolValue::Dictionary(
-            Vec::new(),
-            weak_keys == 1,
-        )));
-        self.object_reference_table
-            .borrow_mut()
-            .push(Rc::clone(&obj));
-
-        let length_usize = len
-            .try_into()
-            .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
-
-        // There must be at least `length_usize * 2` bytes (due to (key,val) pairs) to read this, this prevents OOM errors with v.large dicts
-        if i.len() < length_usize * 2 {
-            return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
-        }
-
-        let (i, pairs) = many_m_n(
-            length_usize,
-            length_usize,
-            tuple((
-                |i| self.parse_single_element(i),
-                |i| self.parse_single_element(i),
-            )),
-        )(i)?;
-
-        let mut x = obj.deref().borrow_mut();
-        if let SolValue::Dictionary(ref mut internal_pairs, _) = x.deref_mut() {
-            *internal_pairs = pairs;
-        }
-        drop(x);
-
-        Ok((i, obj))
+        Ok((i, res))
     }
 
     fn parse_element_date<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
-        let (i, reference) = read_int(i)?;
+        let (i, res) = self.parse_reference_or_val(i, |i, _len| {
+            let (i, ms) = be_f64(i)?;
+            Ok((i, SolValue::Date(ms, None)))
+        })?;
 
-        if reference & REFERENCE_FLAG == 0 {
-            let len_usize: usize = (reference >> 1)
-                .try_into()
-                .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
-
-            let table = self.object_reference_table.borrow();
-
-            let obj = table
-                .get(len_usize)
-                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?;
-
-            return Ok((i, Rc::clone(obj)));
-        }
-
-        let (i, ms) = be_f64(i)?;
-
-        let obj = Rc::new(RefCell::new(SolValue::Date(ms, None)));
-        self.object_reference_table
-            .borrow_mut()
-            .push(Rc::clone(&obj));
-        Ok((i, obj))
+        Ok((i, res))
     }
 
     fn parse_element_xml<'a>(&self, i: &'a [u8], string: bool) -> IResult<&'a [u8], Element> {
-        let (i, reference) = read_int(i)?;
+        let (i, res) = self.parse_reference_or_val(i, |i, len| {
+            let (i, data) = take_str!(i, len)?;
+            Ok((i, SolValue::XML(data.into(), string)))
+        })?;
 
-        if reference & REFERENCE_FLAG == 0 {
-            let len_usize: usize = (reference >> 1)
-                .try_into()
-                .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
-
-            let obj = Rc::clone(
-                self.object_reference_table
-                    .borrow()
-                    .get(len_usize)
-                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
-            );
-
-            return Ok((i, obj));
-        }
-
-        let (i, data) = take_str!(i, reference >> 1)?;
-        let obj = Rc::new(RefCell::new(SolValue::XML(data.into(), string)));
-        self.object_reference_table
-            .borrow_mut()
-            .push(Rc::clone(&obj));
-        Ok((i, obj))
+        Ok((i, res))
     }
 
     fn read_type_marker<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], TypeMarker> {
@@ -755,6 +600,8 @@ impl AMF3Decoder {
         }
     }
 
+    /// Parse a single AMF3 element from the input
+    #[inline]
     pub fn parse_single_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, type_) = self.read_type_marker(i)?;
 
@@ -780,7 +627,7 @@ impl AMF3Decoder {
         }
     }
 
-    pub fn parse_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolElement> {
+    fn parse_element<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolElement> {
         let (i, name) = self.parse_string(i)?;
 
         map(
@@ -800,8 +647,11 @@ impl AMF3Decoder {
 }
 
 pub mod encoder {
-    use crate::amf3::{either, CustomEncoder, Length, TypeMarker};
+    use crate::amf3::type_marker::TypeMarker;
+    use crate::amf3::CustomEncoder;
     use crate::element_cache::ElementCache;
+    use crate::length::Length;
+    use crate::nom_utils::either;
     use crate::types::{Attribute, ClassDefinition, Element, SolElement, SolValue};
     use crate::PADDING;
     use cookie_factory::bytes::{be_f64, be_i32, be_u32, be_u8};
@@ -823,7 +673,10 @@ pub mod encoder {
     }
 
     impl AMF3Encoder {
-        fn write_int<'a, 'b: 'a, W: Write + 'a>(&self, i: i32) -> impl SerializeFn<W> + 'a {
+        pub(crate) fn write_int<'a, 'b: 'a, W: Write + 'a>(
+            &self,
+            i: i32,
+        ) -> impl SerializeFn<W> + 'a {
             let mut n = i;
             if n < 0 {
                 n += 0x20000000;
@@ -859,16 +712,6 @@ pub mod encoder {
             move |out| all(bytes.iter().copied().map(be_u8))(out)
         }
 
-        fn write_length<'a, 'b: 'a, W: Write + 'a>(&self, s: Length) -> impl SerializeFn<W> + 'a {
-            match s {
-                Length::Size(x) => {
-                    // With the last bit set
-                    self.write_int(((x << 1) | 0b1) as i32)
-                }
-                Length::Reference(x) => self.write_int((x << 1) as i32),
-            }
-        }
-
         fn write_byte_string<'a, 'b: 'a, W: Write + 'a>(
             &self,
             s: &'b [u8],
@@ -888,33 +731,30 @@ pub mod encoder {
 
             either(
                 only_length,
-                self.write_length(len),
-                tuple((self.write_length(len), slice(s))),
+                len.write(&self),
+                tuple((len.write(&self), slice(s))),
             )
         }
 
-        pub fn write_string<'a, 'b: 'a, W: Write + 'a>(
-            &self,
-            s: &'b str,
-        ) -> impl SerializeFn<W> + 'a {
+        fn write_string<'a, 'b: 'a, W: Write + 'a>(&self, s: &'b str) -> impl SerializeFn<W> + 'a {
             self.write_byte_string(s.as_bytes())
         }
 
-        pub fn write_type_marker<'a, 'b: 'a, W: Write + 'a>(
+        fn write_type_marker<'a, 'b: 'a, W: Write + 'a>(
             &self,
             s: TypeMarker,
         ) -> impl SerializeFn<W> + 'a {
             be_u8(s as u8)
         }
 
-        pub fn write_number_element<'a, 'b: 'a, W: Write + 'a>(
+        fn write_number_element<'a, 'b: 'a, W: Write + 'a>(
             &self,
             i: f64,
         ) -> impl SerializeFn<W> + 'a {
             tuple((self.write_type_marker(TypeMarker::Number), be_f64(i)))
         }
 
-        pub fn write_boolean_element<'a, 'b: 'a, W: Write + 'a>(
+        fn write_boolean_element<'a, 'b: 'a, W: Write + 'a>(
             &self,
             b: bool,
         ) -> impl SerializeFn<W> + 'a {
@@ -925,7 +765,7 @@ pub mod encoder {
             )
         }
 
-        pub fn write_string_element<'a, 'b: 'a, W: Write + 'a>(
+        fn write_string_element<'a, 'b: 'a, W: Write + 'a>(
             &self,
             s: &'b str,
         ) -> impl SerializeFn<W> + 'a {
@@ -935,17 +775,15 @@ pub mod encoder {
             ))
         }
 
-        pub fn write_null_element<'a, 'b: 'a, W: Write + 'a>(&self) -> impl SerializeFn<W> + 'a {
+        fn write_null_element<'a, 'b: 'a, W: Write + 'a>(&self) -> impl SerializeFn<W> + 'a {
             self.write_type_marker(TypeMarker::Null)
         }
 
-        pub fn write_undefined_element<'a, 'b: 'a, W: Write + 'a>(
-            &self,
-        ) -> impl SerializeFn<W> + 'a {
+        fn write_undefined_element<'a, 'b: 'a, W: Write + 'a>(&self) -> impl SerializeFn<W> + 'a {
             self.write_type_marker(TypeMarker::Undefined)
         }
 
-        pub fn write_int_vector<'a, 'b: 'a, W: Write + 'a>(
+        fn write_int_vector<'a, 'b: 'a, W: Write + 'a>(
             &self,
             items: &'b [i32],
             fixed_length: bool,
@@ -959,9 +797,9 @@ pub mod encoder {
                 self.write_type_marker(TypeMarker::VectorInt),
                 either(
                     len.is_reference(),
-                    self.write_length(len),
+                    len.write(&self),
                     tuple((
-                        self.write_length(Length::Size(items.len() as u32)),
+                        Length::Size(items.len() as u32).write(&self),
                         be_u8(fixed_length as u8),
                         all(items.iter().copied().map(be_i32)),
                     )),
@@ -969,7 +807,7 @@ pub mod encoder {
             ))
         }
 
-        pub fn write_uint_vector<'a, 'b: 'a, W: Write + 'a>(
+        fn write_uint_vector<'a, 'b: 'a, W: Write + 'a>(
             &self,
             items: &'b [u32],
             fixed_length: bool,
@@ -983,9 +821,9 @@ pub mod encoder {
                 self.write_type_marker(TypeMarker::VectorUInt),
                 either(
                     len.is_reference(),
-                    self.write_length(len),
+                    len.write(&self),
                     tuple((
-                        self.write_length(Length::Size(items.len() as u32)),
+                        Length::Size(items.len() as u32).write(&self),
                         be_u8(fixed_length as u8),
                         all(items.iter().copied().map(be_u32)),
                     )),
@@ -993,7 +831,7 @@ pub mod encoder {
             ))
         }
 
-        pub fn write_number_vector<'a, 'b: 'a, W: Write + 'a>(
+        fn write_number_vector<'a, 'b: 'a, W: Write + 'a>(
             &self,
             items: &'b [f64],
             fixed_length: bool,
@@ -1007,9 +845,9 @@ pub mod encoder {
                 self.write_type_marker(TypeMarker::VectorDouble),
                 either(
                     len.is_reference(),
-                    self.write_length(len),
+                    len.write(&self),
                     tuple((
-                        self.write_length(Length::Size(items.len() as u32)),
+                        Length::Size(items.len() as u32).write(&self),
                         be_u8(fixed_length as u8),
                         all(items.iter().copied().map(be_f64)),
                     )),
@@ -1017,7 +855,7 @@ pub mod encoder {
             ))
         }
 
-        pub fn write_date_element<'a, 'b: 'a, W: Write + 'a>(
+        fn write_date_element<'a, 'b: 'a, W: Write + 'a>(
             &self,
             time: f64,
         ) -> impl SerializeFn<W> + 'a {
@@ -1027,12 +865,12 @@ pub mod encoder {
 
             tuple((
                 self.write_type_marker(TypeMarker::Date),
-                self.write_length(len),
+                len.write(&self),
                 cond(len.is_size(), be_f64(time)),
             ))
         }
 
-        pub fn write_integer_element<'a, 'b: 'a, W: Write + 'a>(
+        fn write_integer_element<'a, 'b: 'a, W: Write + 'a>(
             &self,
             i: i32,
         ) -> impl SerializeFn<W> + 'a {
@@ -1042,7 +880,7 @@ pub mod encoder {
             ))
         }
 
-        pub fn write_byte_array_element<'a, 'b: 'a, W: Write + 'a>(
+        fn write_byte_array_element<'a, 'b: 'a, W: Write + 'a>(
             &self,
             bytes: &'b [u8],
         ) -> impl SerializeFn<W> + 'a {
@@ -1052,12 +890,12 @@ pub mod encoder {
 
             tuple((
                 self.write_type_marker(TypeMarker::ByteArray),
-                self.write_length(len),
+                len.write(&self),
                 cond(len.is_size(), slice(bytes)),
             ))
         }
 
-        pub fn write_xml_element<'a, 'b: 'a, W: Write + 'a>(
+        fn write_xml_element<'a, 'b: 'a, W: Write + 'a>(
             &self,
             bytes: &'b str,
             string: bool,
@@ -1074,12 +912,12 @@ pub mod encoder {
                     self.write_type_marker(TypeMarker::XmlString),
                     self.write_type_marker(TypeMarker::XML),
                 ),
-                self.write_length(len),
+                len.write(&self),
                 cond(len.is_size(), slice(bytes.as_bytes())),
             ))
         }
 
-        pub fn write_class_definition<'a, 'b: 'a, W: Write + 'a>(
+        fn write_class_definition<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             class_def: &'b ClassDefinition,
         ) -> impl SerializeFn<W> + 'a {
@@ -1093,7 +931,7 @@ pub mod encoder {
         }
 
         //TODO: conds should be common somehwere
-        pub fn write_trait_reference<'a, 'b: 'a, W: Write + 'a>(
+        fn write_trait_reference<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             index: u32,
             children: &'b [SolElement],
@@ -1148,7 +986,7 @@ pub mod encoder {
             ))
         }
 
-        pub fn write_object_reference<'a, 'b: 'a, W: Write + 'a>(
+        fn write_object_reference<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             index: u32,
         ) -> impl SerializeFn<W> + 'a {
@@ -1156,7 +994,7 @@ pub mod encoder {
             tuple((self.write_int(size as i32),))
         }
 
-        pub fn write_object_full<'a, 'b: 'a, W: Write + 'a>(
+        fn write_object_full<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             custom_props: Option<&'b [SolElement]>,
             children: &'b [SolElement],
@@ -1176,9 +1014,11 @@ pub mod encoder {
             }
 
             // Format attribute_count[:4] | encoding[4:2] | class_def_ref flag (1 bit) | class_ref flag (1 bit)
-            let size = (((((def.attribute_count << 2) | (encoding & 0xff) as u32) << 1) | 1u32)
-                << 1)
-                | 1u32;
+            let size =
+                ((((((def.static_properties.len() as u32) << 2) | (encoding & 0xff) as u32) << 1)
+                    | 1u32)
+                    << 1)
+                    | 1u32;
 
             tuple((
                 self.write_int(size as i32),
@@ -1227,7 +1067,7 @@ pub mod encoder {
             ))
         }
 
-        pub fn write_object_element<'a, 'b: 'a, W: Write + 'a>(
+        fn write_object_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             children: &'b [SolElement],
             custom_props: Option<&'b [SolElement]>,
@@ -1279,7 +1119,7 @@ pub mod encoder {
             }
         }
 
-        pub fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(
+        fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             children: &'b [Element],
         ) -> impl SerializeFn<W> + 'a {
@@ -1296,12 +1136,12 @@ pub mod encoder {
                 children == [],
                 tuple((
                     self.write_type_marker(TypeMarker::Array),
-                    self.write_length(Length::Size(0)),
+                    Length::Size(0).write(&self),
                     self.write_byte_string(&[]), // Empty key
                 )),
                 tuple((
                     self.write_type_marker(TypeMarker::Array),
-                    self.write_length(len),
+                    len.write(&self),
                     cond(
                         len.is_size(),
                         tuple((
@@ -1313,7 +1153,7 @@ pub mod encoder {
             )
         }
 
-        pub fn write_ecma_array_element<'a, 'b: 'a, W: Write + 'a>(
+        fn write_ecma_array_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             dense: &'b [Element],
             assoc: &'b [SolElement],
@@ -1328,7 +1168,7 @@ pub mod encoder {
             //TODO: would this also work for strict arrays if they have [] for assoc part?
             tuple((
                 self.write_type_marker(TypeMarker::Array),
-                self.write_length(len),
+                len.write(&self),
                 cond(
                     len.is_size(),
                     tuple((
@@ -1340,7 +1180,7 @@ pub mod encoder {
             ))
         }
 
-        pub fn write_object_vector_element<'a, 'b: 'a, W: Write + 'a>(
+        fn write_object_vector_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             items: &'b [Element],
             type_name: &'b str,
@@ -1353,7 +1193,7 @@ pub mod encoder {
 
             tuple((
                 self.write_type_marker(TypeMarker::VectorObject),
-                self.write_length(len),
+                len.write(&self),
                 cond(
                     len.is_size(),
                     tuple((
@@ -1365,7 +1205,7 @@ pub mod encoder {
             ))
         }
 
-        pub fn write_dictionary_element<'a, 'b: 'a, W: Write + 'a>(
+        fn write_dictionary_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             items: &'b [(Element, Element)],
             weak_keys: bool,
@@ -1379,7 +1219,7 @@ pub mod encoder {
 
             tuple((
                 self.write_type_marker(TypeMarker::Dictionary),
-                self.write_length(len),
+                len.write(&self),
                 cond(
                     len.is_size(),
                     tuple((
@@ -1395,14 +1235,14 @@ pub mod encoder {
             ))
         }
 
-        pub fn write_value_element<'a, 'b: 'a, W: Write + 'a>(
+        pub(crate) fn write_value_element<'a, 'b: 'a, W: Write + 'a>(
             &'b self,
             s: &'b Element,
         ) -> impl SerializeFn<W> + 'a {
             move |out| self.write_value(s.borrow_mut().deref())(out)
         }
 
-        pub fn write_value<'a, 'b: 'a, W: Write + 'a>(
+        fn write_value<'a, 'b: 'a, W: Write + 'a>(
             &'b self,
             s: &'b SolValue,
         ) -> impl SerializeFn<W> + 'a {
@@ -1447,7 +1287,7 @@ pub mod encoder {
             }
         }
 
-        pub fn write_element<'a, 'b: 'a, W: Write + 'a>(
+        fn write_element<'a, 'b: 'a, W: Write + 'a>(
             &'b self,
             element: &'b SolElement,
         ) -> impl SerializeFn<W> + 'a {
@@ -1457,7 +1297,7 @@ pub mod encoder {
             ))
         }
 
-        pub fn write_element_and_padding<'a, 'b: 'a, W: Write + 'a>(
+        fn write_element_and_padding<'a, 'b: 'a, W: Write + 'a>(
             &'b self,
             element: &'b SolElement,
         ) -> impl SerializeFn<W> + 'a {
