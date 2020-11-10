@@ -26,8 +26,9 @@ pub mod decode {
     use crate::types::SolElement;
     use nom::number::complete::be_u8;
     use nom::IResult;
+    use std::rc::Rc;
 
-    fn parse_abstract_message_flags<'a>(i: &'a [u8]) -> IResult<&'a [u8], Vec<u8>> {
+    fn parse_abstract_message_flags(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
         let mut next_flag = true;
         let mut flags = Vec::new();
 
@@ -46,7 +47,7 @@ pub mod decode {
 
     fn parse_abstract_message<'a>(
         i: &'a [u8],
-        amf3: &AMF3Decoder,
+        amf3: &mut AMF3Decoder,
     ) -> IResult<&'a [u8], Vec<SolElement>> {
         let (i, flags) = parse_abstract_message_flags(i)?;
 
@@ -154,7 +155,7 @@ pub mod decode {
 
     fn parse_async_message<'a>(
         i: &'a [u8],
-        amf3: &AMF3Decoder,
+        amf3: &mut AMF3Decoder,
     ) -> IResult<&'a [u8], Vec<SolElement>> {
         let (i, msg) = parse_abstract_message(i, amf3)?;
 
@@ -204,7 +205,7 @@ pub mod decode {
 
     fn parse_acknowledge_message<'a>(
         i: &'a [u8],
-        amf3: &AMF3Decoder,
+        amf3: &mut AMF3Decoder,
     ) -> IResult<&'a [u8], Vec<SolElement>> {
         let (i, msg) = parse_async_message(i, amf3)?;
 
@@ -233,7 +234,7 @@ pub mod decode {
 
     fn parse_command_message<'a>(
         i: &'a [u8],
-        amf3: &AMF3Decoder,
+        amf3: &mut AMF3Decoder,
     ) -> IResult<&'a [u8], Vec<SolElement>> {
         let (i, msg) = parse_async_message(i, amf3)?;
 
@@ -277,7 +278,7 @@ pub mod decode {
     // all arrays
     fn parse_array_collection<'a>(
         i: &'a [u8],
-        amf3: &AMF3Decoder,
+        amf3: &mut AMF3Decoder,
     ) -> IResult<&'a [u8], Vec<SolElement>> {
         let (i, value) = amf3.parse_single_element(i)?;
 
@@ -292,7 +293,7 @@ pub mod decode {
     // all proxies
     fn parse_object_proxy<'a>(
         i: &'a [u8],
-        amf3: &AMF3Decoder,
+        amf3: &mut AMF3Decoder,
     ) -> IResult<&'a [u8], Vec<SolElement>> {
         let (i, value) = amf3.parse_single_element(i)?;
 
@@ -309,56 +310,56 @@ pub mod decode {
     pub fn register_decoders(decoder: &mut AMF3Decoder) {
         decoder.external_decoders.insert(
             "flex.messaging.io.AbstractMessage".to_string(),
-            Box::new(parse_abstract_message),
+            Rc::new(Box::new(parse_abstract_message)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.AsyncMessage".to_string(),
-            Box::new(parse_async_message),
+            Rc::new(Box::new(parse_async_message)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.AsyncMessageExt".to_string(),
-            Box::new(parse_async_message),
+            Rc::new(Box::new(parse_async_message)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.AcknowledgeMessage".to_string(),
-            Box::new(parse_acknowledge_message),
+            Rc::new(Box::new(parse_acknowledge_message)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.AcknowledgeMessageExt".to_string(),
-            Box::new(parse_acknowledge_message),
+            Rc::new(Box::new(parse_acknowledge_message)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.CommandMessage".to_string(),
-            Box::new(parse_command_message),
+            Rc::new(Box::new(parse_command_message)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.CommandMessageExt".to_string(),
-            Box::new(parse_command_message),
+            Rc::new(Box::new(parse_command_message)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.ErrorMessage".to_string(),
-            Box::new(parse_acknowledge_message),
+            Rc::new(Box::new(parse_acknowledge_message)),
         );
 
         decoder.external_decoders.insert(
             "flex.messaging.io.ArrayCollection".to_string(),
-            Box::new(parse_array_collection),
+            Rc::new(Box::new(parse_array_collection)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.ArrayList".to_string(),
-            Box::new(parse_array_collection),
+            Rc::new(Box::new(parse_array_collection)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.ObjectProxy".to_string(),
-            Box::new(parse_object_proxy),
+            Rc::new(Box::new(parse_object_proxy)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.ManagedObjectProxy".to_string(),
-            Box::new(parse_object_proxy),
+            Rc::new(Box::new(parse_object_proxy)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.SerializationProxy".to_string(),
-            Box::new(parse_object_proxy),
+            Rc::new(Box::new(parse_object_proxy)),
         );
     }
 }

@@ -2,9 +2,8 @@ mod type_marker;
 
 pub mod decoder {
     use crate::amf0::type_marker::TypeMarker;
-    use crate::types::{ClassDefinition, SolElement, SolValue};
+    use crate::types::{ClassDefinition, SolElement, Value};
     use crate::{amf3, PADDING};
-    use enumset::__internal::core_export::cell::RefCell;
     use nom::bytes::complete::tag;
     use nom::combinator::map;
     use nom::error::{make_error, ErrorKind};
@@ -21,46 +20,46 @@ pub mod decoder {
         take_str!(i, length)
     }
 
-    fn parse_element_number(i: &[u8]) -> IResult<&[u8], SolValue> {
-        map(be_f64, SolValue::Number)(i)
+    fn parse_element_number(i: &[u8]) -> IResult<&[u8], Value> {
+        map(be_f64, Value::Number)(i)
     }
 
-    fn parse_element_bool(i: &[u8]) -> IResult<&[u8], SolValue> {
-        map(be_u8, |num: u8| SolValue::Bool(num > 0))(i)
+    fn parse_element_bool(i: &[u8]) -> IResult<&[u8], Value> {
+        map(be_u8, |num: u8| Value::Bool(num > 0))(i)
     }
 
-    fn parse_element_string(i: &[u8]) -> IResult<&[u8], SolValue> {
-        map(parse_string, |s: &str| SolValue::String(s.to_string()))(i)
+    fn parse_element_string(i: &[u8]) -> IResult<&[u8], Value> {
+        map(parse_string, |s: &str| Value::String(s.to_string()))(i)
     }
 
-    fn parse_element_object(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_object(i: &[u8]) -> IResult<&[u8], Value> {
         map(parse_array_element, |elms: Vec<SolElement>| {
-            SolValue::Object(elms, None)
+            Value::Object(elms, None)
         })(i)
     }
 
-    fn parse_element_movie_clip(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_movie_clip(i: &[u8]) -> IResult<&[u8], Value> {
         // Reserved but unsupported
         Err(Err::Error(make_error(i, ErrorKind::Tag)))
     }
 
     #[allow(clippy::let_and_return)]
-    fn parse_element_mixed_array(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_mixed_array(i: &[u8]) -> IResult<&[u8], Value> {
         let (i, array_length) = be_u32(i)?;
         // this `let x = ...` fixes a borrow error on array_length
         let x = map(parse_array_element, |elms: Vec<SolElement>| {
-            SolValue::ECMAArray(Vec::new(), elms, array_length)
+            Value::ECMAArray(Vec::new(), elms, array_length)
         })(i);
 
         x
     }
 
-    fn parse_element_reference(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_reference(i: &[u8]) -> IResult<&[u8], Value> {
         // References arent supported
         Err(Err::Error(make_error(i, ErrorKind::Tag)))
     }
 
-    fn parse_element_array(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_array(i: &[u8]) -> IResult<&[u8], Value> {
         let (i, length) = be_u32(i)?;
 
         let length_usize = length
@@ -77,38 +76,33 @@ pub mod decoder {
 
         Ok((
             i,
-            SolValue::StrictArray(
-                elements
-                    .into_iter()
-                    .map(|e| Rc::new(RefCell::new(e)))
-                    .collect(),
-            ),
+            Value::StrictArray(elements.into_iter().map(Rc::new).collect()),
         ))
     }
 
-    fn parse_element_date(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_date(i: &[u8]) -> IResult<&[u8], Value> {
         let (i, millis) = be_f64(i)?;
         let (i, time_zone) = be_u16(i)?;
 
-        Ok((i, SolValue::Date(millis, Some(time_zone))))
+        Ok((i, Value::Date(millis, Some(time_zone))))
     }
 
-    fn parse_element_long_string(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_long_string(i: &[u8]) -> IResult<&[u8], Value> {
         let (i, length) = be_u32(i)?;
         let (i, str) = take_str!(i, length)?;
 
-        Ok((i, SolValue::String(str.to_string())))
+        Ok((i, Value::String(str.to_string())))
     }
 
-    fn parse_element_record_set(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_record_set(i: &[u8]) -> IResult<&[u8], Value> {
         // Unsupported
         Err(Err::Error(make_error(i, ErrorKind::Tag)))
     }
 
-    fn parse_element_xml(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_xml(i: &[u8]) -> IResult<&[u8], Value> {
         let (i, content) = parse_element_long_string(i)?;
-        if let SolValue::String(content_string) = content {
-            Ok((i, SolValue::XML(content_string, true)))
+        if let Value::String(content_string) = content {
+            Ok((i, Value::XML(content_string, true)))
         } else {
             // Will never happen
             Err(Err::Error(make_error(i, ErrorKind::Digit)))
@@ -116,11 +110,11 @@ pub mod decoder {
     }
 
     #[allow(clippy::let_and_return)]
-    fn parse_element_typed_object(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_typed_object(i: &[u8]) -> IResult<&[u8], Value> {
         let (i, name) = parse_string(i)?;
 
         let x = map(parse_array_element, |elms: Vec<SolElement>| {
-            SolValue::Object(
+            Value::Object(
                 elms,
                 Some(ClassDefinition::default_with_name(name.to_string())),
             )
@@ -128,10 +122,10 @@ pub mod decoder {
         x
     }
 
-    fn parse_element_amf3(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_element_amf3(i: &[u8]) -> IResult<&[u8], Value> {
         // Hopefully amf3 objects wont have references
         let (i, x) = amf3::AMF3Decoder::default().parse_element_object(i)?;
-        Ok((i, SolValue::AMF3(x)))
+        Ok((i, Value::AMF3(x)))
     }
 
     fn read_type_marker(i: &[u8]) -> IResult<&[u8], TypeMarker> {
@@ -142,7 +136,7 @@ pub mod decoder {
         ))
     }
 
-    fn parse_single_element(i: &[u8]) -> IResult<&[u8], SolValue> {
+    fn parse_single_element(i: &[u8]) -> IResult<&[u8], Value> {
         let (i, type_) = read_type_marker(i)?;
 
         match type_ {
@@ -151,14 +145,14 @@ pub mod decoder {
             TypeMarker::String => parse_element_string(i),
             TypeMarker::Object => parse_element_object(i),
             TypeMarker::MovieClip => parse_element_movie_clip(i),
-            TypeMarker::Null => Ok((i, SolValue::Null)),
-            TypeMarker::Undefined => Ok((i, SolValue::Undefined)),
+            TypeMarker::Null => Ok((i, Value::Null)),
+            TypeMarker::Undefined => Ok((i, Value::Undefined)),
             TypeMarker::Reference => parse_element_reference(i),
             TypeMarker::MixedArrayStart => parse_element_mixed_array(i),
             TypeMarker::Array => parse_element_array(i),
             TypeMarker::Date => parse_element_date(i),
             TypeMarker::LongString => parse_element_long_string(i),
-            TypeMarker::Unsupported => Ok((i, SolValue::Unsupported)),
+            TypeMarker::Unsupported => Ok((i, Value::Unsupported)),
             TypeMarker::RecordSet => parse_element_record_set(i),
             TypeMarker::XML => parse_element_xml(i),
             TypeMarker::TypedObject => parse_element_typed_object(i),
@@ -172,7 +166,7 @@ pub mod decoder {
 
         map(parse_single_element, move |v| SolElement {
             name: name.to_string(),
-            value: Rc::new(RefCell::new(v)),
+            value: Rc::new(v),
         })(i)
     }
 
@@ -211,7 +205,7 @@ pub mod decoder {
 }
 
 pub mod encoder {
-    use crate::types::{Element, SolElement, SolValue};
+    use crate::types::{SolElement, Value};
     use crate::PADDING;
     use cookie_factory::bytes::{be_f64, be_u16, be_u32, be_u8};
     use cookie_factory::{SerializeFn, WriteContext};
@@ -225,6 +219,7 @@ pub mod encoder {
     use cookie_factory::multi::all;
     use cookie_factory::sequence::tuple;
     use std::ops::Deref;
+    use std::rc::Rc;
 
     fn write_type_marker<'a, 'b: 'a, W: Write + 'a>(type_: TypeMarker) -> impl SerializeFn<W> + 'a {
         be_u8(type_ as u8)
@@ -280,7 +275,7 @@ pub mod encoder {
     }
 
     fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(
-        elements: &'b [Element],
+        elements: &'b [Rc<Value>],
     ) -> impl SerializeFn<W> + 'a {
         tuple((
             write_type_marker(TypeMarker::Array),
@@ -340,34 +335,34 @@ pub mod encoder {
         ))
     }
 
-    fn write_value<'a, 'b: 'a, W: Write + 'a>(element: &'b Element) -> impl SerializeFn<W> + 'a {
-        move |out: WriteContext<W>| match element.borrow_mut().deref() {
-            SolValue::Number(n) => write_number_element(*n)(out),
-            SolValue::Bool(b) => write_bool_element(*b)(out),
-            SolValue::String(s) => {
+    fn write_value<'a, 'b: 'a, W: Write + 'a>(element: &'b Rc<Value>) -> impl SerializeFn<W> + 'a {
+        move |out: WriteContext<W>| match element.deref() {
+            Value::Number(n) => write_number_element(*n)(out),
+            Value::Bool(b) => write_bool_element(*b)(out),
+            Value::String(s) => {
                 if s.len() > 65535 {
                     write_long_string_element(s)(out)
                 } else {
                     write_string_element(s)(out)
                 }
             }
-            SolValue::Object(elements, class_def) => {
+            Value::Object(elements, class_def) => {
                 if let Some(class_def) = class_def {
                     write_typed_object_element(&class_def.name, elements)(out)
                 } else {
                     write_object_element(elements)(out)
                 }
             }
-            SolValue::Null => write_null_element()(out),
-            SolValue::Undefined => write_undefined_element()(out),
-            SolValue::StrictArray(a) => write_strict_array_element(a)(out),
-            SolValue::Date(d, tz) => write_date_element(*d, *tz)(out),
-            SolValue::Unsupported => write_unsupported_element()(out),
-            SolValue::XML(x, _string) => write_xml_element(x)(out),
-            SolValue::ECMAArray(_dense, elems, elems_length) => {
+            Value::Null => write_null_element()(out),
+            Value::Undefined => write_undefined_element()(out),
+            Value::StrictArray(a) => write_strict_array_element(a)(out),
+            Value::Date(d, tz) => write_date_element(*d, *tz)(out),
+            Value::Unsupported => write_unsupported_element()(out),
+            Value::XML(x, _string) => write_xml_element(x)(out),
+            Value::ECMAArray(_dense, elems, elems_length) => {
                 write_mixed_array(elems, *elems_length)(out)
             }
-            SolValue::AMF3(e) => AMF3Encoder::default().write_value_element(e)(out),
+            Value::AMF3(e) => AMF3Encoder::default().write_value_element(e)(out),
             _ => {
                 write_unsupported_element()(out) /* Not in amf0, TODO: use the amf3 embedding for every thing else */
             }

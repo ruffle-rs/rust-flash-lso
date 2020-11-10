@@ -3,7 +3,6 @@ use core::fmt;
 use derive_try_from_primitive::TryFromPrimitive;
 use enumset::EnumSet;
 use enumset::EnumSetType;
-use std::cell::RefCell;
 use std::rc::Rc;
 
 /// A container for sol files
@@ -60,8 +59,6 @@ impl SolHeader {
     }
 }
 
-pub type Element = Rc<RefCell<SolValue>>;
-
 /// Represent a named element
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq)]
@@ -69,16 +66,16 @@ pub struct SolElement {
     /// The name of the element
     pub name: String,
     /// The value of the element
-    pub value: Element,
+    pub value: Rc<Value>,
 }
 
 impl SolElement {
     /// Create a new Element
     #[inline]
-    pub fn new(name: impl Into<String>, value: impl Into<SolValue>) -> Self {
+    pub fn new(name: impl Into<String>, value: impl Into<Value>) -> Self {
         Self {
             name: name.into(),
-            value: Element::new(RefCell::new(value.into())),
+            value: Rc::new(value.into()),
         }
     }
 }
@@ -87,7 +84,7 @@ impl SolElement {
 /// A single or compound value
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
-pub enum SolValue {
+pub enum Value {
     /// Represent the type number (amf0) and double (amf3)
     Number(f64),
     /// Represents the type boolean (amf0) and both the true/false type (amf3)
@@ -102,9 +99,9 @@ pub enum SolValue {
     Undefined,
     /// Represent ECMA-Arrays (amf0) and associative arrays (amf3, even if they contain a dense part)
     /// Final value represents the length of the array in amf0, this can differ from the actual number of elements
-    ECMAArray(Vec<Element>, Vec<SolElement>, u32),
+    ECMAArray(Vec<Rc<Value>>, Vec<SolElement>, u32),
     /// Represent a strict array (amf0) or a dense array (amf3)
-    StrictArray(Vec<Element>),
+    StrictArray(Vec<Rc<Value>>),
     /// Represent a timezone in the format (seconds since epoch, timezone or UTC if missing (amf3) )
     Date(f64, Option<u16>),
     /// Represent the unsupported type
@@ -112,7 +109,7 @@ pub enum SolValue {
     /// Represent the XML type, (value, is_string)
     XML(String, bool),
     /// Represent an amf3 element embedded in an AMF0 file
-    AMF3(Element),
+    AMF3(Rc<Value>),
     // AMF3
     /// Represent the integer type (u29) (amf3)
     Integer(i32),
@@ -129,10 +126,10 @@ pub enum SolValue {
     VectorDouble(Vec<f64>, bool),
     /// Represent the object vector type (amf3)
     /// Format is (values, is_fixed_length)
-    VectorObject(Vec<Element>, String, bool),
+    VectorObject(Vec<Rc<Value>>, String, bool),
     /// Represent the dictionary type (amf3)
     /// Format is ((key, value), has_weak_keys)
-    Dictionary(Vec<(Element, Element)>, bool),
+    Dictionary(Vec<(Rc<Value>, Rc<Value>)>, bool),
     /// Represent a external object, such as from flex
     /// (custom_elements, regular elements, class def)
     Custom(Vec<SolElement>, Vec<SolElement>, Option<ClassDefinition>),

@@ -86,7 +86,7 @@ impl LSODeserializer {
         ))
     }
 
-    pub fn parse_full<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Sol> {
+    pub fn parse_full<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Sol> {
         let (i, header) = self.parse_header(i)?;
         match header.format_version {
             AMFVersion::AMF0 => {
@@ -125,7 +125,7 @@ pub mod encoder {
 
     impl LSOSerializer {
         pub fn write_full<'a, 'b: 'a, W: Write + 'a>(
-            &'a self,
+            &'a mut self,
             lso: &'b Sol,
         ) -> impl SerializeFn<W> + 'a {
             let amf0 = cond(
@@ -170,7 +170,7 @@ pub mod encoder {
     pub fn write_to_bytes(lso: &Sol) -> Vec<u8> {
         let v = vec![];
 
-        let s = LSOSerializer::default();
+        let mut s = LSOSerializer::default();
         let serialise = s.write_full(lso);
         let (buffer, _size) = gen(serialise, v).unwrap();
         buffer

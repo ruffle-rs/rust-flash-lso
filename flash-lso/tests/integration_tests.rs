@@ -4,8 +4,8 @@ use flash_lso::LSODeserializer;
 use nom::error::ErrorKind::Tag;
 use nom::Err::Incomplete;
 use nom::Needed;
-#[cfg(test)]
-use pretty_assertions::assert_eq;
+// #[cfg(test)]
+// use pretty_assertions::assert_eq;
 use std::fs::File;
 use std::io::Read;
 
