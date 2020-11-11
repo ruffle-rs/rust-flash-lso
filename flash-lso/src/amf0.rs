@@ -2,7 +2,7 @@ mod type_marker;
 
 pub mod decoder {
     use crate::amf0::type_marker::TypeMarker;
-    use crate::types::{ClassDefinition, SolElement, Value};
+    use crate::types::{ClassDefinition, Element, Value};
     use crate::{amf3, PADDING};
     use nom::bytes::complete::tag;
     use nom::combinator::map;
@@ -33,7 +33,7 @@ pub mod decoder {
     }
 
     fn parse_element_object(i: &[u8]) -> IResult<&[u8], Value> {
-        map(parse_array_element, |elms: Vec<SolElement>| {
+        map(parse_array_element, |elms: Vec<Element>| {
             Value::Object(elms, None)
         })(i)
     }
@@ -47,7 +47,7 @@ pub mod decoder {
     fn parse_element_mixed_array(i: &[u8]) -> IResult<&[u8], Value> {
         let (i, array_length) = be_u32(i)?;
         // this `let x = ...` fixes a borrow error on array_length
-        let x = map(parse_array_element, |elms: Vec<SolElement>| {
+        let x = map(parse_array_element, |elms: Vec<Element>| {
             Value::ECMAArray(Vec::new(), elms, array_length)
         })(i);
 
@@ -113,7 +113,7 @@ pub mod decoder {
     fn parse_element_typed_object(i: &[u8]) -> IResult<&[u8], Value> {
         let (i, name) = parse_string(i)?;
 
-        let x = map(parse_array_element, |elms: Vec<SolElement>| {
+        let x = map(parse_array_element, |elms: Vec<Element>| {
             Value::Object(
                 elms,
                 Some(ClassDefinition::default_with_name(name.to_string())),
@@ -161,16 +161,16 @@ pub mod decoder {
         }
     }
 
-    fn parse_element(i: &[u8]) -> IResult<&[u8], SolElement> {
+    fn parse_element(i: &[u8]) -> IResult<&[u8], Element> {
         let (i, name) = parse_string(i)?;
 
-        map(parse_single_element, move |v| SolElement {
+        map(parse_single_element, move |v| Element {
             name: name.to_string(),
             value: Rc::new(v),
         })(i)
     }
 
-    fn parse_element_and_padding(i: &[u8]) -> IResult<&[u8], SolElement> {
+    fn parse_element_and_padding(i: &[u8]) -> IResult<&[u8], Element> {
         let (i, e) = parse_element(i)?;
         let (i, _) = tag(PADDING)(i)?;
 
@@ -178,7 +178,7 @@ pub mod decoder {
     }
 
     //TODO: can this be done better somehow??
-    fn parse_array_element(i: &[u8]) -> IResult<&[u8], Vec<SolElement>> {
+    fn parse_array_element(i: &[u8]) -> IResult<&[u8], Vec<Element>> {
         let mut out = Vec::new();
 
         let mut i = i;
@@ -199,13 +199,13 @@ pub mod decoder {
         Ok((i, out))
     }
 
-    pub fn parse_body(i: &[u8]) -> IResult<&[u8], Vec<SolElement>> {
+    pub fn parse_body(i: &[u8]) -> IResult<&[u8], Vec<Element>> {
         many0(parse_element_and_padding)(i)
     }
 }
 
 pub mod encoder {
-    use crate::types::{SolElement, Value};
+    use crate::types::{Element, Value};
     use crate::PADDING;
     use cookie_factory::bytes::{be_f64, be_u16, be_u32, be_u8};
     use cookie_factory::{SerializeFn, WriteContext};
@@ -256,7 +256,7 @@ pub mod encoder {
     }
 
     fn write_object_element<'a, 'b: 'a, W: Write + 'a>(
-        o: &'b [SolElement],
+        o: &'b [Element],
     ) -> impl SerializeFn<W> + 'a {
         tuple((
             write_type_marker(TypeMarker::Object),
@@ -308,7 +308,7 @@ pub mod encoder {
 
     fn write_typed_object_element<'a, 'b: 'a, W: Write + 'a>(
         name: &'b str,
-        elements: &'b [SolElement],
+        elements: &'b [Element],
     ) -> impl SerializeFn<W> + 'a {
         tuple((
             write_type_marker(TypeMarker::TypedObject),
@@ -320,7 +320,7 @@ pub mod encoder {
     }
 
     fn write_mixed_array<'a, 'b: 'a, W: Write + 'a>(
-        elements: &'b [SolElement],
+        elements: &'b [Element],
         length: u32,
     ) -> impl SerializeFn<W> + 'a {
         //TODO: what is the u16 padding
@@ -370,19 +370,19 @@ pub mod encoder {
     }
 
     fn write_element<'a, 'b: 'a, W: Write + 'a>(
-        element: &'b SolElement,
+        element: &'b Element,
     ) -> impl SerializeFn<W> + 'a {
         tuple((write_string(&element.name), write_value(&element.value)))
     }
 
     fn write_element_and_padding<'a, 'b: 'a, W: Write + 'a>(
-        element: &'b SolElement,
+        element: &'b Element,
     ) -> impl SerializeFn<W> + 'a {
         tuple((write_element(element), slice(PADDING)))
     }
 
     pub fn write_body<'a, 'b: 'a, W: Write + 'a>(
-        elements: &'b [SolElement],
+        elements: &'b [Element],
     ) -> impl SerializeFn<W> + 'a {
         all(elements.iter().map(write_element_and_padding))
     }

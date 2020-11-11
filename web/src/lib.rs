@@ -6,7 +6,7 @@ use yew::prelude::*;
 use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
 use flash_lso::flex;
-use flash_lso::types::{Attribute, Sol, SolElement, Value};
+use flash_lso::types::{Attribute, Sol, Element, Value};
 use flash_lso::LSODeserializer;
 
 pub mod component_tab;
@@ -271,7 +271,7 @@ impl Model {
     }
 
     #[allow(clippy::boxed_local)]
-    fn view_sol_element(&self, data: Box<SolElement>) -> Html {
+    fn view_sol_element(&self, data: Box<Element>) -> Html {
         let name = data.name.clone();
         let value = data.value.clone();
         let value_clone = data.value.clone();

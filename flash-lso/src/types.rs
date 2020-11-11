@@ -4,15 +4,19 @@ use derive_try_from_primitive::TryFromPrimitive;
 use enumset::EnumSet;
 use enumset::EnumSetType;
 use std::rc::Rc;
+use nom::IResult;
+use crate::errors::Error;
+
+// TODO: sol -> lso, remove Sol/lso prefix from vars
 
 /// A container for sol files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct Sol {
     /// The header of this lso
-    pub header: SolHeader,
+    pub header: Header,
     /// The elements at the root level of this lso
-    pub body: Vec<SolElement>,
+    pub body: Vec<Element>,
 }
 
 /// The version of AMF being used
@@ -38,7 +42,7 @@ impl fmt::Display for AMFVersion {
 /// The header of a sol file
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
-pub struct SolHeader {
+pub struct Header {
     /// The length of the lso in bytes
     pub length: u32,
     /// The name of the lso file
@@ -47,7 +51,7 @@ pub struct SolHeader {
     pub format_version: AMFVersion,
 }
 
-impl SolHeader {
+impl Header {
     /// Create a new header with the given name and version, will have a size of 0 by default
     #[inline]
     pub fn new(name: impl Into<String>, version: AMFVersion) -> Self {
@@ -62,14 +66,14 @@ impl SolHeader {
 /// Represent a named element
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq)]
-pub struct SolElement {
+pub struct Element {
     /// The name of the element
     pub name: String,
     /// The value of the element
     pub value: Rc<Value>,
 }
 
-impl SolElement {
+impl Element {
     /// Create a new Element
     #[inline]
     pub fn new(name: impl Into<String>, value: impl Into<Value>) -> Self {
@@ -92,14 +96,14 @@ pub enum Value {
     /// Represent both the string (amf0/3) and long string type (amf0)
     String(String),
     /// Represents the object type in both amf0 and amf3, class definition are only available with amf3
-    Object(Vec<SolElement>, Option<ClassDefinition>),
+    Object(Vec<Element>, Option<ClassDefinition>),
     /// Represent the null type
     Null,
     /// Represent the undefined type
     Undefined,
     /// Represent ECMA-Arrays (amf0) and associative arrays (amf3, even if they contain a dense part)
     /// Final value represents the length of the array in amf0, this can differ from the actual number of elements
-    ECMAArray(Vec<Rc<Value>>, Vec<SolElement>, u32),
+    ECMAArray(Vec<Rc<Value>>, Vec<Element>, u32),
     /// Represent a strict array (amf0) or a dense array (amf3)
     StrictArray(Vec<Rc<Value>>),
     /// Represent a timezone in the format (seconds since epoch, timezone or UTC if missing (amf3) )
@@ -132,7 +136,7 @@ pub enum Value {
     Dictionary(Vec<(Rc<Value>, Rc<Value>)>, bool),
     /// Represent a external object, such as from flex
     /// (custom_elements, regular elements, class def)
-    Custom(Vec<SolElement>, Vec<SolElement>, Option<ClassDefinition>),
+    Custom(Vec<Element>, Vec<Element>, Option<ClassDefinition>),
 }
 
 /// A class definition (trait) used in AMF3
@@ -176,3 +180,5 @@ pub enum Attribute {
     /// If a trait is external then it requires custom serialization and deserialization support
     EXTERNAL,
 }
+
+pub(crate) type CombinatorResult<'a, T> = IResult<&'a [u8], T, Error>;

@@ -6,7 +6,7 @@ use crate::amf3::encoder::AMF3Encoder;
 use crate::amf3::type_marker::TypeMarker;
 use crate::length::Length;
 use crate::types::*;
-use crate::types::{SolElement, Value};
+use crate::types::{Element, Value};
 use crate::PADDING;
 use enumset::EnumSet;
 use nom::bytes::complete::tag;
@@ -106,12 +106,12 @@ fn parse_element_int(i: &[u8]) -> IResult<&[u8], Rc<Value>> {
 
 //TODO: could this be combined with the trait
 type ExternalDecoderFn =
-    Rc<Box<dyn for<'a> Fn(&'a [u8], &mut AMF3Decoder) -> IResult<&'a [u8], Vec<SolElement>>>>;
+    Rc<Box<dyn for<'a> Fn(&'a [u8], &mut AMF3Decoder) -> IResult<&'a [u8], Vec<Element>>>>;
 
 pub trait CustomEncoder {
     fn encode<'a>(
         &self,
-        elements: &'a [SolElement],
+        elements: &'a [Element],
         class_def: &Option<ClassDefinition>,
         encoder: &AMF3Encoder,
     ) -> Vec<u8>;
@@ -293,14 +293,14 @@ impl AMF3Decoder {
         &mut self,
         i: &'a [u8],
         class_def: &ClassDefinition,
-    ) -> IResult<&'a [u8], Vec<SolElement>> {
+    ) -> IResult<&'a [u8], Vec<Element>> {
         let mut elements = Vec::new();
         let mut i = i;
 
         for name in class_def.static_properties.iter() {
             let (j, e) = self.parse_single_element(i)?;
 
-            elements.push(SolElement {
+            elements.push(Element {
                 name: name.clone(),
                 value: e,
             });
@@ -383,7 +383,7 @@ impl AMF3Decoder {
                 let attr_str = String::from_utf8(attr)
                     .map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?;
                 let (k, val) = self.parse_single_element(j)?;
-                elements.push(SolElement {
+                elements.push(Element {
                     name: attr_str,
                     value: val,
                 });
@@ -512,7 +512,7 @@ impl AMF3Decoder {
                 let key_str = String::from_utf8(key)
                     .map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?;
 
-                elements.push(SolElement {
+                elements.push(Element {
                     name: key_str,
                     value: e,
                 });
@@ -601,19 +601,19 @@ impl AMF3Decoder {
         }
     }
 
-    fn parse_element<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], SolElement> {
+    fn parse_element<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
         let (i, name) = self.parse_string(i)?;
 
         map(
             |i| self.parse_single_element(i),
-            move |v| SolElement {
+            move |v| Element {
                 name: name.clone(),
                 value: v,
             },
         )(i)
     }
 
-    pub fn parse_body<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Vec<SolElement>> {
+    pub fn parse_body<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Vec<Element>> {
         let (i, elements) = separated_list0(tag(PADDING), |i| self.parse_element(i))(i)?;
         let (i, _) = tag(PADDING)(i)?;
         Ok((i, elements))
@@ -626,7 +626,7 @@ pub mod encoder {
     use crate::element_cache::ElementCache;
     use crate::length::Length;
     use crate::nom_utils::either;
-    use crate::types::{Attribute, ClassDefinition, SolElement, Value};
+    use crate::types::{Attribute, ClassDefinition, Element, Value};
     use crate::PADDING;
     use cookie_factory::bytes::{be_f64, be_i32, be_u32, be_u8};
     use cookie_factory::combinator::{cond, slice};
@@ -909,8 +909,8 @@ pub mod encoder {
         fn write_trait_reference<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             index: u32,
-            children: &'b [SolElement],
-            custom_props: Option<&'b [SolElement]>,
+            children: &'b [Element],
+            custom_props: Option<&'b [Element]>,
             def: &'b ClassDefinition,
         ) -> impl SerializeFn<W> + 'a {
             let size = (((index << 1) | 0u32) << 1) | 1u32;
@@ -971,8 +971,8 @@ pub mod encoder {
 
         fn write_object_full<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
-            custom_props: Option<&'b [SolElement]>,
-            children: &'b [SolElement],
+            custom_props: Option<&'b [Element]>,
+            children: &'b [Element],
             def: &'b ClassDefinition,
         ) -> impl SerializeFn<W> + 'a {
             self.trait_reference_table.borrow_mut().push(def.clone());
@@ -1044,8 +1044,8 @@ pub mod encoder {
 
         fn write_object_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
-            children: &'b [SolElement],
-            custom_props: Option<&'b [SolElement]>,
+            children: &'b [Element],
+            custom_props: Option<&'b [Element]>,
             class_def: &'b Option<ClassDefinition>,
         ) -> impl SerializeFn<W> + 'a {
             // let mut had_object = self
@@ -1131,7 +1131,7 @@ pub mod encoder {
         fn write_ecma_array_element<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
             dense: &'b [Rc<Value>],
-            assoc: &'b [SolElement],
+            assoc: &'b [Element],
         ) -> impl SerializeFn<W> + 'a {
             // let mut len = self.object_reference_table.to_length_store(
             //     SolValue::ECMAArray(dense.to_vec(), assoc.clone().to_vec(), assoc.len() as u32),
@@ -1264,7 +1264,7 @@ pub mod encoder {
 
         fn write_element<'a, 'b: 'a, W: Write + 'a>(
             &'b self,
-            element: &'b SolElement,
+            element: &'b Element,
         ) -> impl SerializeFn<W> + 'a {
             tuple((
                 self.write_string(&element.name),
@@ -1274,14 +1274,14 @@ pub mod encoder {
 
         fn write_element_and_padding<'a, 'b: 'a, W: Write + 'a>(
             &'b self,
-            element: &'b SolElement,
+            element: &'b Element,
         ) -> impl SerializeFn<W> + 'a {
             tuple((self.write_element(element), slice(PADDING)))
         }
 
         pub fn write_body<'a, 'b: 'a, W: Write + 'a>(
             &'b self,
-            elements: &'b [SolElement],
+            elements: &'b [Element],
         ) -> impl SerializeFn<W> + 'a {
             all(elements
                 .iter()

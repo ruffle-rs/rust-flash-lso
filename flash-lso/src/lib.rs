@@ -10,10 +10,10 @@
     variant_size_differences
 )]
 
-// #![warn(missing_docs, missing_debug_implementations)]
+#![warn(missing_docs)]
 
 use crate::amf3::AMF3Decoder;
-use crate::types::{AMFVersion, Sol, SolHeader};
+use crate::types::{AMFVersion, Sol, Header, CombinatorResult};
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::number::complete::be_u32;
@@ -60,7 +60,7 @@ pub struct LSODeserializer {
 }
 
 impl LSODeserializer {
-    pub fn parse_header<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolHeader> {
+    fn parse_header<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Header> {
         let (i, _) = tag(HEADER_VERSION)(i)?;
         let (i, l) = be_u32(i)?;
         let (i, _) = tag(HEADER_SIGNATURE)(i)?;
@@ -78,7 +78,7 @@ impl LSODeserializer {
 
         Ok((
             i,
-            SolHeader {
+            Header {
                 length: l,
                 name: name.to_string(),
                 format_version,
@@ -102,7 +102,7 @@ impl LSODeserializer {
 }
 
 pub mod encoder {
-    use crate::types::{AMFVersion, Sol, SolHeader};
+    use crate::types::{AMFVersion, Sol, Header};
     use crate::{
         FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, HEADER_SIGNATURE, HEADER_VERSION, PADDING,
     };
@@ -146,7 +146,7 @@ pub mod encoder {
     }
 
     pub fn write_header<'a, 'b: 'a, W: Write + 'a>(
-        header: &'b SolHeader,
+        header: &'b Header,
     ) -> impl SerializeFn<W> + 'a {
         tuple((
             slice(HEADER_VERSION),
