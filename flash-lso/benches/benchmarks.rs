@@ -2,24 +2,25 @@
 
 extern crate test;
 
-#[cfg(test)]
-mod tests {
     use flash_lso::LSODeserializer;
-    use std::hint::black_box;
-    use test::Bencher;
+
+    use criterion::{black_box, criterion_group, criterion_main, Criterion};
+
+    criterion_group!(benches, criterion_benchmark);
+    criterion_main!(benches);
 
     macro_rules! auto_bench {
         ($([$name: ident, $path: expr]),*) => {
-            $(
-                #[bench]
-                fn $name(b: &mut Bencher) {
-                    let input_bytes = include_bytes!(concat!("../tests/sol/", $path, ".sol"));
-
-                    b.iter(|| {
-                        black_box(LSODeserializer::default().parse_full(input_bytes).unwrap());
+            fn criterion_benchmark(c: &mut Criterion) {
+                $(
+                    c.bench_function(concat!("parse_", $path), |b| {
+                        let input_bytes = include_bytes!(concat!("../tests/sol/", $path, ".sol"));
+                        b.iter(|| {
+                            black_box(LSODeserializer::default().parse_full(input_bytes).unwrap());
+                        })
                     });
-                }
-            )*
+                )*
+            }
         }
     }
 
@@ -95,5 +96,4 @@ mod tests {
         [bench_slot_1, "slot1"],
         [bench_party_1, "Party1"],
         [bench_metadata_history, "MetadataHistory"]
-    }
 }
