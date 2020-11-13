@@ -369,9 +369,7 @@ pub mod encoder {
         }
     }
 
-    fn write_element<'a, 'b: 'a, W: Write + 'a>(
-        element: &'b Element,
-    ) -> impl SerializeFn<W> + 'a {
+    fn write_element<'a, 'b: 'a, W: Write + 'a>(element: &'b Element) -> impl SerializeFn<W> + 'a {
         tuple((write_string(&element.name), write_value(&element.value)))
     }
 

@@ -6,30 +6,39 @@ use yew::prelude::*;
 use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
 use flash_lso::flex;
-use flash_lso::types::{Attribute, Sol, Element, Value};
+use flash_lso::types::{Attribute, Element, Sol, Value};
 use flash_lso::LSODeserializer;
 
 pub mod component_tab;
 pub mod component_tabs;
+pub mod component_treenode;
 pub mod jquery_bindgen;
 
 use crate::component_tab::Tab;
 use crate::component_tabs::Tabs;
+use crate::component_treenode::TreeNode;
 use std::ops::Deref;
 use std::rc::Rc;
+
+#[derive(Clone)]
+pub struct EditableValue {
+    value: Value,
+    callback: Callback<Value>,
+}
 
 struct Model {
     link: ComponentLink<Self>,
     reader: ReaderService,
     tasks: Vec<ReaderTask>,
     files: Vec<Sol>,
-    current_selection: Option<Rc<Value>>,
+    current_selection: Option<EditableValue>,
 }
 
 enum Msg {
     Files(Vec<File>),
     Loaded(FileData),
-    Selection(Rc<Value>),
+    Selection(EditableValue),
+    Edited(Value),
 }
 
 impl Component for Model {
@@ -64,6 +73,7 @@ impl Component for Model {
                 self.files.push(sol);
             }
             Msg::Selection(val) => self.current_selection = Some(val),
+            Msg::Edited(val) => self.current_selection.as_ref().unwrap().callback.emit(val),
         }
         true
     }
@@ -96,8 +106,8 @@ impl Component for Model {
 }
 
 impl Model {
-    fn value_details(&self, val: Rc<Value>) -> Html {
-        match val.deref() {
+    fn value_details(&self, val: EditableValue) -> Html {
+        match val.value {
             Value::Object(_, Some(def)) => html! {
                 <>
                     <p>{"name"}</p>
@@ -130,10 +140,16 @@ impl Model {
                 <p>{format!("{:?}", n.as_slice())}</p>
             },
             Value::String(s) => html! {
-                <p>{s}</p>
+                <input onchange={ self.link.callback(move |cd| {
+                    if let ChangeData::Value(s) = cd {
+                        Msg::Edited(Value::String(s.clone()))
+                    } else {
+                        Msg::Edited(Value::String(s.clone()))
+                    }
+                })} value={s.clone()}/>
             },
             Value::Bool(b) => html! {
-                <p>{ if *b {"true"} else {"false"} }</p>
+                <p>{ if b {"true"} else {"false"} }</p>
             },
             Value::Null => html! {
                 <p>{ "null" }</p>
@@ -155,7 +171,7 @@ impl Model {
             Value::XML(content, _string) => html! {
                 <p>{ content }</p>
             },
-            Value::AMF3(e) => self.value_details(e.clone()),
+            // Value::AMF3(e) => self.value_details(e.clone()),
             _ => html! {},
         }
     }
@@ -184,105 +200,6 @@ impl Model {
         }
     }
 
-    fn view_array_element(&self, index: usize, data: &Rc<Value>) -> Html {
-        html! {
-            <div>
-                <p>{index}</p>
-                { self.view_sol_value(data.clone()) }
-            </div>
-        }
-    }
-
-    fn view_array_index(&self, index: usize) -> Html {
-        html! {
-            <div>
-                <p>{index}</p>
-            </div>
-        }
-    }
-
-    fn view_sol_value(&self, data: Rc<Value>) -> Html {
-        match data.deref() {
-            Value::AMF3(e) => self.view_sol_value(e.clone()),
-            Value::Object(elements, _class_def) => html! {
-                <ul>
-                    { for elements.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
-                </ul>
-            },
-            Value::StrictArray(x) => html! {
-                <ul>
-                    { for x.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
-                </ul>
-            },
-            Value::ECMAArray(dense, assoc, _size) => html! {
-                    <ul>
-                        { for dense.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
-                        { for assoc.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
-                    </ul>
-            },
-            Value::VectorInt(x, _fixed_len) => html! {
-                <ul>
-                    { for x.iter().enumerate().map(|(i, v)| self.view_array_index(i) )}
-                </ul>
-            },
-            Value::VectorUInt(x, _fixed_len) => html! {
-                <ul>
-                    { for x.iter().enumerate().map(|(i, v)| self.view_array_index(i) )}
-                </ul>
-            },
-            Value::VectorDouble(x, _fixed_len) => html! {
-                <ul>
-                    { for x.iter().enumerate().map(|(i, v)| self.view_array_index(i) )}
-                </ul>
-            },
-            Value::VectorObject(children, _name, _fixed_len) => html! {
-                <ul>
-                    { for children.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
-                </ul>
-            },
-            Value::Dictionary(children, _) => html! {
-                <ul>
-                    { for children.iter().map(|(k, v)| html! {
-                            <>
-                            <li><span >{ "key" }</span></li>
-                            <li><span >{ "value" }</span></li>
-                            </>
-                        })}
-                </ul>
-            },
-            Value::Custom(el, el2, _class_def) => html! {
-                <ul>
-                    <li>
-                        {"Custom elements"}
-                        <ul>
-                            { for el.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
-                        </ul>
-                    </li>
-                    <li>
-                        {"Standard elements"}
-                        <ul>
-                            { for el2.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
-                        </ul>
-                    </li>
-                </ul>
-            },
-            _ => html! {},
-        }
-    }
-
-    #[allow(clippy::boxed_local)]
-    fn view_sol_element(&self, data: Box<Element>) -> Html {
-        let name = data.name.clone();
-        let value = data.value.clone();
-        let value_clone = data.value.clone();
-        html! {
-            <li>
-                <span onclick=self.link.callback(move |_| Msg::Selection(value_clone.clone()))>{ name }</span>
-                {self.view_sol_value(value)}
-            </li>
-        }
-    }
-
     fn view_file(&self, _index: usize, data: &Sol) -> Html {
         html! {
 
@@ -294,8 +211,11 @@ impl Model {
                         <p>{ &format!("Size: {} bytes", data.header.length) }</p>
                         <p>{ &format!("Version: {}", data.header.format_version) }</p>
                         <div id="tree">
+                            <span>{"ROOT"}</span>
                             <ul>
-                                { for data.body.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
+                                { for data.body.iter().map(|e| html! {
+                                    <TreeNode name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                                })}
                             </ul>
                         </div>
                     </div>
@@ -303,7 +223,7 @@ impl Model {
                         {
                             if let Some(selection) = &self.current_selection {
                                 let details_content = self.value_details(selection.clone());
-                                let value_type = match selection.deref() {
+                                let value_type = match selection.value {
                                     Value::Number(_) => "Number",
                                     Value::Bool(_) => "Boolean",
                                     Value::String(_) => "String",

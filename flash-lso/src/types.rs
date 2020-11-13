@@ -1,11 +1,11 @@
+use crate::errors::Error;
 use cookie_factory::lib::std::fmt::Formatter;
 use core::fmt;
 use derive_try_from_primitive::TryFromPrimitive;
 use enumset::EnumSet;
 use enumset::EnumSetType;
-use std::rc::Rc;
 use nom::IResult;
-use crate::errors::Error;
+use std::rc::Rc;
 
 // TODO: sol -> lso, remove Sol/lso prefix from vars
 
