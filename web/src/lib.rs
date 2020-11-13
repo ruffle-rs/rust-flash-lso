@@ -1,4 +1,4 @@
-#![recursion_limit = "512"]
+#![recursion_limit = "1024"]
 
 use std::string::ToString;
 use wasm_bindgen::prelude::*;
@@ -9,16 +9,22 @@ use flash_lso::flex;
 use flash_lso::types::{Attribute, Element, Sol, Value};
 use flash_lso::LSODeserializer;
 
+mod blob_bindgen;
 pub mod component_tab;
 pub mod component_tabs;
 pub mod component_treenode;
 pub mod jquery_bindgen;
+mod uintarray_bindgen;
+mod url_bindgen;
 
 use crate::component_tab::Tab;
 use crate::component_tabs::Tabs;
 use crate::component_treenode::TreeNode;
+use flash_lso::encoder::write_to_bytes;
 use std::ops::Deref;
 use std::rc::Rc;
+use yew::format::Json;
+use yew::web_sys::BinaryType::Blob;
 
 #[derive(Clone)]
 pub struct EditableValue {
@@ -131,10 +137,30 @@ impl Model {
                 </>
             },
             Value::Number(n) => html! {
-                <p>{n}</p>
+                <input onchange={ self.link.callback(move |cd| {
+                    if let ChangeData::Value(s) = cd {
+                        if let Ok(data) = s.parse::<f64>() {
+                            Msg::Edited(Value::Number(data))
+                        } else {
+                            Msg::Edited(Value::Number(n))
+                        }
+                    } else {
+                        Msg::Edited(Value::Number(n))
+                    }
+                })} value={n}/>
             },
             Value::Integer(n) => html! {
-                <p>{n}</p>
+                <input onchange={ self.link.callback(move |cd| {
+                    if let ChangeData::Value(s) = cd {
+                        if let Ok(data) = s.parse::<i32>() {
+                            Msg::Edited(Value::Integer(data))
+                        } else {
+                            Msg::Edited(Value::Integer(n))
+                        }
+                    } else {
+                        Msg::Edited(Value::Integer(n))
+                    }
+                })} value={n}/>
             },
             Value::ByteArray(n) => html! {
                 <p>{format!("{:?}", n.as_slice())}</p>
@@ -149,7 +175,12 @@ impl Model {
                 })} value={s.clone()}/>
             },
             Value::Bool(b) => html! {
-                <p>{ if b {"true"} else {"false"} }</p>
+                <div class="custom-control custom-switch">
+                  <input type={"checkbox"} class={"custom-control-input"} id={"customSwitch1"} checked={b} onclick={self.link.callback(move |_| {
+                    Msg::Edited(Value::Bool(!b))
+                  })}/>
+                  <label class={"custom-control-label"} for={"customSwitch1"}>{"Toggle this switch element"}</label>
+                </div>
             },
             Value::Null => html! {
                 <p>{ "null" }</p>
@@ -168,8 +199,14 @@ impl Model {
                 <p>{ format!("{:?}", tz) }</p>
                 </>
             },
-            Value::XML(content, _string) => html! {
-                <p>{ content }</p>
+            Value::XML(content, string) => html! {
+                <input onchange={ self.link.callback(move |cd| {
+                    if let ChangeData::Value(s) = cd {
+                        Msg::Edited(Value::XML(s.clone(), string))
+                    } else {
+                        Msg::Edited(Value::XML(content.clone(), string))
+                    }
+                })} value={content.clone()}/>
             },
             // Value::AMF3(e) => self.value_details(e.clone()),
             _ => html! {},
@@ -200,13 +237,34 @@ impl Model {
         }
     }
 
-    fn view_file(&self, _index: usize, data: &Sol) -> Html {
+    fn test(&self, index: usize) -> Html {
+        let bytes = write_to_bytes(&self.files[index]);
+
+        let options: js_sys::Object = js_sys::Object::new();
+
+        let arr: uintarray_bindgen::Uint8Array =
+            uintarray_bindgen::Uint8Array::new(bytes.len() as u32);
+        for (i, b) in bytes.iter().enumerate() {
+            arr.set(i as u32, (*b).into());
+        }
+
+        let arr2: js_sys::Array = js_sys::Array::new_with_length(1);
+        arr2.set(0, arr.into());
+
+        let blob = blob_bindgen::Blob::new(arr2, options.into());
+        let url = url_bindgen::URL::createObjectURL(&blob);
+
         html! {
+            <a href={url} download={"save.sol"} class="btn btn-primary">{"Save"}</a>
+        }
+    }
 
-
+    fn view_file(&self, index: usize, data: &Sol) -> Html {
+        html! {
             <div class="container-fluid">
                 <div class="row">
                     <div class="col-4">
+                        { self.test(index) }
                         <p>{ &format!("Name: {}", data.header.name) }</p>
                         <p>{ &format!("Size: {} bytes", data.header.length) }</p>
                         <p>{ &format!("Version: {}", data.header.format_version) }</p>
@@ -223,28 +281,34 @@ impl Model {
                         {
                             if let Some(selection) = &self.current_selection {
                                 let details_content = self.value_details(selection.clone());
-                                let value_type = match selection.value {
-                                    Value::Number(_) => "Number",
-                                    Value::Bool(_) => "Boolean",
-                                    Value::String(_) => "String",
-                                    Value::Object(_, _) => "Object",
-                                    Value::Null => "Null",
-                                    Value::Undefined => "Undefined",
-                                    Value::ECMAArray(_, _, _) => "ECMAArray",
-                                    Value::StrictArray(_) => "StrictArray",
-                                    Value::Date(_, _) => "Date",
-                                    Value::Unsupported => "Unsupported",
-                                    Value::XML(_, _) => "XML",
-                                    Value::AMF3(_) => "AMF3<TODO>",
-                                    Value::Integer(_) => "Integer",
-                                    Value::ByteArray(_) => "ByteArray",
-                                    Value::VectorInt(_, _) => "Vector<Int>",
-                                    Value::VectorUInt(_, _) => "Vector<UInt>",
-                                    Value::VectorDouble(_, _) => "Vector<Double>",
-                                    Value::VectorObject(_, _, _) => "Vector<Object>",
-                                    Value::Dictionary(_, _) => "Dictionary",
-                                    Value::Custom(_, _, _) => "Custom<TODO>",
-                                    _ => "Boolean"
+                                let value_type = match &selection.value {
+                                    Value::Number(_) => "Number".to_string(),
+                                    Value::Bool(_) => "Boolean".to_string(),
+                                    Value::String(_) => "String".to_string(),
+                                    Value::Object(_, _) => "Object".to_string(),
+                                    Value::Null => "Null".to_string(),
+                                    Value::Undefined => "Undefined".to_string(),
+                                    Value::ECMAArray(_, _, _) => "ECMAArray".to_string(),
+                                    Value::StrictArray(_) => "StrictArray".to_string(),
+                                    Value::Date(_, _) => "Date".to_string(),
+                                    Value::Unsupported => "Unsupported".to_string(),
+                                    Value::XML(_, _) => "XML".to_string(),
+                                    Value::AMF3(_) => "AMF3<TODO>".to_string(),
+                                    Value::Integer(_) => "Integer".to_string(),
+                                    Value::ByteArray(_) => "ByteArray".to_string(),
+                                    Value::VectorInt(_, _) => "Vector<Int>".to_string(),
+                                    Value::VectorUInt(_, _) => "Vector<UInt>".to_string(),
+                                    Value::VectorDouble(_, _) => "Vector<Double>".to_string(),
+                                    Value::VectorObject(_, _, _) => "Vector<Object>".to_string(),
+                                    Value::Dictionary(_, _) => "Dictionary".to_string(),
+                                    Value::Custom(_, _, cd) => {
+                                        if let Some(cd) = cd {
+                                            format!("Custom<{}>", cd.name)
+                                        } else {
+                                            "Custom<Unknown>".to_string()
+                                        }
+                                    },
+                                     _ => "Unknown".to_string()
                                 };
 
                                 html! {
