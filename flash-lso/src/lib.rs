@@ -9,11 +9,10 @@
     unused_qualifications,
     variant_size_differences
 )]
-
-// #![warn(missing_docs, missing_debug_implementations)]
+#![warn(missing_docs)]
 
 use crate::amf3::AMF3Decoder;
-use crate::types::{AMFVersion, Sol, SolHeader};
+use crate::types::{AMFVersion, CombinatorResult, Header, Sol};
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::number::complete::be_u32;
@@ -60,7 +59,7 @@ pub struct LSODeserializer {
 }
 
 impl LSODeserializer {
-    pub fn parse_header<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], SolHeader> {
+    fn parse_header<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Header> {
         let (i, _) = tag(HEADER_VERSION)(i)?;
         let (i, l) = be_u32(i)?;
         let (i, _) = tag(HEADER_SIGNATURE)(i)?;
@@ -78,7 +77,7 @@ impl LSODeserializer {
 
         Ok((
             i,
-            SolHeader {
+            Header {
                 length: l,
                 name: name.to_string(),
                 format_version,
@@ -86,7 +85,7 @@ impl LSODeserializer {
         ))
     }
 
-    pub fn parse_full<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Sol> {
+    pub fn parse_full<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Sol> {
         let (i, header) = self.parse_header(i)?;
         match header.format_version {
             AMFVersion::AMF0 => {
@@ -102,7 +101,7 @@ impl LSODeserializer {
 }
 
 pub mod encoder {
-    use crate::types::{AMFVersion, Sol, SolHeader};
+    use crate::types::{AMFVersion, Header, Sol};
     use crate::{
         FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, HEADER_SIGNATURE, HEADER_VERSION, PADDING,
     };
@@ -125,7 +124,7 @@ pub mod encoder {
 
     impl LSOSerializer {
         pub fn write_full<'a, 'b: 'a, W: Write + 'a>(
-            &'a self,
+            &'a mut self,
             lso: &'b Sol,
         ) -> impl SerializeFn<W> + 'a {
             let amf0 = cond(
@@ -145,9 +144,7 @@ pub mod encoder {
         tuple((be_u16(s.len() as u16), string(s)))
     }
 
-    pub fn write_header<'a, 'b: 'a, W: Write + 'a>(
-        header: &'b SolHeader,
-    ) -> impl SerializeFn<W> + 'a {
+    pub fn write_header<'a, 'b: 'a, W: Write + 'a>(header: &'b Header) -> impl SerializeFn<W> + 'a {
         tuple((
             slice(HEADER_VERSION),
             be_u32(header.length),
@@ -170,7 +167,7 @@ pub mod encoder {
     pub fn write_to_bytes(lso: &Sol) -> Vec<u8> {
         let v = vec![];
 
-        let s = LSOSerializer::default();
+        let mut s = LSOSerializer::default();
         let serialise = s.write_full(lso);
         let (buffer, _size) = gen(serialise, v).unwrap();
         buffer

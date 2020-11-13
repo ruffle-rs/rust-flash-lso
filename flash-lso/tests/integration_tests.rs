@@ -4,10 +4,8 @@ use flash_lso::LSODeserializer;
 use nom::error::ErrorKind::Tag;
 use nom::Err::Incomplete;
 use nom::Needed;
-#[cfg(test)]
-use pretty_assertions::assert_eq;
-use std::fs::File;
-use std::io::Read;
+// #[cfg(test)]
+// use pretty_assertions::assert_eq;
 
 /// Wrapper around Vec<u8> that makes `{:#?}` the same as `{:?}`
 /// Used in `assert*!` macros in combination with `pretty_assertions` crate to make
@@ -28,10 +26,8 @@ macro_rules! auto_test {
         $(
         #[test]
         pub fn $name() {
-            let mut x = File::open(concat!("tests/sol/", $path, ".sol")).expect("Couldn't open file");
-            let mut data = Vec::new();
-            let _ = x.read_to_end(&mut data).expect("Unable to read file");
-            let parse_res = LSODeserializer::default().parse_full(&data);
+            let data = include_bytes!(concat!("sol/", $path, ".sol"));
+            let parse_res = LSODeserializer::default().parse_full(data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
                 println!("{:#?}", sol);
@@ -43,15 +39,7 @@ macro_rules! auto_test {
 
                 let bytes = encoder::write_to_bytes(&sol);
 
-                // for x in 0..bytes.len() {
-                //     if bytes[x] != data[x] {
-                //         println!("Difference around here: {}", x);
-                //                         assert_eq!(false, true)
-                //     }
-                // }
-
-                // assert_eq!(bytes, data, "library output != input");
-                assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
+                assert_eq!(PrettyArray(&bytes), PrettyArray(&data.to_vec()), "library output != input");
             } else {
                 println!("parse failed: {:?}", parse_res);
                 assert_eq!(false, true)
@@ -66,10 +54,8 @@ macro_rules! test_parse_only {
         $(
         #[test]
         pub fn $name() {
-            let mut x = File::open(concat!("tests/sol/", $path, ".sol")).expect("Couldn't open file");
-            let mut data = Vec::new();
-            let _ = x.read_to_end(&mut data).expect("Unable to read file");
-            let parse_res = LSODeserializer::default().parse_full(&data);
+            let data = include_bytes!(concat!("sol/", $path, ".sol"));
+            let parse_res = LSODeserializer::default().parse_full(data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
                 println!("Parsed sol: {:?}", sol);
@@ -78,7 +64,6 @@ macro_rules! test_parse_only {
                     assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
                 }
             } else {
-                // println!("Input: {:?}", data);
                 println!("parse failed: {:?}", parse_res);
                 assert_eq!(false, true)
             }
@@ -97,16 +82,12 @@ macro_rules! auto_test_flex {
             use cookie_factory::gen;
             use flash_lso::encoder::LSOSerializer;
 
-            let mut x = File::open(concat!("tests/sol/", $path, ".sol")).expect("Couldn't open file");
-            let mut data = Vec::new();
-            let _ = x.read_to_end(&mut data).expect("Unable to read file");
+            let data = include_bytes!(concat!("sol/", $path, ".sol"));
             let mut des = LSODeserializer::default();
             flex::decode::register_decoders(&mut des.amf3_decoder);
-            let parse_res = des.parse_full(&data);
+            let parse_res = des.parse_full(data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
-                // println!("{:#?}", sol);
-
                 let empty: Vec<u8> = vec![];
                 if unparsed_bytes.len() > 0 {
                     assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
@@ -119,23 +100,13 @@ macro_rules! auto_test_flex {
                 let (buffer, _size) = gen(serialise, v).unwrap();
                 let bytes = buffer;
 
-                // for x in 0..bytes.len() {
-                //     if bytes[x] != data[x] {
-                //         println!("Difference around here: {}", x);
-                //                         assert_eq!(false, true)
-                //     }
-                // }
-
                 let mut des2 = LSODeserializer::default();
                 flex::decode::register_decoders(&mut des2.amf3_decoder);
                 let (_, sol2) = des2.parse_full(&bytes).expect("Unable to round trip");
                 assert!(sol2 == sol);
 
-                // assert_eq!(bytes.len(), data.len());
-                // assert_eq!(bytes, data, "library output != input");
-                assert_eq!(PrettyArray(&bytes), PrettyArray(&data), "library output != input");
+                assert_eq!(PrettyArray(&bytes), PrettyArray(&data.to_vec()), "library output != input");
             } else {
-                // println!("Input: {:?}", data);
                 println!("parse failed: {:?}", parse_res);
                 assert_eq!(false, true)
             }
@@ -149,10 +120,8 @@ macro_rules! should_fail {
         $(
         #[test]
         pub fn $name() {
-            let mut x = File::open(concat!("tests/sol/", $path, ".sol")).expect("Couldn't open file");
-            let mut data = Vec::new();
-            let _ = x.read_to_end(&mut data).expect("Unable to read file");
-            let parse_res = LSODeserializer::default().parse_full(&data);
+            let data = include_bytes!(concat!("sol/", $path, ".sol"));
+            let parse_res = LSODeserializer::default().parse_full(data);
 
             if let Err(x) = parse_res {
                 assert_eq!(x, $error);
@@ -171,16 +140,14 @@ macro_rules! json_test {
         #[cfg(feature = "serde")]
         #[test]
         pub fn $name() {
-            use std::fs;
             use serde_json;
 
-            let mut x = File::open(concat!("tests/sol/", $path, ".sol")).expect("Couldn't open file");
-            let mut data = Vec::new();
-            let _ = x.read_to_end(&mut data).expect("Unable to read file");
-            let (_, parse_res) = LSODeserializer::default().parse_full(&data).expect("Unable to parse file");
+            let data = include_bytes!(concat!("sol/", $path, ".sol"));
+            let (_, parse_res) = LSODeserializer::default().parse_full(data).expect("Unable to parse file");
             let output_json = serde_json::to_string(&parse_res).expect("Unable to convert to json");
 
-            let json_expected = fs::read_to_string(concat!("tests/sol/", $path, ".json")).expect("Unable to read json file");
+
+            let json_expected = include_str!(concat!("sol/", $path, ".json"));
 
             assert_eq!(json_expected.trim(), output_json);
         }
@@ -195,19 +162,16 @@ macro_rules! json_test_flex {
         #[cfg(feature = "serde")]
         #[test]
         pub fn $name() {
-            use std::fs;
             use serde_json;
             use flash_lso::flex;
 
-            let mut x = File::open(concat!("tests/sol/", $path, ".sol")).expect("Couldn't open file");
-            let mut data = Vec::new();
-            let _ = x.read_to_end(&mut data).expect("Unable to read file");
+            let data = include_bytes!(concat!("sol/", $path, ".sol"));
             let mut des = LSODeserializer::default();
             flex::decode::register_decoders(&mut des.amf3_decoder);
-            let (_, parse_res) = des.parse_full(&data).expect("Unable to parse file");
+            let (_, parse_res) = des.parse_full(data).expect("Unable to parse file");
             let output_json = serde_json::to_string(&parse_res).expect("Unable to convert to json");
 
-            let json_expected = fs::read_to_string(concat!("tests/sol/", $path, ".json")).expect("Unable to read json file");
+            let json_expected = include_str!(concat!("sol/", $path, ".json"));
 
             assert_eq!(json_expected.trim(), output_json);
         }

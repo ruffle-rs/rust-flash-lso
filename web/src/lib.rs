@@ -1,4 +1,4 @@
-#![recursion_limit = "512"]
+#![recursion_limit = "1024"]
 
 use std::string::ToString;
 use wasm_bindgen::prelude::*;
@@ -6,29 +6,45 @@ use yew::prelude::*;
 use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
 use flash_lso::flex;
-use flash_lso::types::{Attribute, Element, Sol, SolElement, SolValue};
+use flash_lso::types::{Attribute, Element, Sol, Value};
 use flash_lso::LSODeserializer;
 
+mod blob_bindgen;
 pub mod component_tab;
 pub mod component_tabs;
+pub mod component_treenode;
 pub mod jquery_bindgen;
+mod uintarray_bindgen;
+mod url_bindgen;
 
 use crate::component_tab::Tab;
 use crate::component_tabs::Tabs;
+use crate::component_treenode::TreeNode;
+use flash_lso::encoder::write_to_bytes;
 use std::ops::Deref;
+use std::rc::Rc;
+use yew::format::Json;
+use yew::web_sys::BinaryType::Blob;
+
+#[derive(Clone)]
+pub struct EditableValue {
+    value: Value,
+    callback: Callback<Value>,
+}
 
 struct Model {
     link: ComponentLink<Self>,
     reader: ReaderService,
     tasks: Vec<ReaderTask>,
     files: Vec<Sol>,
-    current_selection: Option<Element>,
+    current_selection: Option<EditableValue>,
 }
 
 enum Msg {
     Files(Vec<File>),
     Loaded(FileData),
-    Selection(Element),
+    Selection(EditableValue),
+    Edited(Value),
 }
 
 impl Component for Model {
@@ -63,6 +79,7 @@ impl Component for Model {
                 self.files.push(sol);
             }
             Msg::Selection(val) => self.current_selection = Some(val),
+            Msg::Edited(val) => self.current_selection.as_ref().unwrap().callback.emit(val),
         }
         true
     }
@@ -95,9 +112,9 @@ impl Component for Model {
 }
 
 impl Model {
-    fn value_details(&self, val: Element) -> Html {
-        match val.borrow_mut().deref() {
-            SolValue::Object(_, Some(def)) => html! {
+    fn value_details(&self, val: EditableValue) -> Html {
+        match val.value {
+            Value::Object(_, Some(def)) => html! {
                 <>
                     <p>{"name"}</p>
                     <p>{&def.name}</p>
@@ -113,37 +130,68 @@ impl Model {
                     </ul>
                 </>
             },
-            SolValue::VectorObject(_, name, _) => html! {
+            Value::VectorObject(_, name, _) => html! {
                 <>
                 <p>{"name"}</p>
                 <p>{name}</p>
                 </>
             },
-            SolValue::Number(n) => html! {
-                <p>{n}</p>
+            Value::Number(n) => html! {
+                <input onchange={ self.link.callback(move |cd| {
+                    if let ChangeData::Value(s) = cd {
+                        if let Ok(data) = s.parse::<f64>() {
+                            Msg::Edited(Value::Number(data))
+                        } else {
+                            Msg::Edited(Value::Number(n))
+                        }
+                    } else {
+                        Msg::Edited(Value::Number(n))
+                    }
+                })} value={n}/>
             },
-            SolValue::Integer(n) => html! {
-                <p>{n}</p>
+            Value::Integer(n) => html! {
+                <input onchange={ self.link.callback(move |cd| {
+                    if let ChangeData::Value(s) = cd {
+                        if let Ok(data) = s.parse::<i32>() {
+                            Msg::Edited(Value::Integer(data))
+                        } else {
+                            Msg::Edited(Value::Integer(n))
+                        }
+                    } else {
+                        Msg::Edited(Value::Integer(n))
+                    }
+                })} value={n}/>
             },
-            SolValue::ByteArray(n) => html! {
+            Value::ByteArray(n) => html! {
                 <p>{format!("{:?}", n.as_slice())}</p>
             },
-            SolValue::String(s) => html! {
-                <p>{s}</p>
+            Value::String(s) => html! {
+                <input onchange={ self.link.callback(move |cd| {
+                    if let ChangeData::Value(s) = cd {
+                        Msg::Edited(Value::String(s.clone()))
+                    } else {
+                        Msg::Edited(Value::String(s.clone()))
+                    }
+                })} value={s.clone()}/>
             },
-            SolValue::Bool(b) => html! {
-                <p>{ if *b {"true"} else {"false"} }</p>
+            Value::Bool(b) => html! {
+                <div class="custom-control custom-switch">
+                  <input type={"checkbox"} class={"custom-control-input"} id={"customSwitch1"} checked={b} onclick={self.link.callback(move |_| {
+                    Msg::Edited(Value::Bool(!b))
+                  })}/>
+                  <label class={"custom-control-label"} for={"customSwitch1"}>{"Toggle this switch element"}</label>
+                </div>
             },
-            SolValue::Null => html! {
+            Value::Null => html! {
                 <p>{ "null" }</p>
             },
-            SolValue::Undefined => html! {
+            Value::Undefined => html! {
                 <p>{ "undefined" }</p>
             },
-            SolValue::Unsupported => html! {
+            Value::Unsupported => html! {
                 <p>{ "unsupported" }</p>
             },
-            SolValue::Date(x, tz) => html! {
+            Value::Date(x, tz) => html! {
                 <>
                 <p>{ "epoch" }</p>
                 <p>{ x }</p>
@@ -151,10 +199,16 @@ impl Model {
                 <p>{ format!("{:?}", tz) }</p>
                 </>
             },
-            SolValue::XML(content, _string) => html! {
-                <p>{ content }</p>
+            Value::XML(content, string) => html! {
+                <input onchange={ self.link.callback(move |cd| {
+                    if let ChangeData::Value(s) = cd {
+                        Msg::Edited(Value::XML(s.clone(), string))
+                    } else {
+                        Msg::Edited(Value::XML(content.clone(), string))
+                    }
+                })} value={content.clone()}/>
             },
-            SolValue::AMF3(e) => self.value_details(e.clone()),
+            // Value::AMF3(e) => self.value_details(e.clone()),
             _ => html! {},
         }
     }
@@ -183,118 +237,43 @@ impl Model {
         }
     }
 
-    fn view_array_element(&self, index: usize, data: &Element) -> Html {
+    fn test(&self, index: usize) -> Html {
+        let bytes = write_to_bytes(&self.files[index]);
+
+        let options: js_sys::Object = js_sys::Object::new();
+
+        let arr: uintarray_bindgen::Uint8Array =
+            uintarray_bindgen::Uint8Array::new(bytes.len() as u32);
+        for (i, b) in bytes.iter().enumerate() {
+            arr.set(i as u32, (*b).into());
+        }
+
+        let arr2: js_sys::Array = js_sys::Array::new_with_length(1);
+        arr2.set(0, arr.into());
+
+        let blob = blob_bindgen::Blob::new(arr2, options.into());
+        let url = url_bindgen::URL::createObjectURL(&blob);
+
         html! {
-            <div>
-                <p>{index}</p>
-                { self.view_sol_value(data.clone()) }
-            </div>
+            <a href={url} download={"save.sol"} class="btn btn-primary">{"Save"}</a>
         }
     }
 
-    fn view_array_index(&self, index: usize) -> Html {
+    fn view_file(&self, index: usize, data: &Sol) -> Html {
         html! {
-            <div>
-                <p>{index}</p>
-            </div>
-        }
-    }
-
-    fn view_sol_value(&self, data: Element) -> Html {
-        match data.borrow_mut().deref() {
-            SolValue::AMF3(e) => self.view_sol_value(e.clone()),
-            SolValue::Object(elements, _class_def) => html! {
-                <ul>
-                    { for elements.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
-                </ul>
-            },
-            SolValue::StrictArray(x) => html! {
-                <ul>
-                    { for x.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
-                </ul>
-            },
-            SolValue::ECMAArray(dense, assoc, _size) => html! {
-                    <ul>
-                        { for dense.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
-                        { for assoc.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
-                    </ul>
-            },
-            SolValue::VectorInt(x, _fixed_len) => html! {
-                <ul>
-                    { for x.iter().enumerate().map(|(i, v)| self.view_array_index(i) )}
-                </ul>
-            },
-            SolValue::VectorUInt(x, _fixed_len) => html! {
-                <ul>
-                    { for x.iter().enumerate().map(|(i, v)| self.view_array_index(i) )}
-                </ul>
-            },
-            SolValue::VectorDouble(x, _fixed_len) => html! {
-                <ul>
-                    { for x.iter().enumerate().map(|(i, v)| self.view_array_index(i) )}
-                </ul>
-            },
-            SolValue::VectorObject(children, _name, _fixed_len) => html! {
-                <ul>
-                    { for children.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
-                </ul>
-            },
-            SolValue::Dictionary(children, _) => html! {
-                <ul>
-                    { for children.iter().map(|(k, v)| html! {
-                            <>
-                            <li><span >{ "key" }</span></li>
-                            <li><span >{ "value" }</span></li>
-                            </>
-                        })}
-                </ul>
-            },
-            SolValue::Custom(el, el2, _class_def) => html! {
-                <ul>
-                    <li>
-                        {"Custom elements"}
-                        <ul>
-                            { for el.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
-                        </ul>
-                    </li>
-                    <li>
-                        {"Standard elements"}
-                        <ul>
-                            { for el2.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
-                        </ul>
-                    </li>
-                </ul>
-            },
-            _ => html! {},
-        }
-    }
-
-    #[allow(clippy::boxed_local)]
-    fn view_sol_element(&self, data: Box<SolElement>) -> Html {
-        let name = data.name.clone();
-        let value = data.value.clone();
-        let value_clone = data.value.clone();
-        html! {
-            <li>
-                <span onclick=self.link.callback(move |_| Msg::Selection(value_clone.clone()))>{ name }</span>
-                {self.view_sol_value(value)}
-            </li>
-        }
-    }
-
-    fn view_file(&self, _index: usize, data: &Sol) -> Html {
-        html! {
-
-
             <div class="container-fluid">
                 <div class="row">
                     <div class="col-4">
+                        { self.test(index) }
                         <p>{ &format!("Name: {}", data.header.name) }</p>
                         <p>{ &format!("Size: {} bytes", data.header.length) }</p>
                         <p>{ &format!("Version: {}", data.header.format_version) }</p>
                         <div id="tree">
+                            <span>{"ROOT"}</span>
                             <ul>
-                                { for data.body.iter().map(|e| self.view_sol_element(Box::from(e.clone())))}
+                                { for data.body.iter().map(|e| html! {
+                                    <TreeNode name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                                })}
                             </ul>
                         </div>
                     </div>
@@ -302,28 +281,34 @@ impl Model {
                         {
                             if let Some(selection) = &self.current_selection {
                                 let details_content = self.value_details(selection.clone());
-                                let value_type = match selection.borrow().deref() {
-                                    SolValue::Number(_) => "Number",
-                                    SolValue::Bool(_) => "Boolean",
-                                    SolValue::String(_) => "String",
-                                    SolValue::Object(_, _) => "Object",
-                                    SolValue::Null => "Null",
-                                    SolValue::Undefined => "Undefined",
-                                    SolValue::ECMAArray(_, _, _) => "ECMAArray",
-                                    SolValue::StrictArray(_) => "StrictArray",
-                                    SolValue::Date(_, _) => "Date",
-                                    SolValue::Unsupported => "Unsupported",
-                                    SolValue::XML(_, _) => "XML",
-                                    SolValue::AMF3(_) => "AMF3<TODO>",
-                                    SolValue::Integer(_) => "Integer",
-                                    SolValue::ByteArray(_) => "ByteArray",
-                                    SolValue::VectorInt(_, _) => "Vector<Int>",
-                                    SolValue::VectorUInt(_, _) => "Vector<UInt>",
-                                    SolValue::VectorDouble(_, _) => "Vector<Double>",
-                                    SolValue::VectorObject(_, _, _) => "Vector<Object>",
-                                    SolValue::Dictionary(_, _) => "Dictionary",
-                                    SolValue::Custom(_, _, _) => "Custom<TODO>",
-                                    _ => "Boolean"
+                                let value_type = match &selection.value {
+                                    Value::Number(_) => "Number".to_string(),
+                                    Value::Bool(_) => "Boolean".to_string(),
+                                    Value::String(_) => "String".to_string(),
+                                    Value::Object(_, _) => "Object".to_string(),
+                                    Value::Null => "Null".to_string(),
+                                    Value::Undefined => "Undefined".to_string(),
+                                    Value::ECMAArray(_, _, _) => "ECMAArray".to_string(),
+                                    Value::StrictArray(_) => "StrictArray".to_string(),
+                                    Value::Date(_, _) => "Date".to_string(),
+                                    Value::Unsupported => "Unsupported".to_string(),
+                                    Value::XML(_, _) => "XML".to_string(),
+                                    Value::AMF3(_) => "AMF3<TODO>".to_string(),
+                                    Value::Integer(_) => "Integer".to_string(),
+                                    Value::ByteArray(_) => "ByteArray".to_string(),
+                                    Value::VectorInt(_, _) => "Vector<Int>".to_string(),
+                                    Value::VectorUInt(_, _) => "Vector<UInt>".to_string(),
+                                    Value::VectorDouble(_, _) => "Vector<Double>".to_string(),
+                                    Value::VectorObject(_, _, _) => "Vector<Object>".to_string(),
+                                    Value::Dictionary(_, _) => "Dictionary".to_string(),
+                                    Value::Custom(_, _, cd) => {
+                                        if let Some(cd) = cd {
+                                            format!("Custom<{}>", cd.name)
+                                        } else {
+                                            "Custom<Unknown>".to_string()
+                                        }
+                                    },
+                                     _ => "Unknown".to_string()
                                 };
 
                                 html! {
