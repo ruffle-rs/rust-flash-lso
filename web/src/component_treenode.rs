@@ -1,9 +1,9 @@
 use crate::{EditableValue, Model};
-use flash_lso::types::{Element, Value};
+use flash_lso::types::Value;
 use std::ops::Deref;
 use std::rc::Rc;
 use yew::prelude::*;
-use yew::{Children, Component, ComponentLink, Html, Properties};
+use yew::{Component, ComponentLink, Html, Properties};
 
 pub enum Msg {
     Selection(EditableValue),
@@ -22,7 +22,6 @@ pub struct TreeNode {
 pub struct Props {
     pub name: String,
     pub value: Value,
-    // pub element: Element,
     pub parent_callback: Callback<EditableValue>,
 }
 
@@ -79,7 +78,7 @@ impl Component for TreeNode {
                 "icon/folder-plus.svg"
             }
         } else {
-            "icon/file.svg"
+            "icon/file-text.svg"
         };
 
         let callback = self.link.callback(|val| Msg::Edited(val));

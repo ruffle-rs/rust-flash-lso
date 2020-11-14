@@ -49,7 +49,7 @@ pub mod types;
 /// let mut x = File::open("tests/sol/AS2-Demo.sol").expect("Couldn't open file");
 /// let mut data = Vec::new();
 /// let _ = x.read_to_end(&mut data).expect("Unable to read file");
-/// let d = LSODeserializer::default().parse_full(&data).expect("Failed to parse lso file");
+/// let d = LSODeserializer::default().parse(&data).expect("Failed to parse lso file");
 /// println!("{:#?}", d);
 /// ```
 /// }
@@ -85,7 +85,7 @@ impl LSODeserializer {
         ))
     }
 
-    pub fn parse_full<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Sol> {
+    pub fn parse<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Sol> {
         let (i, header) = self.parse_header(i)?;
         match header.format_version {
             AMFVersion::AMF0 => {
@@ -99,6 +99,7 @@ impl LSODeserializer {
         }
     }
 }
+
 
 pub mod encoder {
     use crate::types::{AMFVersion, Header, Sol};

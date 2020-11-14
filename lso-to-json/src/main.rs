@@ -34,6 +34,6 @@ fn read_file(path: PathBuf) -> Option<Sol> {
     let mut d = LSODeserializer::default();
     decode::register_decoders(&mut d.amf3_decoder);
 
-    let d = d.parse_full(&data);
+    let d = d.parse(&data);
     d.map(|s| s.1).ok()
 }

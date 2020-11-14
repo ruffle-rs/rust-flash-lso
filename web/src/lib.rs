@@ -10,6 +10,7 @@ use flash_lso::types::{Attribute, Element, Sol, Value};
 use flash_lso::LSODeserializer;
 
 mod blob_bindgen;
+mod component_hexview;
 pub mod component_tab;
 pub mod component_tabs;
 pub mod component_treenode;
@@ -17,14 +18,12 @@ pub mod jquery_bindgen;
 mod uintarray_bindgen;
 mod url_bindgen;
 
+use crate::component_hexview::HexView;
 use crate::component_tab::Tab;
 use crate::component_tabs::Tabs;
 use crate::component_treenode::TreeNode;
 use flash_lso::encoder::write_to_bytes;
 use std::ops::Deref;
-use std::rc::Rc;
-use yew::format::Json;
-use yew::web_sys::BinaryType::Blob;
 
 #[derive(Clone)]
 pub struct EditableValue {
@@ -75,7 +74,7 @@ impl Component for Model {
                 let mut parser = LSODeserializer::default();
                 flex::decode::register_decoders(&mut parser.amf3_decoder);
 
-                let sol = parser.parse_full(&file.content).unwrap().1;
+                let sol = parser.parse(&file.content).unwrap().1;
                 self.files.push(sol);
             }
             Msg::Selection(val) => self.current_selection = Some(val),
@@ -114,22 +113,51 @@ impl Component for Model {
 impl Model {
     fn value_details(&self, val: EditableValue) -> Html {
         match val.value {
-            Value::Object(_, Some(def)) => html! {
-                <>
-                    <p>{"name"}</p>
-                    <p>{&def.name}</p>
-                    <p>{"is dynamic"}</p>
-                    <p>{def.attributes.contains(Attribute::DYNAMIC)}</p>
-                    <p>{"is external"}</p>
-                    <p>{def.attributes.contains(Attribute::EXTERNAL)}</p>
-                    <p>{"static properties"}</p>
-                    <ul>
-                        { for def.static_properties.iter().map(|p| html! {
-                            <li>{p}</li>
-                        })}
-                    </ul>
-                </>
-            },
+            Value::Object(children, Some(def)) => {
+                let def_clone = def.clone();
+                let dynamic_icon = if def.attributes.contains(Attribute::DYNAMIC) {
+                    "icon/check.svg"
+                } else {
+                    "icon/x.svg"
+                };
+                let external_icon = if def.attributes.contains(Attribute::EXTERNAL) {
+                    "icon/check.svg"
+                } else {
+                    "icon/x.svg"
+                };
+
+                return html! {
+                    <>
+                      <div class="input-group mb-2">
+                        <div class="input-group-prepend">
+                          <div class="input-group-text">{"Name"}</div>
+                        </div>
+                        <input onchange={ self.link.callback(move |cd| {
+                            if let ChangeData::Value(s) = cd {
+                                let mut new_def = def.clone();
+                                new_def.name = s;
+                                Msg::Edited(Value::Object(children.clone(), Some(new_def)))
+                            } else {
+                                Msg::Edited(Value::Object(children.clone(), Some(def.clone())))
+                            }
+                        })} value={def.name.clone()} class="form-control" type="text" id="inlineFormInputGroup"/>
+                      </div>
+
+                      <ul class="list-group list-group-horizontal mt-2 mb-2">
+                          <li class="list-group-item"><img src={dynamic_icon} style={"width: 32; height: 32;"} class={"mr-2"}/>{"Dynamic"}</li>
+                          <li class="list-group-item"><img src={external_icon} style={"width: 32; height: 32;"} class={"mr-2"}/>{"External"}</li>
+                      </ul>
+                        <p>{"static properties"}</p>
+                        <table class="table table-striped">
+                            { for def_clone.static_properties.iter().map(|p| html! {
+                                <tr>
+                                    <td>{p}</td>
+                                </tr>
+                            })}
+                        </table>
+                    </>
+                };
+            }
             Value::VectorObject(_, name, _) => html! {
                 <>
                 <p>{"name"}</p>
@@ -147,7 +175,7 @@ impl Model {
                     } else {
                         Msg::Edited(Value::Number(n))
                     }
-                })} value={n}/>
+                })} value={n} class="form-control"/>
             },
             Value::Integer(n) => html! {
                 <input onchange={ self.link.callback(move |cd| {
@@ -160,10 +188,10 @@ impl Model {
                     } else {
                         Msg::Edited(Value::Integer(n))
                     }
-                })} value={n}/>
+                })} value={n} class="form-control"/>
             },
             Value::ByteArray(n) => html! {
-                <p>{format!("{:?}", n.as_slice())}</p>
+                <HexView bytes={n}/>
             },
             Value::String(s) => html! {
                 <input onchange={ self.link.callback(move |cd| {
@@ -172,31 +200,53 @@ impl Model {
                     } else {
                         Msg::Edited(Value::String(s.clone()))
                     }
-                })} value={s.clone()}/>
+                })} value={s.clone()} class="form-control"/>
             },
             Value::Bool(b) => html! {
                 <div class="custom-control custom-switch">
                   <input type={"checkbox"} class={"custom-control-input"} id={"customSwitch1"} checked={b} onclick={self.link.callback(move |_| {
                     Msg::Edited(Value::Bool(!b))
                   })}/>
-                  <label class={"custom-control-label"} for={"customSwitch1"}>{"Toggle this switch element"}</label>
+                  <label class={"custom-control-label"} for={"customSwitch1"}>{"State"}</label>
                 </div>
-            },
-            Value::Null => html! {
-                <p>{ "null" }</p>
-            },
-            Value::Undefined => html! {
-                <p>{ "undefined" }</p>
-            },
-            Value::Unsupported => html! {
-                <p>{ "unsupported" }</p>
             },
             Value::Date(x, tz) => html! {
                 <>
-                <p>{ "epoch" }</p>
-                <p>{ x }</p>
-                <p>{ "timezone" }</p>
-                <p>{ format!("{:?}", tz) }</p>
+                <div class="input-group mb-2">
+                    <div class="input-group-prepend">
+                      <div class="input-group-text">{"Epoch"}</div>
+                    </div>
+                    <input onchange={ self.link.callback(move |cd| {
+                        if let ChangeData::Value(s) = cd {
+                            if let Ok(x) = s.parse::<f64>() {
+                                Msg::Edited(Value::Date(x, tz))
+                            } else {
+                                Msg::Edited(Value::Date(x, tz))
+                            }
+                        } else {
+                            Msg::Edited(Value::Date(x, tz))
+                        }
+                    })} value={x} class="form-control" type="number"/>
+                  </div>
+
+                  { if tz.is_some() { html!{
+                  <div class="input-group mb-2">
+                    <div class="input-group-prepend">
+                      <div class="input-group-text">{"Timezone"}</div>
+                    </div>
+                    <input onchange={ self.link.callback(move |cd| {
+                        if let ChangeData::Value(s) = cd {
+                            if let Ok(tz) = s.parse::<u16>() {
+                                Msg::Edited(Value::Date(x, Some(tz)))
+                            } else {
+                                Msg::Edited(Value::Date(x, tz))
+                            }
+                        } else {
+                            Msg::Edited(Value::Date(x, tz))
+                        }
+                    })} value={tz.unwrap()} class="form-control" type="number"/>
+                  </div>
+                  }} else {html!{}}}
                 </>
             },
             Value::XML(content, string) => html! {
@@ -206,7 +256,7 @@ impl Model {
                     } else {
                         Msg::Edited(Value::XML(content.clone(), string))
                     }
-                })} value={content.clone()}/>
+                })} value={content.clone()} class="form-control"/>
             },
             // Value::AMF3(e) => self.value_details(e.clone()),
             _ => html! {},
@@ -263,13 +313,15 @@ impl Model {
         html! {
             <div class="container-fluid">
                 <div class="row">
-                    <div class="col-4">
+                    <div class="col-5">
+                        <ul class="list-group list-group-horizontal mt-2">
+                          <li class="list-group-item"><img src={"icon/database.svg"} style={"width: 32; height: 32;"} class={"mr-2"}/>{data.header.length}</li>
+                          <li class="list-group-item">{data.header.format_version}</li>
+                        </ul>
                         { self.test(index) }
-                        <p>{ &format!("Name: {}", data.header.name) }</p>
-                        <p>{ &format!("Size: {} bytes", data.header.length) }</p>
-                        <p>{ &format!("Version: {}", data.header.format_version) }</p>
+
                         <div id="tree">
-                            <span>{"ROOT"}</span>
+                            <span><img src={"icon/file.svg"} style={"width: 32; height: 32;"} class={"mr-2"}/>{"/"}</span>
                             <ul>
                                 { for data.body.iter().map(|e| html! {
                                     <TreeNode name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
@@ -277,7 +329,7 @@ impl Model {
                             </ul>
                         </div>
                     </div>
-                    <div class="col-8">
+                    <div class="col-7">
                         {
                             if let Some(selection) = &self.current_selection {
                                 let details_content = self.value_details(selection.clone());
@@ -313,7 +365,9 @@ impl Model {
 
                                 html! {
                                     <>
-                                    <p>{"Type: "}{{value_type}}</p>
+                                    <ul class="list-group list-group-horizontal mt-2 mb-2">
+                                      <li class="list-group-item">{value_type}</li>
+                                    </ul>
                                     {{details_content}}
                                     </>
                                 }

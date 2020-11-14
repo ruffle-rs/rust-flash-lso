@@ -27,7 +27,7 @@ macro_rules! auto_test {
         #[test]
         pub fn $name() {
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let parse_res = LSODeserializer::default().parse_full(data);
+            let parse_res = LSODeserializer::default().parse(data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
                 println!("{:#?}", sol);
@@ -55,7 +55,7 @@ macro_rules! test_parse_only {
         #[test]
         pub fn $name() {
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let parse_res = LSODeserializer::default().parse_full(data);
+            let parse_res = LSODeserializer::default().parse(data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
                 println!("Parsed sol: {:?}", sol);
@@ -85,7 +85,7 @@ macro_rules! auto_test_flex {
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
             let mut des = LSODeserializer::default();
             flex::decode::register_decoders(&mut des.amf3_decoder);
-            let parse_res = des.parse_full(data);
+            let parse_res = des.parse(data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
                 let empty: Vec<u8> = vec![];
@@ -102,7 +102,7 @@ macro_rules! auto_test_flex {
 
                 let mut des2 = LSODeserializer::default();
                 flex::decode::register_decoders(&mut des2.amf3_decoder);
-                let (_, sol2) = des2.parse_full(&bytes).expect("Unable to round trip");
+                let (_, sol2) = des2.parse(&bytes).expect("Unable to round trip");
                 assert!(sol2 == sol);
 
                 assert_eq!(PrettyArray(&bytes), PrettyArray(&data.to_vec()), "library output != input");
@@ -121,7 +121,7 @@ macro_rules! should_fail {
         #[test]
         pub fn $name() {
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let parse_res = LSODeserializer::default().parse_full(data);
+            let parse_res = LSODeserializer::default().parse(data);
 
             if let Err(x) = parse_res {
                 assert_eq!(x, $error);
@@ -143,7 +143,7 @@ macro_rules! json_test {
             use serde_json;
 
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let (_, parse_res) = LSODeserializer::default().parse_full(data).expect("Unable to parse file");
+            let (_, parse_res) = LSODeserializer::default().parse(data).expect("Unable to parse file");
             let output_json = serde_json::to_string(&parse_res).expect("Unable to convert to json");
 
 
@@ -168,7 +168,7 @@ macro_rules! json_test_flex {
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
             let mut des = LSODeserializer::default();
             flex::decode::register_decoders(&mut des.amf3_decoder);
-            let (_, parse_res) = des.parse_full(data).expect("Unable to parse file");
+            let (_, parse_res) = des.parse(data).expect("Unable to parse file");
             let output_json = serde_json::to_string(&parse_res).expect("Unable to convert to json");
 
             let json_expected = include_str!(concat!("sol/", $path, ".json"));
