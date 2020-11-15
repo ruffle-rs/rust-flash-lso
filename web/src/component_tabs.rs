@@ -10,6 +10,7 @@ pub struct Tabs {
 
 #[derive(Properties, Clone, PartialEq)]
 pub struct Props {
+    pub ontabselect: Callback<usize>,
     pub children: ChildrenWithProps<Tab>,
 }
 
@@ -31,13 +32,25 @@ impl Component for Tabs {
 
     fn update(&mut self, msg: Self::Message) -> bool {
         match msg {
-            Msg::Selected(pos) => self.selected = pos,
+            Msg::Selected(pos) => {
+                self.selected = pos;
+                self.props.ontabselect.emit(pos);
+                true
+            }
         }
-        true
     }
 
     fn change(&mut self, props: Self::Properties) -> bool {
         if self.props != props {
+            // If we have just added the first tab
+            if self.props.children.is_empty() && !props.children.is_empty() {
+                self.update(Msg::Selected(0));
+            }
+            // If we have just removed the current tab
+            //TODO: this wont work if we can remove any tab, selection will need to be tracked by parent
+            if self.props.children.len() > props.children.len() {
+                self.update(Msg::Selected(self.selected - 1));
+            }
             self.props = props;
             true
         } else {

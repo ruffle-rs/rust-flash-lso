@@ -37,6 +37,7 @@ struct Model {
     tasks: Vec<ReaderTask>,
     files: Vec<Sol>,
     current_selection: Option<EditableValue>,
+    current_tab: Option<usize>,
 }
 
 enum Msg {
@@ -44,6 +45,8 @@ enum Msg {
     Loaded(FileData),
     Selection(EditableValue),
     Edited(Value),
+    TabSelected(usize),
+    CloseTab,
 }
 
 impl Component for Model {
@@ -56,6 +59,7 @@ impl Component for Model {
             tasks: vec![],
             files: vec![],
             current_selection: None,
+            current_tab: None,
         }
     }
 
@@ -78,7 +82,19 @@ impl Component for Model {
                 self.files.push(sol);
             }
             Msg::Selection(val) => self.current_selection = Some(val),
-            Msg::Edited(val) => self.current_selection.as_ref().unwrap().callback.emit(val),
+            Msg::Edited(val) => {
+                self.current_selection
+                    .as_ref()
+                    .unwrap()
+                    .callback
+                    .emit(val.clone());
+                self.current_selection.as_mut().unwrap().value = val;
+            }
+            Msg::TabSelected(index) => self.current_tab = Some(index),
+            Msg::CloseTab => {
+                let current_index = self.current_tab.unwrap();
+                self.files.remove(current_index);
+            }
         }
         true
     }
@@ -94,7 +110,7 @@ impl Component for Model {
         html! {
             <div>
                 { self.navbar() }
-                <Tabs>
+                <Tabs ontabselect=self.link.callback(move |index| Msg::TabSelected(index))>
                     { for self.files.iter().enumerate().map(|(i,f)| html_nested! {
                     <Tab label={&f.header.name}>
                         { self.view_file(i,f)}
@@ -126,6 +142,25 @@ impl Model {
                     "icon/x.svg"
                 };
 
+                let static_props_details = if def.static_properties.is_empty() {
+                    html! {}
+                } else {
+                    html! {
+                    <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>{"Static Properties"}</th>
+                                </tr>
+                            </thead>
+                            { for def_clone.static_properties.iter().map(|p| html! {
+                                <tr>
+                                    <td>{p}</td>
+                                </tr>
+                            })}
+                        </table>
+                    }
+                };
+
                 return html! {
                     <>
                       <div class="input-group mb-2">
@@ -147,14 +182,7 @@ impl Model {
                           <li class="list-group-item"><img src={dynamic_icon} style={"width: 32; height: 32;"} class={"mr-2"}/>{"Dynamic"}</li>
                           <li class="list-group-item"><img src={external_icon} style={"width: 32; height: 32;"} class={"mr-2"}/>{"External"}</li>
                       </ul>
-                        <p>{"static properties"}</p>
-                        <table class="table table-striped">
-                            { for def_clone.static_properties.iter().map(|p| html! {
-                                <tr>
-                                    <td>{p}</td>
-                                </tr>
-                            })}
-                        </table>
+                        { static_props_details }
                     </>
                 };
             }
@@ -258,6 +286,59 @@ impl Model {
                     }
                 })} value={content.clone()} class="form-control"/>
             },
+            Value::VectorInt(elements, fixed_length) => {
+                let elements_clone = elements.clone();
+                let elements_clone2 = elements.clone();
+                let elements_clone3 = elements.clone();
+                return html! {
+                    <>
+                        <div class="custom-control custom-switch mb-2">
+                          <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={fixed_length} onclick={self.link.callback(move |_| {
+                            Msg::Edited(Value::VectorInt(elements_clone.clone(), !fixed_length))
+                          })}/>
+                          <label class={"custom-control-label"} for={"vectorIntFixed"}>{"Fixed Length"}</label>
+                        </div>
+
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>{"#"}</th>
+                                    <th>{"Value"}</th>
+                                    <th></th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            { for elements.iter().enumerate().map(|(i, e)| {
+                                let elements_clone4 = elements_clone3.clone();
+                                html! {
+                                <tr>
+                                    <td>{i}</td>
+                                    <td>{e}</td>
+                                    <td></td>
+                                    <td>
+                                    <span onclick={self.link.callback(move |_| {
+                                        let mut e = elements_clone4.clone();
+                                        e.remove(i);
+                                        Msg::Edited(Value::VectorInt(e, fixed_length))
+                                      })} class="btn btn-link">
+                                            <img src={"icon/x.svg"} style={"width: 32; height: 32;"} class={"mr-2"}/>
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                            })}
+                            </tbody>
+                        </table>
+                        <span onclick={self.link.callback(move |_| {
+                            let mut e = elements_clone3.clone();
+                            e.push(0);
+                            log::info!("Updating vectorint");
+                            Msg::Edited(Value::VectorInt(e, fixed_length))
+                          })} class="btn btn-primary">{"Add"}</span>
+                    </>
+                };
+            }
             // Value::AMF3(e) => self.value_details(e.clone()),
             _ => html! {},
         }
@@ -268,48 +349,59 @@ impl Model {
             <nav class="navbar navbar-expand-lg">
                 <ul class="navbar-nav mr-auto">
                     <li class="nav-item">
-                        <label for="files" class="btn btn-primary">{"Open"}</label>
-                        <input id="files" class="btn btn-default" style="visibility:hidden;" type="file" onchange=self.link.callback(move |value| {
-                                let mut result = Vec::new();
-                                if let ChangeData::Files(files) = value {
-                                    let files = js_sys::try_iter(&files)
-                                        .unwrap()
-                                        .unwrap()
-                                        .into_iter()
-                                        .map(|v| File::from(v.unwrap()));
-                                    result.extend(files);
-                                }
-                                Msg::Files(result)
-                            })/>
+                        <div class="btn-group mr-2" role="group">
+                            <label for="files" class="btn btn-primary">{"Open"}</label>
+                            { self.save_button() }
+                        </div>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-danger" onclick=self.link.callback(move |_| Msg::CloseTab)>{"Close"}</button>
+                        </div>
                     </li>
+                    <input id="files" class="btn btn-default" style="visibility:hidden;" type="file" onchange=self.link.callback(move |value| {
+                                    let mut result = Vec::new();
+                                    if let ChangeData::Files(files) = value {
+                                        let files = js_sys::try_iter(&files)
+                                            .unwrap()
+                                            .unwrap()
+                                            .into_iter()
+                                            .map(|v| File::from(v.unwrap()));
+                                        result.extend(files);
+                                    }
+                                    Msg::Files(result)
+                                })/>
+
                 </ul>
             </nav>
         }
     }
 
-    fn test(&self, index: usize) -> Html {
-        let bytes = write_to_bytes(&self.files[index]);
+    fn save_button(&self) -> Html {
+        if let Some(tab_index) = self.current_tab {
+            let bytes = write_to_bytes(&self.files[tab_index]);
 
-        let options: js_sys::Object = js_sys::Object::new();
+            let options: js_sys::Object = js_sys::Object::new();
 
-        let arr: uintarray_bindgen::Uint8Array =
-            uintarray_bindgen::Uint8Array::new(bytes.len() as u32);
-        for (i, b) in bytes.iter().enumerate() {
-            arr.set(i as u32, (*b).into());
-        }
+            let arr: uintarray_bindgen::Uint8Array =
+                uintarray_bindgen::Uint8Array::new(bytes.len() as u32);
+            for (i, b) in bytes.iter().enumerate() {
+                arr.set(i as u32, (*b).into());
+            }
 
-        let arr2: js_sys::Array = js_sys::Array::new_with_length(1);
-        arr2.set(0, arr.into());
+            let arr2: js_sys::Array = js_sys::Array::new_with_length(1);
+            arr2.set(0, arr.into());
 
-        let blob = blob_bindgen::Blob::new(arr2, options.into());
-        let url = url_bindgen::URL::createObjectURL(&blob);
+            let blob = blob_bindgen::Blob::new(arr2, options.into());
+            let url = url_bindgen::URL::createObjectURL(&blob);
 
-        html! {
-            <a href={url} download={"save.sol"} class="btn btn-primary">{"Save"}</a>
+            return html! {
+                <a href={url} download={"save.sol"} class="btn btn-primary">{"Save"}</a>
+            };
+        } else {
+            return html! {};
         }
     }
 
-    fn view_file(&self, index: usize, data: &Sol) -> Html {
+    fn view_file(&self, _index: usize, data: &Sol) -> Html {
         html! {
             <div class="container-fluid">
                 <div class="row">
@@ -318,7 +410,6 @@ impl Model {
                           <li class="list-group-item"><img src={"icon/database.svg"} style={"width: 32; height: 32;"} class={"mr-2"}/>{data.header.length}</li>
                           <li class="list-group-item">{data.header.format_version}</li>
                         </ul>
-                        { self.test(index) }
 
                         <div id="tree">
                             <span><img src={"icon/file.svg"} style={"width: 32; height: 32;"} class={"mr-2"}/>{"/"}</span>
@@ -384,5 +475,6 @@ impl Model {
 
 #[wasm_bindgen(start)]
 pub fn run_app() {
+    wasm_logger::init(wasm_logger::Config::default());
     App::<Model>::new().mount_to_body();
 }

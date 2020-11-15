@@ -13,5 +13,7 @@ crate-type = ["cdylib", "rlib"]
 yew = "0.17.2"
 wasm-bindgen = "0.2.67"
 js-sys = "0.3.44"
+log = "0.4.11"
+wasm-logger = "0.2.0"
 
 flash-lso = { path = "../flash-lso", features = ["serde", "flex"] }

@@ -112,7 +112,7 @@ impl TreeNode {
             Value::VectorObject(_, _, _) => true,
             Value::VectorDouble(_, _) => true,
             Value::VectorUInt(_, _) => true,
-            Value::VectorInt(_, _) => true,
+            Value::VectorInt(_, _) => false,
             Value::AMF3(_) => true,
             Value::Dictionary(_, _) => true,
             Value::Custom(_, _, _) => true,
@@ -159,11 +159,7 @@ impl TreeNode {
                         })}
                     </ul>
             },
-            Value::VectorInt(x, _fixed_len) => html! {
-                <ul>
-                   { for x.iter().enumerate().map(|(i, v)| self.view_array_index(i) )}
-                </ul>
-            },
+            Value::VectorInt(x, _fixed_len) => html! {},
             Value::VectorUInt(x, _fixed_len) => html! {
                 <ul>
                    { for x.iter().enumerate().map(|(i, v)| self.view_array_index(i) )}
