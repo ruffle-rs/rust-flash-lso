@@ -49,7 +49,7 @@ impl Component for Tabs {
             // If we have just removed the current tab
             //TODO: this wont work if we can remove any tab, selection will need to be tracked by parent
             if self.props.children.len() > props.children.len() {
-                self.update(Msg::Selected(self.selected - 1));
+                self.update(Msg::Selected(self.selected.checked_sub(1).unwrap_or(0)));
             }
             self.props = props;
             true

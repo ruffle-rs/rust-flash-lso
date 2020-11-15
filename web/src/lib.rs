@@ -354,10 +354,10 @@ impl Model {
                             { self.save_button() }
                         </div>
                         <div class="btn-group" role="group">
-                            <button class="btn btn-danger" onclick=self.link.callback(move |_| Msg::CloseTab)>{"Close"}</button>
+                            <label class="btn btn-danger" for="close">{"Close"}</label>
                         </div>
                     </li>
-                    <input id="files" class="btn btn-default" style="visibility:hidden;" type="file" onchange=self.link.callback(move |value| {
+                    <input id="files" style="visibility:hidden;" type="file" onchange=self.link.callback(move |value| {
                                     let mut result = Vec::new();
                                     if let ChangeData::Files(files) = value {
                                         let files = js_sys::try_iter(&files)
@@ -369,6 +369,8 @@ impl Model {
                                     }
                                     Msg::Files(result)
                                 })/>
+
+                        <button id="close" style="visibility:hidden;" onclick=self.link.callback(move |_| Msg::CloseTab)></button>
 
                 </ul>
             </nav>
@@ -394,7 +396,7 @@ impl Model {
             let url = url_bindgen::URL::createObjectURL(&blob);
 
             return html! {
-                <a href={url} download={"save.sol"} class="btn btn-primary">{"Save"}</a>
+                <a href={url} download={"save.sol"} class="btn btn-primary" style="height: 38px">{"Save"}</a>
             };
         } else {
             return html! {};
