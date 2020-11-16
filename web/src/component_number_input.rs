@@ -1,25 +1,27 @@
 use yew::prelude::*;
 use yew::{Component, ComponentLink, Html, Properties};
 use crate::component_string_input::StringInput;
+use std::fmt::Display;
+use std::str::FromStr;
 
-pub struct NumberInput {
+pub struct NumberInput<T: 'static + Clone + Display + PartialEq + FromStr> {
     link: ComponentLink<Self>,
-    pub(crate) props: Props,
+    pub(crate) props: Props<T>,
 }
 
 #[derive(Properties, Clone, PartialEq)]
-pub struct Props {
-    pub onchange: Callback<f64>,
-    pub value: f64,
+pub struct Props<T: Clone> {
+    pub onchange: Callback<T>,
+    pub value: T,
 }
 
 pub enum Msg {
     Value(String)
 }
 
-impl Component for NumberInput {
+impl<T: 'static + Clone + Display + PartialEq + FromStr> Component for NumberInput<T> {
     type Message = Msg;
-    type Properties = Props;
+    type Properties = Props<T>;
 
     fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
         Self { link, props }
@@ -28,7 +30,7 @@ impl Component for NumberInput {
     fn update(&mut self, msg: Self::Message) -> bool {
         match msg {
             Msg::Value(s) => {
-                if let Ok(f) = s.parse::<f64>() {
+                if let Ok(f) = s.parse::<T>() {
                     self.props.onchange.emit(f);
                 }
                 true

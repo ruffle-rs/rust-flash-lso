@@ -231,32 +231,16 @@ impl Model {
                 </>
             },
             Value::Number(n) => html! {
-                <NumberInput onchange=self.link.callback(move |data| Msg::Edited(Value::Number(data))) value={n}/>
+                <NumberInput<f64> onchange=self.link.callback(move |data| Msg::Edited(Value::Number(data))) value={n}/>
             },
             Value::Integer(n) => html! {
-                <input onchange={ self.link.callback(move |cd| {
-                    if let ChangeData::Value(s) = cd {
-                        if let Ok(data) = s.parse::<i32>() {
-                            Msg::Edited(Value::Integer(data))
-                        } else {
-                            Msg::Edited(Value::Integer(n))
-                        }
-                    } else {
-                        Msg::Edited(Value::Integer(n))
-                    }
-                })} value={n} class="form-control"/>
+                <NumberInput<i32> onchange=self.link.callback(move |data| Msg::Edited(Value::Integer(data))) value={n}/>
             },
             Value::ByteArray(n) => html! {
                 <HexView bytes={n}/>
             },
             Value::String(s) => html! {
-                <input onchange={ self.link.callback(move |cd| {
-                    if let ChangeData::Value(s) = cd {
-                        Msg::Edited(Value::String(s.clone()))
-                    } else {
-                        Msg::Edited(Value::String(s.clone()))
-                    }
-                })} value={s.clone()} class="form-control"/>
+                <StringInput onchange=self.link.callback(move |s| Msg::Edited(Value::String(s))) value={s.clone()}/>
             },
             Value::Bool(b) => html! {
                 <div class="custom-control custom-switch">
