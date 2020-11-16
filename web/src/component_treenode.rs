@@ -1,4 +1,4 @@
-use crate::{EditableValue, Model};
+use crate::EditableValue;
 use flash_lso::types::Value;
 use std::ops::Deref;
 use std::rc::Rc;

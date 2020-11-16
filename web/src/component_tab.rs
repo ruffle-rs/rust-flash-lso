@@ -2,12 +2,13 @@ use yew::prelude::*;
 use yew::{Children, Component, ComponentLink, Html, Properties};
 
 pub struct Tab {
-    props: Props,
+    pub(crate) props: Props,
 }
 
 #[derive(Properties, Clone, PartialEq)]
 pub struct Props {
     pub label: String,
+    pub loading: bool,
     pub children: Children,
 }
 

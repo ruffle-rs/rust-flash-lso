@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use yew::{Children, Component, ComponentLink, Html, Properties};
+use yew::{Component, ComponentLink, Html, Properties};
 
 pub struct HexView {
     props: Props,
