@@ -31,3 +31,10 @@ pub fn run_app() {
     wasm_logger::init(wasm_logger::Config::default());
     App::<Model>::new().mount_to_body();
 }
+
+//TODO: dict display
+// add/remove from bytearray
+// load json
+// root element details
+// context menu
+// fix saving

@@ -110,9 +110,6 @@ impl TreeNode {
             Value::StrictArray(_) => true,
             Value::ECMAArray(_, _, _) => true,
             Value::VectorObject(_, _, _) => true,
-            Value::VectorDouble(_, _) => true,
-            Value::VectorUInt(_, _) => true,
-            Value::VectorInt(_, _) => false,
             Value::AMF3(_) => true,
             Value::Dictionary(_, _) => true,
             Value::Custom(_, _, _) => true,
@@ -158,17 +155,6 @@ impl TreeNode {
                             <TreeNode name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
                         })}
                     </ul>
-            },
-            Value::VectorInt(x, _fixed_len) => html! {},
-            Value::VectorUInt(x, _fixed_len) => html! {
-                <ul>
-                   { for x.iter().enumerate().map(|(i, v)| self.view_array_index(i) )}
-                </ul>
-            },
-            Value::VectorDouble(x, _fixed_len) => html! {
-                <ul>
-                   { for x.iter().enumerate().map(|(i, v)| self.view_array_index(i) )}
-                </ul>
             },
             Value::VectorObject(children, _name, _fixed_len) => html! {
                 <ul>
