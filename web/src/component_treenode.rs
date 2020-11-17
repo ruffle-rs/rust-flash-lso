@@ -117,14 +117,6 @@ impl TreeNode {
         }
     }
 
-    pub fn view_array_index(&self, index: usize) -> Html {
-        html! {
-            <div>
-                <p>{index}</p>
-            </div>
-        }
-    }
-
     pub fn view_array_element(&self, index: usize, data: &Rc<Value>) -> Html {
         html! {
             <div>

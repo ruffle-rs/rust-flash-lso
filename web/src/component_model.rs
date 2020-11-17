@@ -19,6 +19,9 @@ use crate::EditableValue;
 use flash_lso::encoder::write_to_bytes;
 use std::ops::Deref;
 use crate::component_string_input::StringInput;
+use crate::component_modal::modal::Modal;
+use crate::component_modal::ModalContainer;
+
 
 pub struct LoadedFile {
     pub file_name: String,
@@ -41,6 +44,7 @@ pub struct Model {
     files: Vec<LoadedFile>,
     current_selection: Option<EditableValue>,
     current_tab: Option<usize>,
+    error_messages: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -51,6 +55,7 @@ pub enum Msg {
     Edited(Value),
     TabSelected(usize),
     CloseTab(usize),
+    CloseModal(usize),
 }
 
 impl Component for Model {
@@ -64,6 +69,7 @@ impl Component for Model {
             files: vec![],
             current_selection: None,
             current_tab: None,
+            error_messages: Vec::new(),
         }
     }
 
@@ -89,17 +95,21 @@ impl Component for Model {
                 let mut parser = LSODeserializer::default();
                 flex::decode::register_decoders(&mut parser.amf3_decoder);
 
-                let sol = parser
-                    .parse(&file.content)
-                    .web_expect("Failed to parse file")
-                    .1;
-                self.files
-                    .get_mut(index)
-                    .web_expect(&format!("No loading file at index {}", index))
-                    .file = Some(sol);
+                match parser.parse(&file.content) {
+                    Ok((_, sol)) => {
+                        self.files
+                            .get_mut(index)
+                            .web_expect(&format!("No loading file at index {}", index))
+                            .file = Some(sol);
 
-                if self.current_tab.is_none() {
-                    self.current_tab = Some(0);
+                        if self.current_tab.is_none() {
+                            self.current_tab = Some(0);
+                        }
+                    }
+                    Err(e) => {
+                        self.error_messages.push(format!("Failed to load '{}'", file.name));
+                        self.files.remove(index);
+                    }
                 }
             }
             Msg::Selection(val) => self.current_selection = Some(val),
@@ -116,7 +126,6 @@ impl Component for Model {
             }
             Msg::TabSelected(index) => self.current_tab = Some(index),
             Msg::CloseTab(index) => {
-                log::warn!("removing file");
                 if let Some(sel) = self.current_tab {
                     if sel > 0 {
                         if sel >= index {
@@ -127,8 +136,10 @@ impl Component for Model {
                     }
                 }
                 self.files.remove(index);
-                log::warn!("File removed");
-            }
+            },
+            Msg::CloseModal(index) => {
+                self.error_messages.remove(index);
+            },
         }
         true
     }
@@ -144,6 +155,9 @@ impl Component for Model {
         html! {
             <div>
                 { self.navbar() }
+
+                { self.error_modal() }
+
                 <Tabs selected={self.current_tab} ontabselect=self.link.callback(move |index| Msg::TabSelected(index)) ontabremove=self.link.callback(move |index| Msg::CloseTab(index))>
                     { for self.files.iter().enumerate().map(|(i,f)| html_nested! {
                     <Tab label={&f.file_name} loading=f.file.is_none()>
@@ -158,13 +172,19 @@ impl Component for Model {
             </div>
         }
     }
-
-    fn rendered(&mut self, _first_render: bool) {
-        // jquery_bindgen::jquery("#tree").jstree();
-    }
 }
 
 impl Model {
+    fn error_modal(&self) -> Html {
+        html! {
+            <ModalContainer onclose=self.link.callback(|index| Msg::CloseModal(index))>
+                { for self.error_messages.iter().map(|e| html_nested! {
+                    <Modal title={"Loading Failed"} content={e}/>
+                })}
+            </ModalContainer>
+        }
+    }
+
     fn value_details(&self, val: EditableValue) -> Html {
         match val.value {
             Value::Object(children, Some(def)) => {
@@ -237,7 +257,14 @@ impl Model {
                 <NumberInput<i32> onchange=self.link.callback(move |data| Msg::Edited(Value::Integer(data))) value={n}/>
             },
             Value::ByteArray(n) => html! {
-                <HexView bytes={n} onchange=self.link.callback(move |data| Msg::Edited(Value::ByteArray(data)))/>
+                <>
+                    <HexView bytes={n.clone()} onchange=self.link.callback(move |data| Msg::Edited(Value::ByteArray(data)))/>
+                    <span onclick={self.link.callback(move |_| {
+                            let mut e = n.clone();
+                            e.push(0);
+                            Msg::Edited(Value::ByteArray(e))
+                          })} class="btn btn-primary">{"Add"}</span>
+                  </>
             },
             Value::String(s) => html! {
                 <StringInput onchange=self.link.callback(move |s| Msg::Edited(Value::String(s))) value={s.clone()}/>

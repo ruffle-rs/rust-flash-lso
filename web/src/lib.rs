@@ -17,6 +17,7 @@ pub(crate) mod uintarray_bindgen;
 pub(crate) mod url_bindgen;
 pub(crate) mod web_expect;
 pub(crate) mod component_string_input;
+pub(crate) mod component_modal;
 
 use crate::component_model::Model;
 
@@ -33,7 +34,7 @@ pub fn run_app() {
 }
 
 //TODO: dict display
-// add/remove from bytearray
+// remove from bytearray
 // load json
 // root element details
 // context menu
