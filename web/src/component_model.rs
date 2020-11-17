@@ -8,7 +8,10 @@ use flash_lso::LSODeserializer;
 
 use crate::blob_bindgen::Blob;
 use crate::component_hexview::HexView;
+use crate::component_modal::modal::Modal;
+use crate::component_modal::ModalContainer;
 use crate::component_number_input::NumberInput;
+use crate::component_string_input::StringInput;
 use crate::component_tab::Tab;
 use crate::component_tabs::Tabs;
 use crate::component_treenode::TreeNode;
@@ -18,10 +21,6 @@ use crate::web_expect::WebSafeExpect;
 use crate::EditableValue;
 use flash_lso::encoder::write_to_bytes;
 use std::ops::Deref;
-use crate::component_string_input::StringInput;
-use crate::component_modal::modal::Modal;
-use crate::component_modal::ModalContainer;
-
 
 pub struct LoadedFile {
     pub file_name: String,
@@ -107,7 +106,8 @@ impl Component for Model {
                         }
                     }
                     Err(e) => {
-                        self.error_messages.push(format!("Failed to load '{}'", file.name));
+                        self.error_messages
+                            .push(format!("Failed to load '{}'", file.name));
                         self.files.remove(index);
                     }
                 }
@@ -136,10 +136,10 @@ impl Component for Model {
                     }
                 }
                 self.files.remove(index);
-            },
+            }
             Msg::CloseModal(index) => {
                 self.error_messages.remove(index);
-            },
+            }
         }
         true
     }
@@ -385,141 +385,141 @@ impl Model {
                           })} class="btn btn-primary">{"Add"}</span>
                     </>
                 };
-            },
+            }
             Value::VectorUInt(elements, fixed_length) => {
                 let elements_clone = elements.clone();
                 let elements_clone2 = elements.clone();
                 let elements_clone3 = elements.clone();
                 return html! {
-                <>
-                    <div class="custom-control custom-switch mb-2">
-                      <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={fixed_length} onclick={self.link.callback(move |_| {
-                        Msg::Edited(Value::VectorUInt(elements_clone.clone(), !fixed_length))
-                      })}/>
-                      <label class={"custom-control-label"} for={"vectorIntFixed"}>{"Fixed Length"}</label>
-                    </div>
+                    <>
+                        <div class="custom-control custom-switch mb-2">
+                          <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={fixed_length} onclick={self.link.callback(move |_| {
+                            Msg::Edited(Value::VectorUInt(elements_clone.clone(), !fixed_length))
+                          })}/>
+                          <label class={"custom-control-label"} for={"vectorIntFixed"}>{"Fixed Length"}</label>
+                        </div>
 
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>{"#"}</th>
-                                <th>{"Value"}</th>
-                                <th></th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        { for elements.iter().enumerate().map(|(i, e)| {
-                            let elements_clone4 = elements_clone3.clone();
-                            let elements_clone5 = elements_clone3.clone();
-                            html! {
-                            <tr>
-                                <td>{i}</td>
-                                <td>
-                                    <input onchange={ self.link.callback(move |cd| {
-                                        if let ChangeData::Value(s) = cd {
-                                            if let Ok(data) = s.parse::<u32>() {
-                                                let mut new_elements = elements_clone5.clone();
-                                                new_elements[i] = data;
-                                                Msg::Edited(Value::VectorUInt(new_elements, fixed_length))
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>{"#"}</th>
+                                    <th>{"Value"}</th>
+                                    <th></th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            { for elements.iter().enumerate().map(|(i, e)| {
+                                let elements_clone4 = elements_clone3.clone();
+                                let elements_clone5 = elements_clone3.clone();
+                                html! {
+                                <tr>
+                                    <td>{i}</td>
+                                    <td>
+                                        <input onchange={ self.link.callback(move |cd| {
+                                            if let ChangeData::Value(s) = cd {
+                                                if let Ok(data) = s.parse::<u32>() {
+                                                    let mut new_elements = elements_clone5.clone();
+                                                    new_elements[i] = data;
+                                                    Msg::Edited(Value::VectorUInt(new_elements, fixed_length))
+                                                } else {
+                                                    Msg::Edited(Value::VectorUInt(elements_clone5.clone(), fixed_length))
+                                                }
                                             } else {
                                                 Msg::Edited(Value::VectorUInt(elements_clone5.clone(), fixed_length))
                                             }
-                                        } else {
-                                            Msg::Edited(Value::VectorUInt(elements_clone5.clone(), fixed_length))
-                                        }
-                                    })} value={e} class="form-control" type="text"/>
-                                </td>
-                                <td></td>
-                                <td>
-                                <span onclick={self.link.callback(move |_| {
-                                    let mut e = elements_clone4.clone();
-                                    e.remove(i);
-                                    Msg::Edited(Value::VectorUInt(e, fixed_length))
-                                  })} class="btn btn-link">
-                                        <img src={"icon/x.svg"} style={"width: 32; height: 32;"} class={"mr-2"}/>
-                                    </span>
-                                </td>
-                            </tr>
-                        }
-                        })}
-                        </tbody>
-                    </table>
-                    <span onclick={self.link.callback(move |_| {
-                        let mut e = elements_clone3.clone();
-                        e.push(0);
-                        Msg::Edited(Value::VectorUInt(e, fixed_length))
-                      })} class="btn btn-primary">{"Add"}</span>
-                </>
+                                        })} value={e} class="form-control" type="text"/>
+                                    </td>
+                                    <td></td>
+                                    <td>
+                                    <span onclick={self.link.callback(move |_| {
+                                        let mut e = elements_clone4.clone();
+                                        e.remove(i);
+                                        Msg::Edited(Value::VectorUInt(e, fixed_length))
+                                      })} class="btn btn-link">
+                                            <img src={"icon/x.svg"} style={"width: 32; height: 32;"} class={"mr-2"}/>
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                            })}
+                            </tbody>
+                        </table>
+                        <span onclick={self.link.callback(move |_| {
+                            let mut e = elements_clone3.clone();
+                            e.push(0);
+                            Msg::Edited(Value::VectorUInt(e, fixed_length))
+                          })} class="btn btn-primary">{"Add"}</span>
+                    </>
+                };
             }
-        },
             Value::VectorDouble(elements, fixed_length) => {
                 let elements_clone = elements.clone();
                 let elements_clone2 = elements.clone();
                 let elements_clone3 = elements.clone();
                 return html! {
-                <>
-                    <div class="custom-control custom-switch mb-2">
-                      <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={fixed_length} onclick={self.link.callback(move |_| {
-                        Msg::Edited(Value::VectorDouble(elements_clone.clone(), !fixed_length))
-                      })}/>
-                      <label class={"custom-control-label"} for={"vectorIntFixed"}>{"Fixed Length"}</label>
-                    </div>
+                    <>
+                        <div class="custom-control custom-switch mb-2">
+                          <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={fixed_length} onclick={self.link.callback(move |_| {
+                            Msg::Edited(Value::VectorDouble(elements_clone.clone(), !fixed_length))
+                          })}/>
+                          <label class={"custom-control-label"} for={"vectorIntFixed"}>{"Fixed Length"}</label>
+                        </div>
 
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>{"#"}</th>
-                                <th>{"Value"}</th>
-                                <th></th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        { for elements.iter().enumerate().map(|(i, e)| {
-                            let elements_clone4 = elements_clone3.clone();
-                            let elements_clone5 = elements_clone3.clone();
-                            html! {
-                            <tr>
-                                <td>{i}</td>
-                                <td>
-                                    <input onchange={ self.link.callback(move |cd| {
-                                        if let ChangeData::Value(s) = cd {
-                                            if let Ok(data) = s.parse::<f64>() {
-                                                let mut new_elements = elements_clone5.clone();
-                                                new_elements[i] = data;
-                                                Msg::Edited(Value::VectorDouble(new_elements, fixed_length))
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>{"#"}</th>
+                                    <th>{"Value"}</th>
+                                    <th></th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            { for elements.iter().enumerate().map(|(i, e)| {
+                                let elements_clone4 = elements_clone3.clone();
+                                let elements_clone5 = elements_clone3.clone();
+                                html! {
+                                <tr>
+                                    <td>{i}</td>
+                                    <td>
+                                        <input onchange={ self.link.callback(move |cd| {
+                                            if let ChangeData::Value(s) = cd {
+                                                if let Ok(data) = s.parse::<f64>() {
+                                                    let mut new_elements = elements_clone5.clone();
+                                                    new_elements[i] = data;
+                                                    Msg::Edited(Value::VectorDouble(new_elements, fixed_length))
+                                                } else {
+                                                    Msg::Edited(Value::VectorDouble(elements_clone5.clone(), fixed_length))
+                                                }
                                             } else {
                                                 Msg::Edited(Value::VectorDouble(elements_clone5.clone(), fixed_length))
                                             }
-                                        } else {
-                                            Msg::Edited(Value::VectorDouble(elements_clone5.clone(), fixed_length))
-                                        }
-                                    })} value={e} class="form-control" type="text"/>
-                                </td>
-                                <td></td>
-                                <td>
-                                <span onclick={self.link.callback(move |_| {
-                                    let mut e = elements_clone4.clone();
-                                    e.remove(i);
-                                    Msg::Edited(Value::VectorDouble(e, fixed_length))
-                                  })} class="btn btn-link">
-                                        <img src={"icon/x.svg"} style={"width: 32; height: 32;"} class={"mr-2"}/>
-                                    </span>
-                                </td>
-                            </tr>
-                        }
-                        })}
-                        </tbody>
-                    </table>
-                    <span onclick={self.link.callback(move |_| {
-                        let mut e = elements_clone3.clone();
-                        e.push(0.0);
-                        Msg::Edited(Value::VectorDouble(e, fixed_length))
-                      })} class="btn btn-primary">{"Add"}</span>
-                </>
+                                        })} value={e} class="form-control" type="text"/>
+                                    </td>
+                                    <td></td>
+                                    <td>
+                                    <span onclick={self.link.callback(move |_| {
+                                        let mut e = elements_clone4.clone();
+                                        e.remove(i);
+                                        Msg::Edited(Value::VectorDouble(e, fixed_length))
+                                      })} class="btn btn-link">
+                                            <img src={"icon/x.svg"} style={"width: 32; height: 32;"} class={"mr-2"}/>
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                            })}
+                            </tbody>
+                        </table>
+                        <span onclick={self.link.callback(move |_| {
+                            let mut e = elements_clone3.clone();
+                            e.push(0.0);
+                            Msg::Edited(Value::VectorDouble(e, fixed_length))
+                          })} class="btn btn-primary">{"Add"}</span>
+                    </>
+                };
             }
-            },
             // Value::AMF3(e) => self.value_details(e.clone()),
             _ => html! {},
         }

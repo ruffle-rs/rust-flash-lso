@@ -1,6 +1,6 @@
-use yew::prelude::*;
 use crate::jquery_bindgen::jquery;
 use wasm_bindgen::JsValue;
+use yew::prelude::*;
 
 pub struct ModalContainer {
     link: ComponentLink<Self>,
@@ -10,11 +10,11 @@ pub struct ModalContainer {
 #[derive(Properties, Clone, PartialEq)]
 pub struct Props {
     pub children: ChildrenWithProps<modal::Modal>,
-    pub onclose: Callback<usize>
+    pub onclose: Callback<usize>,
 }
 
 pub enum Msg {
-    Close(usize)
+    Close(usize),
 }
 
 impl Component for ModalContainer {
@@ -62,9 +62,12 @@ impl Component for ModalContainer {
 
     /// When a <ModalContainer/> is rendered it displays all of its child modals
     fn rendered(&mut self, _first_render: bool) {
-        let ids = self.props.children.iter().enumerate().map(|(i, _)| {
-            format!("#modal-{}", i)
-        });
+        let ids = self
+            .props
+            .children
+            .iter()
+            .enumerate()
+            .map(|(i, _)| format!("#modal-{}", i));
 
         for id in ids {
             let o: js_sys::Object = js_sys::Object::new();
@@ -73,12 +76,11 @@ impl Component for ModalContainer {
     }
 }
 
-
 pub mod modal {
     use yew::prelude::*;
 
     pub enum Msg {
-        Closed
+        Closed,
     }
 
     pub struct Modal {

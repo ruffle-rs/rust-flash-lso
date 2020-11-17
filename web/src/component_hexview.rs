@@ -1,6 +1,6 @@
+use crate::component_number_input::NumberInput;
 use yew::prelude::*;
 use yew::{Component, ComponentLink, Html, Properties};
-use crate::component_number_input::NumberInput;
 
 pub struct HexView {
     link: ComponentLink<Self>,
@@ -10,11 +10,11 @@ pub struct HexView {
 #[derive(Properties, Clone, PartialEq)]
 pub struct Props {
     pub bytes: Vec<u8>,
-    pub onchange: Callback<Vec<u8>>
+    pub onchange: Callback<Vec<u8>>,
 }
 
 pub enum Msg {
-    Edit(u8, usize)
+    Edit(u8, usize),
 }
 
 impl Component for HexView {
@@ -32,7 +32,7 @@ impl Component for HexView {
                 new_data[index] = data;
                 self.props.onchange.emit(new_data);
                 true
-            },
+            }
         }
     }
 

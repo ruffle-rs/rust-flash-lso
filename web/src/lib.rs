@@ -7,8 +7,10 @@ use flash_lso::types::Value;
 
 pub(crate) mod blob_bindgen;
 pub(crate) mod component_hexview;
+pub(crate) mod component_modal;
 pub(crate) mod component_model;
 pub(crate) mod component_number_input;
+pub(crate) mod component_string_input;
 pub(crate) mod component_tab;
 pub(crate) mod component_tabs;
 pub(crate) mod component_treenode;
@@ -16,8 +18,6 @@ pub(crate) mod jquery_bindgen;
 pub(crate) mod uintarray_bindgen;
 pub(crate) mod url_bindgen;
 pub(crate) mod web_expect;
-pub(crate) mod component_string_input;
-pub(crate) mod component_modal;
 
 use crate::component_model::Model;
 

@@ -1,8 +1,8 @@
-use yew::prelude::*;
-use yew::{Component, ComponentLink, Html, Properties};
 use crate::component_string_input::StringInput;
 use std::fmt::Display;
 use std::str::FromStr;
+use yew::prelude::*;
+use yew::{Component, ComponentLink, Html, Properties};
 
 pub struct NumberInput<T: 'static + Clone + Display + PartialEq + FromStr> {
     link: ComponentLink<Self>,
@@ -16,7 +16,7 @@ pub struct Props<T: Clone> {
 }
 
 pub enum Msg {
-    Value(String)
+    Value(String),
 }
 
 impl<T: 'static + Clone + Display + PartialEq + FromStr> Component for NumberInput<T> {
