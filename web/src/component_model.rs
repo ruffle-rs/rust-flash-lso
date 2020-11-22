@@ -21,6 +21,7 @@ use crate::web_expect::WebSafeExpect;
 use crate::EditableValue;
 use flash_lso::encoder::write_to_bytes;
 use std::ops::Deref;
+use crate::TreeNodePath;
 
 pub struct LoadedFile {
     pub file_name: String,
@@ -154,20 +155,12 @@ impl Component for Model {
         true
     }
 
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        // Should only return "true" if new properties are different to
-        // previously received properties.
-        // This component has no properties so we will always return "false".
-        false
-    }
+    fn change(&mut self, _props: Self::Properties) -> ShouldRender { false }
 
     fn view(&self) -> Html {
         html! {
             <div>
-
-
                 { self.navbar() }
-
                 { self.error_modal() }
 
                 <Tabs selected={self.current_tab} ontabselect=self.link.callback(move |index| Msg::TabSelected(index)) ontabremove=self.link.callback(move |index| Msg::CloseTab(index))>
@@ -608,21 +601,22 @@ impl Model {
     }
 
     fn view_file(&self, _index: usize, data: &Sol) -> Html {
-        let root_class = if self.current_selection.is_none() {
-            format!("{} p-1", crate::style::SELECTION)
-        } else {
-            "p-1 border-none".to_string()
-        };
+        let root_class =  "text-white bg-primary rounded-pill pl-2 pr-2";
 
         html! {
             <div class="container-fluid">
                 <div class="row">
                     <div class="col-5">
                         <div id="tree">
-                            <span class={root_class} onclick=self.link.callback(|_| Msg::RootSelected)><img src={"icon/file.svg"} style={"width: 32; height: 32;"} class="mr-2"/>{"/"}</span>
+                            <span onclick=self.link.callback(|_| Msg::RootSelected)>
+                                <img src={"icon/file.svg"} style={"width: 32; height: 32;"} class="mr-2"/>
+                            </span>
+                            <span
+                                class={root_class}
+                                onclick=self.link.callback(move |_| Msg::RootSelected)>{ "/" }</span>
                             <ul>
                                 { for data.body.iter().map(|e| html! {
-                                    <TreeNode name={e.name.clone()} value={e.value.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
+                                    <TreeNode selection=self.current_selection.clone() parent_path={TreeNodePath::root()} name={e.name.clone()} value={e.value.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
                                 })}
                             </ul>
                         </div>
@@ -665,6 +659,7 @@ impl Model {
                                     <>
                                     <ul class="list-group list-group-horizontal mt-2 mb-2">
                                       <li class="list-group-item">{value_type}</li>
+                                      <li class="list-group-item">{self.current_selection.clone().map(|cs| cs.path.string()).unwrap_or("/".to_string())}</li>
                                     </ul>
                                     {{details_content}}
                                     </>

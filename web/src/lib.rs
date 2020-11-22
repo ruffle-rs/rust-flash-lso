@@ -22,11 +22,43 @@ pub(crate) mod style;
 
 use crate::component_model::Model;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct EditableValue {
     pub value: Value,
     pub callback: Callback<Value>,
+    pub path: TreeNodePath,
 }
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TreeNodePath(Vec<String>);
+impl TreeNodePath {
+    pub fn root() -> Self {
+        Self {
+            0: vec!["/".to_string()]
+        }
+    }
+
+    pub fn join(&self, child: String) -> Self {
+        Self {
+            0: self.0.iter().chain(&[child]).cloned().collect()
+        }
+    }
+
+    pub fn contains(&self, other: Self) -> bool {
+        log::warn!("Does {:?} contain {:?}", self, other);
+
+        if other.0.len() > self.0.len() {
+            return false;
+        }
+
+        self.0[..other.0.len()] == other.0
+    }
+
+    pub fn string(&self) -> String {
+        self.0.join("::")
+    }
+}
+
 
 #[wasm_bindgen(start)]
 pub fn run_app() {
@@ -36,5 +68,4 @@ pub fn run_app() {
 
 //TODO fix saving
 // context menu
-// Fix selection
 // Searching

@@ -145,7 +145,7 @@ pub mod encoder {
         tuple((be_u16(s.len() as u16), string(s)))
     }
 
-    pub fn write_header<'a, 'b: 'a, W: Write + 'a>(header: &'b Header) -> impl SerializeFn<W> + 'a {
+    fn write_header<'a, 'b: 'a, W: Write + 'a>(header: &'b Header) -> impl SerializeFn<W> + 'a {
         tuple((
             slice(HEADER_VERSION),
             be_u32(header.length),

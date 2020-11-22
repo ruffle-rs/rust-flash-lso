@@ -1,4 +1,4 @@
-use crate::EditableValue;
+use crate::{EditableValue, TreeNodePath};
 use flash_lso::types::Value;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -17,14 +17,15 @@ pub struct TreeNode {
     link: ComponentLink<Self>,
     expanded: bool,
     value: Value,
-    selection: Option<EditableValue>
 }
 
 #[derive(Properties, Clone, PartialEq)]
 pub struct Props {
+    pub parent_path: TreeNodePath,
     pub name: String,
     pub value: Value,
     pub parent_callback: Callback<EditableValue>,
+    pub selection: Option<EditableValue>,
 }
 
 impl Component for TreeNode {
@@ -38,14 +39,12 @@ impl Component for TreeNode {
             link,
             expanded: false,
             value,
-            selection: None,
         }
     }
 
     fn update(&mut self, msg: Self::Message) -> bool {
         match msg {
             Msg::Selection(val) => {
-                self.selection = Some(val.clone());
                 self.props.parent_callback.emit(val);
                 true
             }
@@ -79,24 +78,27 @@ impl Component for TreeNode {
             "icon/file-text.svg"
         };
 
-        let classes = if self.selection.is_some() {
-            format!("p1 {}", crate::style::SELECTION)
+        let classes = if self.selected() {
+            "text-white bg-primary rounded-pill pl-2 pr-2"
         } else {
-            "p-1 border-none".to_string()
+            "pl-2 pr-2"
         };
 
         let callback = self.link.callback(|val| Msg::Edited(val));
         let v = self.value.clone();
+        let path = self.path();
 
         html! {
              <div>
-                <span class={classes} onclick=self.link.callback(|_| Msg::Toggle)>
+                <span onclick=self.link.callback(|_| Msg::Toggle)>
                     <img src={icon} style={"width: 32; height: 32;"} class={"mr-2"}/>
                 </span>
                 <span
+                    class={classes}
                     onclick=self.link.callback(move |_| Msg::Selection(EditableValue {
                         value: v.clone(),
-                        callback: callback.clone()
+                        callback: callback.clone(),
+                        path: path.clone(),
                     }))>{ name }</span>
                 { if self.expanded {
                     self.view_sol_value(Rc::new(self.value.clone()))
@@ -109,6 +111,15 @@ impl Component for TreeNode {
 }
 
 impl TreeNode {
+    pub fn path(&self) -> TreeNodePath {
+        self.props.parent_path.join(self.props.name.clone())
+    }
+
+    pub fn selected(&self) -> bool {
+        let selected_path = self.props.selection.clone().map(|s| s.path);
+        selected_path.map_or(false, |tnp| tnp.contains(self.path()))
+    }
+
     pub fn has_children(data: &Value) -> bool {
         match data {
             Value::Object(_, _) => true,
@@ -125,7 +136,7 @@ impl TreeNode {
     pub fn view_array_element(&self, index: usize, data: &Rc<Value>) -> Html {
         html! {
             <div>
-                <TreeNode name={format!("{}", index)} value={data.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                <TreeNode selection=self.props.selection.clone() parent_path=self.path() name={format!("{}", index)} value={data.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
             </div>
         }
     }
@@ -136,7 +147,7 @@ impl TreeNode {
             Value::Object(elements, _class_def) => html! {
                 <ul>
                     { for elements.iter().map(|e| html! {
-                        <TreeNode name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                        <TreeNode selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
                     })}
                 </ul>
             },
@@ -149,7 +160,7 @@ impl TreeNode {
                     <ul>
                        { for dense.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
                         { for assoc.iter().map(|e| html! {
-                            <TreeNode name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                            <TreeNode selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
                         })}
                     </ul>
             },
@@ -163,10 +174,10 @@ impl TreeNode {
                     { for children.iter().map(|(k, v)| html! {
                             <>
                             <li>
-                                <TreeNode name="key" value={k.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
+                                <TreeNode selection=self.props.selection.clone() parent_path=self.path() name="key" value={k.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
                             </li>
                             <li>
-                                <TreeNode name="value" value={v.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
+                                <TreeNode selection=self.props.selection.clone() parent_path=self.path() name="value" value={v.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
                             </li>
                             </>
                         })}
@@ -178,7 +189,7 @@ impl TreeNode {
                         {"Custom elements"}
                         <ul>
                             { for el.iter().map(|e| html! {
-                                <TreeNode name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                                <TreeNode selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
                             })}
                         </ul>
                     </li>
@@ -186,7 +197,7 @@ impl TreeNode {
                         {"Standard elements"}
                         <ul>
                            { for el2.iter().map(|e| html! {
-                                <TreeNode name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                                <TreeNode selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
                             })}
                         </ul>
                     </li>
