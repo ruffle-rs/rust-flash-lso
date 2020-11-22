@@ -20,10 +20,18 @@ pub struct Sol {
 }
 
 impl Sol {
+    /// Create a new LSO with a header with the given name and version and an empty body
+    #[inline]
     pub fn new_empty(name: impl Into<String>, version: AMFVersion) -> Self {
+        Self::new(Vec::new(), name, version)
+    }
+
+    /// Crate a new LSO with a header with the given name, version and body
+    #[inline]
+    pub fn new(body: Vec<Element>, name: impl Into<String>, version: AMFVersion) -> Self {
         Self {
             header: Header::new(name, version),
-            body: Vec::new()
+            body
         }
     }
 }
