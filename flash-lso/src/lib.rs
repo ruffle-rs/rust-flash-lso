@@ -100,7 +100,6 @@ impl LSODeserializer {
     }
 }
 
-
 pub mod encoder {
     use crate::types::{AMFVersion, Header, Sol};
     use crate::{

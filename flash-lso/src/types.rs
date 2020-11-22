@@ -31,7 +31,7 @@ impl Sol {
     pub fn new(body: Vec<Element>, name: impl Into<String>, version: AMFVersion) -> Self {
         Self {
             header: Header::new(name, version),
-            body
+            body,
         }
     }
 }

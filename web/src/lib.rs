@@ -15,10 +15,10 @@ pub(crate) mod component_tab;
 pub(crate) mod component_tabs;
 pub(crate) mod component_treenode;
 pub(crate) mod jquery_bindgen;
+pub(crate) mod style;
 pub(crate) mod uintarray_bindgen;
 pub(crate) mod url_bindgen;
 pub(crate) mod web_expect;
-pub(crate) mod style;
 
 use crate::component_model::Model;
 
@@ -34,13 +34,13 @@ pub struct TreeNodePath(Vec<String>);
 impl TreeNodePath {
     pub fn root() -> Self {
         Self {
-            0: vec!["/".to_string()]
+            0: vec!["/".to_string()],
         }
     }
 
     pub fn join(&self, child: String) -> Self {
         Self {
-            0: self.0.iter().chain(&[child]).cloned().collect()
+            0: self.0.iter().chain(&[child]).cloned().collect(),
         }
     }
 
@@ -58,7 +58,6 @@ impl TreeNodePath {
         self.0.join("::")
     }
 }
-
 
 #[wasm_bindgen(start)]
 pub fn run_app() {

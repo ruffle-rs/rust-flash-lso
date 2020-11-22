@@ -1,8 +1,8 @@
 use crate::component_number_input::NumberInput;
+use crate::web_expect::WebSafeExpect;
 use yew::prelude::*;
 use yew::{Component, ComponentLink, Html, Properties};
 use yewtil::NeqAssign;
-use crate::web_expect::WebSafeExpect;
 
 pub struct HexView {
     link: ComponentLink<Self>,
@@ -56,9 +56,11 @@ impl Component for HexView {
                 true
             }
             Msg::Remove => {
-                self.props.onremove.emit(self.selected.web_expect("Nothing selected"));
+                self.props
+                    .onremove
+                    .emit(self.selected.web_expect("Nothing selected"));
                 true
-            },
+            }
             Msg::Add => {
                 self.props.onadd.emit(());
                 true

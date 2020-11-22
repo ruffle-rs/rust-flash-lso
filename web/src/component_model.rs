@@ -19,9 +19,9 @@ use crate::uintarray_bindgen::Uint8Array;
 use crate::url_bindgen::URL;
 use crate::web_expect::WebSafeExpect;
 use crate::EditableValue;
+use crate::TreeNodePath;
 use flash_lso::encoder::write_to_bytes;
 use std::ops::Deref;
-use crate::TreeNodePath;
 
 pub struct LoadedFile {
     pub file_name: String,
@@ -115,12 +115,14 @@ impl Component for Model {
                 }
             }
             Msg::Selection(val) => {
-                if self.current_selection.as_ref().map(|ev| ev.value.clone()) == Some(val.value.clone()) {
+                if self.current_selection.as_ref().map(|ev| ev.value.clone())
+                    == Some(val.value.clone())
+                {
                     self.current_selection = None;
                 } else {
                     self.current_selection = Some(val);
                 }
-            },
+            }
             Msg::Edited(val) => {
                 self.current_selection
                     .as_ref()
@@ -155,7 +157,9 @@ impl Component for Model {
         true
     }
 
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender { false }
+    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
+        false
+    }
 
     fn view(&self) -> Html {
         html! {
@@ -261,8 +265,8 @@ impl Model {
                       <label class={"custom-control-label"} for={"customSwitch1"}>{"Fixed Length"}</label>
                     </div>
                     </>
-                }
-            },
+                };
+            }
             Value::Number(n) => html! {
                 <NumberInput<f64> onchange=self.link.callback(move |data| Msg::Edited(Value::Number(data))) value={n}/>
             },
@@ -287,8 +291,8 @@ impl Model {
                             Msg::Edited(Value::ByteArray(e))
                         })/>
                   </>
-                }
-            },
+                };
+            }
             Value::String(s) => html! {
                 <StringInput onchange=self.link.callback(move |s| Msg::Edited(Value::String(s))) value={s.clone()}/>
             },
@@ -601,7 +605,7 @@ impl Model {
     }
 
     fn view_file(&self, _index: usize, data: &Sol) -> Html {
-        let root_class =  "text-white bg-primary rounded-pill pl-2 pr-2";
+        let root_class = "text-white bg-primary rounded-pill pl-2 pr-2";
 
         html! {
             <div class="container-fluid">
