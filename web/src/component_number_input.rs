@@ -3,6 +3,7 @@ use std::fmt::Display;
 use std::str::FromStr;
 use yew::prelude::*;
 use yew::{Component, ComponentLink, Html, Properties};
+use yewtil::NeqAssign;
 
 pub struct NumberInput<T: 'static + Clone + Display + PartialEq + FromStr> {
     link: ComponentLink<Self>,
@@ -13,10 +14,17 @@ pub struct NumberInput<T: 'static + Clone + Display + PartialEq + FromStr> {
 pub struct Props<T: Clone> {
     pub onchange: Callback<T>,
     pub value: T,
+
+    #[prop_or(None)]
+    pub onfocus: Option<Callback<()>>,
+    #[prop_or(None)]
+    pub onblur: Option<Callback<()>>,
 }
 
 pub enum Msg {
     Value(String),
+    Focus,
+    UnFocus,
 }
 
 impl<T: 'static + Clone + Display + PartialEq + FromStr> Component for NumberInput<T> {
@@ -35,21 +43,32 @@ impl<T: 'static + Clone + Display + PartialEq + FromStr> Component for NumberInp
                 }
                 true
             }
+            Msg::Focus => {
+                if let Some(onfocus) = &self.props.onfocus {
+                    onfocus.emit(());
+                }
+                true
+            }
+            Msg::UnFocus => {
+                if let Some(onblur) = &self.props.onblur {
+                    onblur.emit(());
+                }
+                true
+            }
         }
     }
 
     fn change(&mut self, props: Self::Properties) -> bool {
-        if props != self.props {
-            self.props = props;
-            true
-        } else {
-            false
-        }
+        self.props.neq_assign(props)
     }
 
     fn view(&self) -> Html {
         html! {
-            <StringInput onchange=self.link.callback(move |s| Msg::Value(s)) value={format!("{}", self.props.value)}/>
+            <StringInput
+                onchange=self.link.callback(move |s| Msg::Value(s))
+                onblur=self.link.callback(move |_fe| Msg::UnFocus)
+                onfocus=self.link.callback(move |_fe| Msg::Focus)
+                value={format!("{}", self.props.value)}/>
         }
     }
 }

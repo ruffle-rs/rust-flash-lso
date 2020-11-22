@@ -18,6 +18,7 @@ pub(crate) mod jquery_bindgen;
 pub(crate) mod uintarray_bindgen;
 pub(crate) mod url_bindgen;
 pub(crate) mod web_expect;
+pub(crate) mod style;
 
 use crate::component_model::Model;
 
@@ -33,9 +34,7 @@ pub fn run_app() {
     App::<Model>::new().mount_to_body();
 }
 
-//TODO: dict display
-// remove from bytearray
-// load json
-// root element details
+//TODO fix saving
 // context menu
-// fix saving
+// Fix selection
+// Searching

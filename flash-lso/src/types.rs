@@ -19,6 +19,15 @@ pub struct Sol {
     pub body: Vec<Element>,
 }
 
+impl Sol {
+    pub fn new_empty(name: impl Into<String>, version: AMFVersion) -> Self {
+        Self {
+            header: Header::new(name, version),
+            body: Vec::new()
+        }
+    }
+}
+
 /// The version of AMF being used
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(TryFromPrimitive, Eq, PartialEq, Debug, Copy, Clone)]

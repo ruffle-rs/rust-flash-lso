@@ -4,6 +4,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 use yew::prelude::*;
 use yew::{Component, ComponentLink, Html, Properties};
+use yewtil::NeqAssign;
 
 pub enum Msg {
     Selection(EditableValue),
@@ -16,6 +17,7 @@ pub struct TreeNode {
     link: ComponentLink<Self>,
     expanded: bool,
     value: Value,
+    selection: Option<EditableValue>
 }
 
 #[derive(Properties, Clone, PartialEq)]
@@ -36,12 +38,14 @@ impl Component for TreeNode {
             link,
             expanded: false,
             value,
+            selection: None,
         }
     }
 
     fn update(&mut self, msg: Self::Message) -> bool {
         match msg {
             Msg::Selection(val) => {
+                self.selection = Some(val.clone());
                 self.props.parent_callback.emit(val);
                 true
             }
@@ -57,13 +61,7 @@ impl Component for TreeNode {
     }
 
     fn change(&mut self, props: Self::Properties) -> bool {
-        //TODO: this will no longer update the value e.g. if the type of a child is changed
-        if props != self.props {
-            self.props = props;
-            true
-        } else {
-            false
-        }
+        self.props.neq_assign(props)
     }
 
     fn view(&self) -> Html {
@@ -81,18 +79,25 @@ impl Component for TreeNode {
             "icon/file-text.svg"
         };
 
+        let classes = if self.selection.is_some() {
+            format!("p1 {}", crate::style::SELECTION)
+        } else {
+            "p-1 border-none".to_string()
+        };
+
         let callback = self.link.callback(|val| Msg::Edited(val));
         let v = self.value.clone();
 
         html! {
              <div>
-                <span onclick=self.link.callback(|_| Msg::Toggle)>
+                <span class={classes} onclick=self.link.callback(|_| Msg::Toggle)>
                     <img src={icon} style={"width: 32; height: 32;"} class={"mr-2"}/>
                 </span>
-                <span onclick=self.link.callback(move |_| Msg::Selection(EditableValue {
-            value: v.clone(),
-            callback: callback.clone()
-        }))>{ name }</span>
+                <span
+                    onclick=self.link.callback(move |_| Msg::Selection(EditableValue {
+                        value: v.clone(),
+                        callback: callback.clone()
+                    }))>{ name }</span>
                 { if self.expanded {
                     self.view_sol_value(Rc::new(self.value.clone()))
                 } else {
@@ -157,8 +162,12 @@ impl TreeNode {
                 <ul>
                     { for children.iter().map(|(k, v)| html! {
                             <>
-                            <li><span >{ "key" }</span></li>
-                            <li><span >{ "value" }</span></li>
+                            <li>
+                                <TreeNode name="key" value={k.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
+                            </li>
+                            <li>
+                                <TreeNode name="value" value={v.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
+                            </li>
                             </>
                         })}
                 </ul>

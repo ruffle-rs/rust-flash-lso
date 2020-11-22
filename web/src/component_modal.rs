@@ -78,6 +78,7 @@ impl Component for ModalContainer {
 
 pub mod modal {
     use yew::prelude::*;
+    use yewtil::NeqAssign;
 
     pub enum Msg {
         Closed,
@@ -120,12 +121,7 @@ pub mod modal {
         }
 
         fn change(&mut self, props: Self::Properties) -> bool {
-            if props != self.props {
-                self.props = props;
-                true
-            } else {
-                false
-            }
+            self.props.neq_assign(props)
         }
 
         //TODO: currently dismissing using anything other than the close button will cause the modal to re-appear when a new one is created

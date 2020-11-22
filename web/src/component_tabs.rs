@@ -2,6 +2,7 @@ use crate::component_tab::Tab;
 use yew::prelude::*;
 use yew::virtual_dom::VChild;
 use yew::{ChildrenWithProps, Component, ComponentLink, Html, Properties};
+use yewtil::NeqAssign;
 
 pub struct Tabs {
     link: ComponentLink<Self>,
@@ -45,12 +46,7 @@ impl Component for Tabs {
     }
 
     fn change(&mut self, props: Self::Properties) -> bool {
-        if self.props != props {
-            self.props = props;
-            true
-        } else {
-            false
-        }
+        self.props.neq_assign(props)
     }
 
     fn view(&self) -> Html {

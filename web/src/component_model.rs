@@ -55,6 +55,7 @@ pub enum Msg {
     TabSelected(usize),
     CloseTab(usize),
     CloseModal(usize),
+    RootSelected,
 }
 
 impl Component for Model {
@@ -112,7 +113,13 @@ impl Component for Model {
                     }
                 }
             }
-            Msg::Selection(val) => self.current_selection = Some(val),
+            Msg::Selection(val) => {
+                if self.current_selection.as_ref().map(|ev| ev.value.clone()) == Some(val.value.clone()) {
+                    self.current_selection = None;
+                } else {
+                    self.current_selection = Some(val);
+                }
+            },
             Msg::Edited(val) => {
                 self.current_selection
                     .as_ref()
@@ -140,6 +147,9 @@ impl Component for Model {
             Msg::CloseModal(index) => {
                 self.error_messages.remove(index);
             }
+            Msg::RootSelected => {
+                self.current_selection = None;
+            }
         }
         true
     }
@@ -154,6 +164,8 @@ impl Component for Model {
     fn view(&self) -> Html {
         html! {
             <div>
+
+
                 { self.navbar() }
 
                 { self.error_modal() }
@@ -244,11 +256,19 @@ impl Model {
                     </>
                 };
             }
-            Value::VectorObject(_, name, _) => html! {
-                <>
-                <p>{"name"}</p>
-                <p>{name}</p>
-                </>
+            Value::VectorObject(elements, name, fixed_length) => {
+                let elements_clone_2 = elements.clone();
+                return html! {
+                    <>
+                    <StringInput onchange=self.link.callback(move |new_name| Msg::Edited(Value::VectorObject(elements.clone(), new_name, fixed_length))) value={&name}/>
+                    <div class="custom-control custom-switch">
+                      <input type={"checkbox"} class={"custom-control-input"} id={"customSwitch1"} checked={fixed_length} onclick={self.link.callback(move |_| {
+                        Msg::Edited(Value::VectorObject(elements_clone_2.clone(), name.clone(), !fixed_length))
+                      })}/>
+                      <label class={"custom-control-label"} for={"customSwitch1"}>{"Fixed Length"}</label>
+                    </div>
+                    </>
+                }
             },
             Value::Number(n) => html! {
                 <NumberInput<f64> onchange=self.link.callback(move |data| Msg::Edited(Value::Number(data))) value={n}/>
@@ -256,15 +276,25 @@ impl Model {
             Value::Integer(n) => html! {
                 <NumberInput<i32> onchange=self.link.callback(move |data| Msg::Edited(Value::Integer(data))) value={n}/>
             },
-            Value::ByteArray(n) => html! {
+            Value::ByteArray(n) => {
+                let n_clone = n.clone();
+                return html! {
                 <>
-                    <HexView bytes={n.clone()} onchange=self.link.callback(move |data| Msg::Edited(Value::ByteArray(data)))/>
-                    <span onclick={self.link.callback(move |_| {
+                    <HexView
+                        bytes={n.clone()}
+                        onchange=self.link.callback(move |data| Msg::Edited(Value::ByteArray(data)))
+                        onadd=self.link.callback(move |_| {
                             let mut e = n.clone();
                             e.push(0);
                             Msg::Edited(Value::ByteArray(e))
-                          })} class="btn btn-primary">{"Add"}</span>
+                        })
+                        onremove=self.link.callback(move |index| {
+                            let mut e = n_clone.clone();
+                            e.remove(index);
+                            Msg::Edited(Value::ByteArray(e))
+                        })/>
                   </>
+                }
             },
             Value::String(s) => html! {
                 <StringInput onchange=self.link.callback(move |s| Msg::Edited(Value::String(s))) value={s.clone()}/>
@@ -578,20 +608,21 @@ impl Model {
     }
 
     fn view_file(&self, _index: usize, data: &Sol) -> Html {
+        let root_class = if self.current_selection.is_none() {
+            format!("{} p-1", crate::style::SELECTION)
+        } else {
+            "p-1 border-none".to_string()
+        };
+
         html! {
             <div class="container-fluid">
                 <div class="row">
                     <div class="col-5">
-                        <ul class="list-group list-group-horizontal mt-2">
-                          <li class="list-group-item"><img src={"icon/database.svg"} style={"width: 32; height: 32;"} class={"mr-2"}/>{data.header.length}</li>
-                          <li class="list-group-item">{data.header.format_version}</li>
-                        </ul>
-
                         <div id="tree">
-                            <span><img src={"icon/file.svg"} style={"width: 32; height: 32;"} class={"mr-2"}/>{"/"}</span>
+                            <span class={root_class} onclick=self.link.callback(|_| Msg::RootSelected)><img src={"icon/file.svg"} style={"width: 32; height: 32;"} class="mr-2"/>{"/"}</span>
                             <ul>
                                 { for data.body.iter().map(|e| html! {
-                                    <TreeNode name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                                    <TreeNode name={e.name.clone()} value={e.value.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
                                 })}
                             </ul>
                         </div>
@@ -639,7 +670,15 @@ impl Model {
                                     </>
                                 }
                             } else {
-                                html! { <p>{"Select an item"}</p> }
+                                html! {
+                                    <>
+                                    <ul class="list-group list-group-horizontal mt-2">
+                                      <li class="list-group-item"><img src={"icon/database.svg"} style={"width: 32; height: 32;"} class={"mr-2"}/>{data.header.length}</li>
+                                      <li class="list-group-item">{data.header.format_version}</li>
+                                    </ul>
+                                    <p>{"Select an item for more details"}</p>
+                                    </>
+                             }
                             }
                         }
                     </div>

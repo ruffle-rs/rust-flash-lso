@@ -1,5 +1,6 @@
 use yew::prelude::*;
 use yew::{Component, ComponentLink, Html, Properties};
+use yewtil::NeqAssign;
 
 pub struct StringInput {
     link: ComponentLink<Self>,
@@ -10,11 +11,18 @@ pub struct StringInput {
 pub struct Props {
     pub onchange: Callback<String>,
     pub value: String,
+
+    #[prop_or(None)]
+    pub onfocus: Option<Callback<()>>,
+    #[prop_or(None)]
+    pub onblur: Option<Callback<()>>,
 }
 
 pub enum Msg {
     Value(String),
     Ignored,
+    Focus,
+    UnFocus,
 }
 
 impl Component for StringInput {
@@ -31,28 +39,40 @@ impl Component for StringInput {
                 self.props.onchange.emit(s);
                 true
             }
+            Msg::Focus => {
+                if let Some(onfocus) = &self.props.onfocus {
+                    onfocus.emit(());
+                }
+                true
+            }
+            Msg::UnFocus => {
+                if let Some(onblur) = &self.props.onblur {
+                    onblur.emit(());
+                }
+                true
+            }
             _ => false,
         }
     }
 
     fn change(&mut self, props: Self::Properties) -> bool {
-        if props != self.props {
-            self.props = props;
-            true
-        } else {
-            false
-        }
+        self.props.neq_assign(props)
     }
 
     fn view(&self) -> Html {
         html! {
-            <input onchange={ self.link.callback(move |cd| {
+            <input
+                onchange=self.link.callback(move |cd| {
                     if let ChangeData::Value(s) = cd {
                         Msg::Value(s)
                     } else {
                         Msg::Ignored
                     }
-                })} value={&self.props.value} class="form-control"/>
+                })
+                onblur=self.link.callback(move |_fe| Msg::UnFocus)
+                onfocus=self.link.callback(move |_fe| Msg::Focus)
+                value={&self.props.value}
+                class="form-control"/>
         }
     }
 }
