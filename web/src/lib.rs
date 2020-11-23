@@ -45,8 +45,6 @@ impl TreeNodePath {
     }
 
     pub fn contains(&self, other: Self) -> bool {
-        log::warn!("Does {:?} contain {:?}", self, other);
-
         if other.0.len() > self.0.len() {
             return false;
         }

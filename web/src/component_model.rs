@@ -3,7 +3,7 @@ use yew::prelude::*;
 use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
 use flash_lso::flex;
-use flash_lso::types::{Attribute, Sol, Value};
+use flash_lso::types::{Attribute, Sol, Value, Element};
 use flash_lso::LSODeserializer;
 
 use crate::blob_bindgen::Blob;
@@ -59,6 +59,7 @@ pub enum Msg {
     CloseModal(usize),
     RootSelected,
     SearchQuery(String),
+    ElementChange(Element),
 }
 
 impl Component for Model {
@@ -158,6 +159,19 @@ impl Component for Model {
             },
             Msg::SearchQuery(s) => {
                 self.search = s;
+            }
+            Msg::ElementChange(el) => {
+                if let Some(tab_index) = self.current_tab {
+                    if let Some(file) = self.files.get_mut(tab_index) {
+                        if let Some(ref mut file) = &mut file.file {
+                            let old_element = file.body.iter().position(|e| e.name == el.name);
+                            if let Some(index) = old_element {
+                                file.body[index] = el.clone();
+                                log::info!("Set {} to {:?}", index, el);
+                            }
+                        }
+                    }
+                }
             }
         }
         true
@@ -628,7 +642,7 @@ impl Model {
                                 onclick=self.link.callback(move |_| Msg::RootSelected)>{ "/" }</span>
                             <ul>
                                 { for data.body.iter().map(|e| html! {
-                                    <TreeNode filter=self.search.clone() selection=self.current_selection.clone() parent_path={TreeNodePath::root()} name={e.name.clone()} value={e.value.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
+                                    <TreeNode element_callback=self.link.callback(|e| Msg::ElementChange(e)) filter=self.search.clone() selection=self.current_selection.clone() parent_path={TreeNodePath::root()} name={e.name.clone()} value={e.value.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
                                 })}
                             </ul>
                         </div>

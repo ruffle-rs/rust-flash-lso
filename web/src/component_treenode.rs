@@ -1,15 +1,17 @@
 use crate::{EditableValue, TreeNodePath};
-use flash_lso::types::Value;
+use flash_lso::types::{Value, Element};
 use std::ops::Deref;
 use std::rc::Rc;
 use yew::prelude::*;
 use yew::{Component, ComponentLink, Html, Properties};
 use yewtil::NeqAssign;
 
+#[derive(Debug)]
 pub enum Msg {
     Selection(EditableValue),
     Toggle,
     Edited(Value),
+    ElementChange(Element),
 }
 
 pub struct TreeNode {
@@ -27,6 +29,8 @@ pub struct Props {
     pub parent_callback: Callback<EditableValue>,
     pub selection: Option<EditableValue>,
     pub filter: String,
+    #[prop_or(None)]
+    pub element_callback: Option<Callback<Element>>,
 }
 
 impl Component for TreeNode {
@@ -44,6 +48,7 @@ impl Component for TreeNode {
     }
 
     fn update(&mut self, msg: Self::Message) -> bool {
+        log::info!("<TreeNode>@{}, MSG: {:?}", self.path().string(), msg);
         match msg {
             Msg::Selection(val) => {
                 self.props.parent_callback.emit(val);
@@ -54,7 +59,25 @@ impl Component for TreeNode {
                 true
             }
             Msg::Edited(v) => {
-                self.value = v;
+                self.value = v.clone();
+                if let Some(x) = &self.props.element_callback {
+                    x.emit(Element::new(self.props.name.clone(), v.clone()));
+                }
+                true
+            }
+            Msg::ElementChange(el) => {
+                match &mut self.value {
+                    Value::Object(old_el, _) => {
+                       let index = old_el.iter().position(|e| e.name == el.name);
+                        if let Some(index) = index {
+                            old_el[index] = el;
+                        }
+                    }
+                    _=> {
+                        log::warn!("Unknown element change");
+                    }
+                }
+
                 true
             }
         }
@@ -169,7 +192,7 @@ impl TreeNode {
             Value::Object(elements, _class_def) => html! {
                 <ul>
                     { for elements.iter().map(|e| html! {
-                        <TreeNode filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                        <TreeNode element_callback=self.link.callback(|el| Msg::ElementChange(el)) filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
                     })}
                 </ul>
             },
