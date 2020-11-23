@@ -45,6 +45,7 @@ pub struct Model {
     current_selection: Option<EditableValue>,
     current_tab: Option<usize>,
     error_messages: Vec<String>,
+    search: String,
 }
 
 #[derive(Debug)]
@@ -57,6 +58,7 @@ pub enum Msg {
     CloseTab(usize),
     CloseModal(usize),
     RootSelected,
+    SearchQuery(String),
 }
 
 impl Component for Model {
@@ -71,6 +73,7 @@ impl Component for Model {
             current_selection: None,
             current_tab: None,
             error_messages: Vec::new(),
+            search: "".to_string(),
         }
     }
 
@@ -152,6 +155,9 @@ impl Component for Model {
             }
             Msg::RootSelected => {
                 self.current_selection = None;
+            },
+            Msg::SearchQuery(s) => {
+                self.search = s;
             }
         }
         true
@@ -611,7 +617,9 @@ impl Model {
             <div class="container-fluid">
                 <div class="row">
                     <div class="col-5">
-                        <div id="tree">
+                        <StringInput value=&self.search onchange=self.link.callback(|s| Msg::SearchQuery(s)) class="mt-2 col-md-4" placeholder="Search..."/>
+
+                        <div id="tree" class="mt-2">
                             <span onclick=self.link.callback(|_| Msg::RootSelected)>
                                 <img src={"icon/file.svg"} style={"width: 32; height: 32;"} class="mr-2"/>
                             </span>
@@ -620,7 +628,7 @@ impl Model {
                                 onclick=self.link.callback(move |_| Msg::RootSelected)>{ "/" }</span>
                             <ul>
                                 { for data.body.iter().map(|e| html! {
-                                    <TreeNode selection=self.current_selection.clone() parent_path={TreeNodePath::root()} name={e.name.clone()} value={e.value.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
+                                    <TreeNode filter=self.search.clone() selection=self.current_selection.clone() parent_path={TreeNodePath::root()} name={e.name.clone()} value={e.value.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
                                 })}
                             </ul>
                         </div>

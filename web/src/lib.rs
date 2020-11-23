@@ -67,4 +67,3 @@ pub fn run_app() {
 
 //TODO fix saving
 // context menu
-// Searching

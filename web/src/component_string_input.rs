@@ -12,6 +12,12 @@ pub struct Props {
     pub onchange: Callback<String>,
     pub value: String,
 
+    #[prop_or("".to_string())]
+    pub placeholder: String,
+
+    #[prop_or("".to_string())]
+    pub class: String,
+
     #[prop_or(None)]
     pub onfocus: Option<Callback<()>>,
     #[prop_or(None)]
@@ -69,10 +75,11 @@ impl Component for StringInput {
                         Msg::Ignored
                     }
                 })
+                placeholder=self.props.placeholder
                 onblur=self.link.callback(move |_fe| Msg::UnFocus)
                 onfocus=self.link.callback(move |_fe| Msg::Focus)
                 value={&self.props.value}
-                class="form-control"/>
+                class=format!("form-control {}", self.props.class)/>
         }
     }
 }
