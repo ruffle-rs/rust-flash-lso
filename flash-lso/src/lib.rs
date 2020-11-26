@@ -1,3 +1,5 @@
+//! Library for reading and writing the Adobe Flash Local Shared Object (LSO) file format and the contained AMF0/AMF3 data
+
 #![warn(
     anonymous_parameters,
     nonstandard_style,
@@ -7,12 +9,12 @@
     unreachable_pub,
     unused_extern_crates,
     unused_qualifications,
-    variant_size_differences
+    variant_size_differences,
+    missing_docs
 )]
-#![warn(missing_docs)]
 
 use crate::amf3::AMF3Decoder;
-use crate::types::{AMFVersion, CombinatorResult, Header, Sol};
+use crate::types::{AMFVersion, Header, Sol};
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::number::complete::be_u32;
@@ -30,15 +32,23 @@ const FORMAT_VERSION_AMF3: u8 = 0x3;
 #[macro_use]
 extern crate serde;
 
+/// Reading and Writing of the AMF0 file format
 pub mod amf0;
+/// Reading and Writing of the AMF3 file format
 pub mod amf3;
-mod element_cache;
-pub mod errors;
+
+//TODO: custom error types
+// mod errors;
+
 #[cfg(feature = "flex")]
+/// Reading and Writing of flex types
 pub mod flex;
+/// Types used for representing file contents
+pub mod types;
+
+mod element_cache;
 mod length;
 mod nom_utils;
-pub mod types;
 
 /// The main entry point of decoding a SOL file
 /// Example of use
@@ -55,6 +65,7 @@ pub mod types;
 /// }
 #[derive(Default)]
 pub struct LSODeserializer {
+    /// Handles reading Value::AMF3() wrapped types
     pub amf3_decoder: AMF3Decoder,
 }
 
@@ -85,6 +96,7 @@ impl LSODeserializer {
         ))
     }
 
+    /// Read a given buffer as an LSO
     pub fn parse<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Sol> {
         let (i, header) = self.parse_header(i)?;
         match header.format_version {
@@ -100,29 +112,33 @@ impl LSODeserializer {
     }
 }
 
+/// Handles encoding of LSO files
 pub mod encoder {
     use crate::types::{AMFVersion, Header, Sol};
     use crate::{
         FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, HEADER_SIGNATURE, HEADER_VERSION, PADDING,
     };
-    use cookie_factory::bytes::{be_u16, be_u32};
+    use cookie_factory::bytes::be_u32;
     use cookie_factory::SerializeFn;
     use std::io::Write;
 
     use crate::amf0::encoder as amf0_encoder;
     use crate::amf3::encoder::AMF3Encoder;
+    use crate::nom_utils::write_string;
     use cookie_factory::combinator::cond;
     use cookie_factory::combinator::slice;
-    use cookie_factory::combinator::string;
     use cookie_factory::gen;
     use cookie_factory::sequence::tuple;
 
+    /// Handles writing a given LSO
     #[derive(Default)]
     pub struct LSOSerializer {
+        /// The encoder used for writing Value::AMF3() wrapped types
         pub amf3_encoder: AMF3Encoder,
     }
 
     impl LSOSerializer {
+        /// Write a given LSO
         pub fn write_full<'a, 'b: 'a, W: Write + 'a>(
             &'a mut self,
             lso: &'b Sol,
@@ -138,10 +154,6 @@ pub mod encoder {
 
             tuple((write_header(&lso.header), amf0, amf3))
         }
-    }
-
-    pub fn write_string<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
-        tuple((be_u16(s.len() as u16), string(s)))
     }
 
     fn write_header<'a, 'b: 'a, W: Write + 'a>(header: &'b Header) -> impl SerializeFn<W> + 'a {
@@ -164,6 +176,7 @@ pub mod encoder {
         ))
     }
 
+    /// Write a LSO to a vec of bytes
     pub fn write_to_bytes(lso: &Sol) -> Vec<u8> {
         let v = vec![];
 

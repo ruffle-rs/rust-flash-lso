@@ -1,10 +1,8 @@
-use crate::errors::Error;
 use cookie_factory::lib::std::fmt::Formatter;
 use core::fmt;
 use derive_try_from_primitive::TryFromPrimitive;
 use enumset::EnumSet;
 use enumset::EnumSetType;
-use nom::IResult;
 use std::rc::Rc;
 
 // TODO: sol -> lso, remove Sol/lso prefix from vars
@@ -179,6 +177,7 @@ impl Default for ClassDefinition {
 }
 
 impl ClassDefinition {
+    /// Creates a new ClassDefinition with the given name, and no attributes or properties
     pub fn default_with_name(name: String) -> Self {
         Self {
             name,
@@ -198,4 +197,4 @@ pub enum Attribute {
     EXTERNAL,
 }
 
-pub(crate) type CombinatorResult<'a, T> = IResult<&'a [u8], T, Error>;
+// pub(crate) type CombinatorResult<'a, T> = IResult<&'a [u8], T, Error>;

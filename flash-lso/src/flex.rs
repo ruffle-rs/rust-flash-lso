@@ -16,6 +16,7 @@ const CORRELATION_ID_BYTES_FLAG: u8 = 2;
 
 const OPERATION_FLAG: u8 = 1;
 
+/// Handles decoding of flex types
 pub mod decode {
     use crate::amf3::AMF3Decoder;
     use crate::flex::{
@@ -364,6 +365,7 @@ pub mod decode {
     }
 }
 
+/// Handles encoding of flex types
 pub mod encode {
     use crate::amf3::encoder::AMF3Encoder;
     use crate::amf3::CustomEncoder;

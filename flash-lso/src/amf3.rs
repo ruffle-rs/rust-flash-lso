@@ -108,7 +108,11 @@ fn parse_element_int(i: &[u8]) -> IResult<&[u8], Rc<Value>> {
 type ExternalDecoderFn =
     Rc<Box<dyn for<'a> Fn(&'a [u8], &mut AMF3Decoder) -> IResult<&'a [u8], Vec<Element>>>>;
 
+/// A trait to define encoding for custom types for use with Externalized objects
 pub trait CustomEncoder {
+    /// This should implement the encoding of a given set of external elements for the given class definition
+    /// Access to the AMF3Encoder is given to allow access to caches
+    /// This implements the encoding side of externalized type support
     fn encode<'a>(
         &self,
         elements: &'a [Element],
@@ -117,22 +121,17 @@ pub trait CustomEncoder {
     ) -> Vec<u8>;
 }
 
+/// Handles decoding AMF3
+#[derive(Default)]
 pub struct AMF3Decoder {
+    /// The table used to cache repeated byte strings
     pub string_reference_table: Vec<Vec<u8>>,
+    /// The table used to cache repeated trait definitions
     pub trait_reference_table: Vec<ClassDefinition>,
+    /// The table used to cache repeated objects
     pub object_reference_table: Vec<Rc<Value>>,
+    /// Encoders used for handling externalized types
     pub external_decoders: HashMap<String, ExternalDecoderFn>,
-}
-
-impl Default for AMF3Decoder {
-    fn default() -> Self {
-        Self {
-            string_reference_table: Vec::new(),
-            trait_reference_table: Vec::new(),
-            object_reference_table: Vec::new(),
-            external_decoders: HashMap::new(),
-        }
-    }
 }
 
 fn parse_element_number(i: &[u8]) -> IResult<&[u8], Rc<Value>> {
@@ -613,13 +612,14 @@ impl AMF3Decoder {
         )(i)
     }
 
-    pub fn parse_body<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Vec<Element>> {
+    pub(crate) fn parse_body<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Vec<Element>> {
         let (i, elements) = separated_list0(tag(PADDING), |i| self.parse_element(i))(i)?;
         let (i, _) = tag(PADDING)(i)?;
         Ok((i, elements))
     }
 }
 
+/// Handles encoding AMF3
 pub mod encoder {
     use crate::amf3::type_marker::TypeMarker;
     use crate::amf3::CustomEncoder;
@@ -639,11 +639,16 @@ pub mod encoder {
     use std::ops::Deref;
     use std::rc::Rc;
 
+    /// Handles encoding AMF3
     #[derive(Default)]
     pub struct AMF3Encoder {
+        /// The table used to cache repeated byte strings
         pub string_reference_table: ElementCache<Vec<u8>>,
+        /// The table used to cache repeated trait definitions
         pub trait_reference_table: RefCell<Vec<ClassDefinition>>,
+        /// The table used to cache repeated objects
         pub object_reference_table: ElementCache<Value>,
+        /// Encoders used for handling externalized types
         pub external_encoders: HashMap<String, Box<dyn CustomEncoder>>,
     }
 
@@ -1279,7 +1284,7 @@ pub mod encoder {
             tuple((self.write_element(element), slice(PADDING)))
         }
 
-        pub fn write_body<'a, 'b: 'a, W: Write + 'a>(
+        pub(crate) fn write_body<'a, 'b: 'a, W: Write + 'a>(
             &'b self,
             elements: &'b [Element],
         ) -> impl SerializeFn<W> + 'a {

@@ -1,5 +1,5 @@
 use crate::{EditableValue, TreeNodePath};
-use flash_lso::types::{Value, Element};
+use flash_lso::types::{Element, Value};
 use std::ops::Deref;
 use std::rc::Rc;
 use yew::prelude::*;
@@ -70,12 +70,12 @@ impl Component for TreeNode {
             Msg::ElementChange(el) => {
                 match &mut self.value {
                     Value::Object(old_el, _) => {
-                       let index = old_el.iter().position(|e| e.name == el.name);
+                        let index = old_el.iter().position(|e| e.name == el.name);
                         if let Some(index) = index {
                             old_el[index] = el;
                         }
                     }
-                    _=> {
+                    _ => {
                         log::warn!("Unknown element change");
                     }
                 }
@@ -90,7 +90,7 @@ impl Component for TreeNode {
                             a[index] = el;
                         }
                     }
-                    _=> {
+                    _ => {
                         log::warn!("Unknown element change for custom element");
                     }
                 }
@@ -105,7 +105,7 @@ impl Component for TreeNode {
                             b[index] = el;
                         }
                     }
-                    _=> {
+                    _ => {
                         log::warn!("Unknown element change for custom element standard");
                     }
                 }
@@ -122,7 +122,6 @@ impl Component for TreeNode {
     fn view(&self) -> Html {
         let name = self.props.name.clone();
         let value = self.value.clone();
-        let value_clone = self.value.clone();
 
         let icon = if TreeNode::has_children(&value) {
             if self.expanded {
@@ -145,7 +144,7 @@ impl Component for TreeNode {
         let path = self.path();
 
         if !self.is_visible() {
-            return html!{};
+            return html! {};
         }
 
         html! {
@@ -176,16 +175,30 @@ impl TreeNode {
         let has_visible_children = match &self.props.value {
             Value::Object(ele, _) => ele.iter().any(|e| e.name.contains(&self.props.filter)),
             Value::ECMAArray(e1, e2, _) => {
-                e2.iter().any(|e| e.name.contains(&self.props.filter)) ||
-                    e1.iter().enumerate().any(|(i, _e)| format!("{}", i).contains(&self.props.filter))
-            },
-            Value::StrictArray(e1) => e1.iter().enumerate().any(|(i, _e)| format!("{}", i).contains(&self.props.filter)),
-            Value::VectorObject(e1, _, _) => e1.iter().enumerate().any(|(i, _e)| format!("{}", i).contains(&self.props.filter)),
-            Value::Custom(e1, e2, _) => e1.iter().any(|e| e.name.contains(&self.props.filter)) || e2.iter().any(|e| e.name.contains(&self.props.filter)),
-            _ => false
+                e2.iter().any(|e| e.name.contains(&self.props.filter))
+                    || e1
+                        .iter()
+                        .enumerate()
+                        .any(|(i, _e)| format!("{}", i).contains(&self.props.filter))
+            }
+            Value::StrictArray(e1) => e1
+                .iter()
+                .enumerate()
+                .any(|(i, _e)| format!("{}", i).contains(&self.props.filter)),
+            Value::VectorObject(e1, _, _) => e1
+                .iter()
+                .enumerate()
+                .any(|(i, _e)| format!("{}", i).contains(&self.props.filter)),
+            Value::Custom(e1, e2, _) => {
+                e1.iter().any(|e| e.name.contains(&self.props.filter))
+                    || e2.iter().any(|e| e.name.contains(&self.props.filter))
+            }
+            _ => false,
         };
 
-        self.props.filter.is_empty() || self.props.name.contains(&self.props.filter) || (TreeNode::has_children(&self.props.value) && has_visible_children)
+        self.props.filter.is_empty()
+            || self.props.name.contains(&self.props.filter)
+            || (TreeNode::has_children(&self.props.value) && has_visible_children)
     }
 
     pub fn path(&self) -> TreeNodePath {

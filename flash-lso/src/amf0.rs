@@ -1,5 +1,6 @@
 mod type_marker;
 
+/// Support for decoding AMF0 data
 pub mod decoder {
     use crate::amf0::type_marker::TypeMarker;
     use crate::types::{ClassDefinition, Element, Value};
@@ -199,11 +200,12 @@ pub mod decoder {
         Ok((i, out))
     }
 
-    pub fn parse_body(i: &[u8]) -> IResult<&[u8], Vec<Element>> {
+    pub(crate) fn parse_body(i: &[u8]) -> IResult<&[u8], Vec<Element>> {
         many0(parse_element_and_padding)(i)
     }
 }
 
+/// Support for encoding AMF0
 pub mod encoder {
     use crate::types::{Element, Value};
     use crate::PADDING;
@@ -213,7 +215,7 @@ pub mod encoder {
 
     use crate::amf0::type_marker::TypeMarker;
     use crate::amf3::encoder::AMF3Encoder;
-    use crate::encoder::write_string;
+    use crate::nom_utils::write_string;
     use cookie_factory::combinator::slice;
     use cookie_factory::combinator::string;
     use cookie_factory::multi::all;
@@ -379,7 +381,7 @@ pub mod encoder {
         tuple((write_element(element), slice(PADDING)))
     }
 
-    pub fn write_body<'a, 'b: 'a, W: Write + 'a>(
+    pub(crate) fn write_body<'a, 'b: 'a, W: Write + 'a>(
         elements: &'b [Element],
     ) -> impl SerializeFn<W> + 'a {
         all(elements.iter().map(write_element_and_padding))

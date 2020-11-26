@@ -3,7 +3,7 @@ use yew::prelude::*;
 use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
 use flash_lso::flex;
-use flash_lso::types::{Attribute, Sol, Value, Element};
+use flash_lso::types::{Attribute, Element, Sol, Value};
 use flash_lso::LSODeserializer;
 
 use crate::blob_bindgen::Blob;
@@ -112,6 +112,7 @@ impl Component for Model {
                         }
                     }
                     Err(e) => {
+                        log::warn!("Got error {:?}", e);
                         self.error_messages
                             .push(format!("Failed to load '{}'", file.name));
                         self.files.remove(index);
@@ -156,7 +157,7 @@ impl Component for Model {
             }
             Msg::RootSelected => {
                 self.current_selection = None;
-            },
+            }
             Msg::SearchQuery(s) => {
                 self.search = s;
             }
@@ -368,7 +369,6 @@ impl Model {
             },
             Value::VectorInt(elements, fixed_length) => {
                 let elements_clone = elements.clone();
-                let elements_clone2 = elements.clone();
                 let elements_clone3 = elements.clone();
                 return html! {
                     <>
@@ -435,7 +435,6 @@ impl Model {
             }
             Value::VectorUInt(elements, fixed_length) => {
                 let elements_clone = elements.clone();
-                let elements_clone2 = elements.clone();
                 let elements_clone3 = elements.clone();
                 return html! {
                     <>
@@ -502,7 +501,6 @@ impl Model {
             }
             Value::VectorDouble(elements, fixed_length) => {
                 let elements_clone = elements.clone();
-                let elements_clone2 = elements.clone();
                 let elements_clone3 = elements.clone();
                 return html! {
                     <>

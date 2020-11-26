@@ -15,7 +15,6 @@ pub(crate) mod component_tab;
 pub(crate) mod component_tabs;
 pub(crate) mod component_treenode;
 pub(crate) mod jquery_bindgen;
-pub(crate) mod style;
 pub(crate) mod uintarray_bindgen;
 pub(crate) mod url_bindgen;
 pub(crate) mod web_expect;
