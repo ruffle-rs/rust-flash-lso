@@ -63,7 +63,7 @@ impl Component for TreeNode {
             Msg::Edited(v) => {
                 self.value = v.clone();
                 if let Some(x) = &self.props.element_callback {
-                    x.emit(Element::new(self.props.name.clone(), v.clone()));
+                    x.emit(Element::new(self.props.name.clone(), v));
                 }
                 true
             }
@@ -139,7 +139,7 @@ impl Component for TreeNode {
             "pl-2 pr-2"
         };
 
-        let callback = self.link.callback(|val| Msg::Edited(val));
+        let callback = self.link.callback(Msg::Edited);
         let v = self.value.clone();
         let path = self.path();
 
@@ -211,16 +211,7 @@ impl TreeNode {
     }
 
     pub fn has_children(data: &Value) -> bool {
-        match data {
-            Value::Object(_, _) => true,
-            Value::StrictArray(_) => true,
-            Value::ECMAArray(_, _, _) => true,
-            Value::VectorObject(_, _, _) => true,
-            Value::AMF3(_) => true,
-            Value::Dictionary(_, _) => true,
-            Value::Custom(_, _, _) => true,
-            _ => false,
-        }
+        matches!(data, Value::Object(_, _) | Value::StrictArray(_) | Value::ECMAArray(_, _, _) | Value::VectorObject(_, _, _) | Value::AMF3(_) | Value::Dictionary(_, _) | Value::Custom(_, _, _))
     }
 
     pub fn view_array_element(&self, index: usize, data: &Rc<Value>) -> Html {

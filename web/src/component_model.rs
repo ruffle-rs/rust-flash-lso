@@ -32,7 +32,7 @@ impl LoadedFile {
     pub fn empty_from_file(file: &File) -> Self {
         LoadedFile {
             file: None,
-            file_name: file.name().to_string(),
+            file_name: file.name(),
         }
     }
 }
