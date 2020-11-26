@@ -12,6 +12,8 @@ pub enum Msg {
     Toggle,
     Edited(Value),
     ElementChange(Element),
+    CustomElementChange(Element),
+    CustomElementChangeStandard(Element),
 }
 
 pub struct TreeNode {
@@ -75,6 +77,36 @@ impl Component for TreeNode {
                     }
                     _=> {
                         log::warn!("Unknown element change");
+                    }
+                }
+
+                true
+            }
+            Msg::CustomElementChange(el) => {
+                match &mut self.value {
+                    Value::Custom(a, _b, _) => {
+                        let index = a.iter().position(|e| e.name == el.name);
+                        if let Some(index) = index {
+                            a[index] = el;
+                        }
+                    }
+                    _=> {
+                        log::warn!("Unknown element change for custom element");
+                    }
+                }
+
+                true
+            }
+            Msg::CustomElementChangeStandard(el) => {
+                match &mut self.value {
+                    Value::Custom(_a, b, _) => {
+                        let index = b.iter().position(|e| e.name == el.name);
+                        if let Some(index) = index {
+                            b[index] = el;
+                        }
+                    }
+                    _=> {
+                        log::warn!("Unknown element change for custom element standard");
                     }
                 }
 
@@ -234,7 +266,7 @@ impl TreeNode {
                         {"Custom elements"}
                         <ul>
                             { for el.iter().map(|e| html! {
-                                <TreeNode filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                                <TreeNode element_callback=self.link.callback(|el| Msg::CustomElementChange(el)) filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
                             })}
                         </ul>
                     </li>
@@ -242,7 +274,7 @@ impl TreeNode {
                         {"Standard elements"}
                         <ul>
                            { for el2.iter().map(|e| html! {
-                                <TreeNode filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                                <TreeNode element_callback=self.link.callback(|el| Msg::CustomElementChangeStandard(el)) filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
                             })}
                         </ul>
                     </li>
