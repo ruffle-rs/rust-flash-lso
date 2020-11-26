@@ -14,7 +14,7 @@
 )]
 
 use crate::amf3::AMF3Decoder;
-use crate::types::{AMFVersion, Header, Sol};
+use crate::types::{AMFVersion, Header, LSO};
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::number::complete::be_u32;
@@ -97,16 +97,16 @@ impl LSODeserializer {
     }
 
     /// Read a given buffer as an LSO
-    pub fn parse<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Sol> {
+    pub fn parse<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], LSO> {
         let (i, header) = self.parse_header(i)?;
         match header.format_version {
             AMFVersion::AMF0 => {
                 let (i, body) = amf0::decoder::parse_body(i)?;
-                Ok((i, Sol { header, body }))
+                Ok((i, LSO { header, body }))
             }
             AMFVersion::AMF3 => {
                 let (i, body) = self.amf3_decoder.parse_body(i)?;
-                Ok((i, Sol { header, body }))
+                Ok((i, LSO { header, body }))
             }
         }
     }
@@ -114,7 +114,7 @@ impl LSODeserializer {
 
 /// Handles encoding of LSO files
 pub mod encoder {
-    use crate::types::{AMFVersion, Header, Sol};
+    use crate::types::{AMFVersion, Header, LSO};
     use crate::{
         FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, HEADER_SIGNATURE, HEADER_VERSION, PADDING,
     };
@@ -141,7 +141,7 @@ pub mod encoder {
         /// Write a given LSO
         pub fn write_full<'a, 'b: 'a, W: Write + 'a>(
             &'a mut self,
-            lso: &'b Sol,
+            lso: &'b LSO,
         ) -> impl SerializeFn<W> + 'a {
             let amf0 = cond(
                 lso.header.format_version == AMFVersion::AMF0,
@@ -177,7 +177,7 @@ pub mod encoder {
     }
 
     /// Write a LSO to a vec of bytes
-    pub fn write_to_bytes(lso: &Sol) -> Vec<u8> {
+    pub fn write_to_bytes(lso: &LSO) -> Vec<u8> {
         let v = vec![];
 
         let mut s = LSOSerializer::default();

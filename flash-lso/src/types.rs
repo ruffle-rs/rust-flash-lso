@@ -10,14 +10,14 @@ use std::rc::Rc;
 /// A container for sol files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
-pub struct Sol {
+pub struct LSO {
     /// The header of this lso
     pub header: Header,
     /// The elements at the root level of this lso
     pub body: Vec<Element>,
 }
 
-impl Sol {
+impl LSO {
     /// Create a new LSO with a header with the given name and version and an empty body
     #[inline]
     pub fn new_empty(name: impl Into<String>, version: AMFVersion) -> Self {

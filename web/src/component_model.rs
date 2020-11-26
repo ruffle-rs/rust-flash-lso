@@ -3,7 +3,7 @@ use yew::prelude::*;
 use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
 use flash_lso::flex;
-use flash_lso::types::{Attribute, Element, Sol, Value};
+use flash_lso::types::{Attribute, Element, LSO, Value};
 use flash_lso::LSODeserializer;
 
 use crate::blob_bindgen::Blob;
@@ -25,7 +25,7 @@ use std::ops::Deref;
 
 pub struct LoadedFile {
     pub file_name: String,
-    pub file: Option<Sol>,
+    pub file: Option<LSO>,
 }
 
 impl LoadedFile {
@@ -622,7 +622,7 @@ impl Model {
         }
     }
 
-    fn view_file(&self, _index: usize, data: &Sol) -> Html {
+    fn view_file(&self, _index: usize, data: &LSO) -> Html {
         let root_class = "text-white bg-primary rounded-pill pl-2 pr-2";
 
         html! {
