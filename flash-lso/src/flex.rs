@@ -16,6 +16,7 @@ const CORRELATION_ID_BYTES_FLAG: u8 = 2;
 
 const OPERATION_FLAG: u8 = 1;
 
+/// Handles decoding of flex types
 pub mod decode {
     use crate::amf3::AMF3Decoder;
     use crate::flex::{
@@ -23,11 +24,12 @@ pub mod decode {
         CORRELATION_ID_FLAG, DESTINATION_ID_FLAG, HEADERS_FLAG, MESSAGE_ID_BYTES_FLAG,
         MESSAGE_ID_FLAG, NEXT_FLAG, OPERATION_FLAG, TIMESTAMP_FLAG, TTL_FLAG,
     };
-    use crate::types::SolElement;
+    use crate::types::Element;
     use nom::number::complete::be_u8;
     use nom::IResult;
+    use std::rc::Rc;
 
-    fn parse_abstract_message_flags<'a>(i: &'a [u8]) -> IResult<&'a [u8], Vec<u8>> {
+    fn parse_abstract_message_flags(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
         let mut next_flag = true;
         let mut flags = Vec::new();
 
@@ -44,10 +46,10 @@ pub mod decode {
         Ok((k, flags))
     }
 
-    pub fn parse_abstract_message<'a>(
+    fn parse_abstract_message<'a>(
         i: &'a [u8],
-        amf3: &AMF3Decoder,
-    ) -> IResult<&'a [u8], Vec<SolElement>> {
+        amf3: &mut AMF3Decoder,
+    ) -> IResult<&'a [u8], Vec<Element>> {
         let (i, flags) = parse_abstract_message_flags(i)?;
 
         let mut elements = Vec::new();
@@ -59,7 +61,7 @@ pub mod decode {
             if pos == 0 {
                 if flags & BODY_FLAG != 0 {
                     let (j, value) = amf3.parse_single_element(k)?;
-                    elements.push(SolElement {
+                    elements.push(Element {
                         name: "body".to_string(),
                         value,
                     });
@@ -67,7 +69,7 @@ pub mod decode {
                 }
                 if flags & CLIENT_ID_FLAG != 0 {
                     let (j, value) = amf3.parse_single_element(k)?;
-                    elements.push(SolElement {
+                    elements.push(Element {
                         name: "client_id".to_string(),
                         value,
                     });
@@ -75,7 +77,7 @@ pub mod decode {
                 }
                 if flags & DESTINATION_ID_FLAG != 0 {
                     let (j, value) = amf3.parse_single_element(k)?;
-                    elements.push(SolElement {
+                    elements.push(Element {
                         name: "destination".to_string(),
                         value,
                     });
@@ -83,7 +85,7 @@ pub mod decode {
                 }
                 if flags & HEADERS_FLAG != 0 {
                     let (j, value) = amf3.parse_single_element(k)?;
-                    elements.push(SolElement {
+                    elements.push(Element {
                         name: "headers".to_string(),
                         value,
                     });
@@ -91,7 +93,7 @@ pub mod decode {
                 }
                 if flags & MESSAGE_ID_FLAG != 0 {
                     let (j, value) = amf3.parse_single_element(k)?;
-                    elements.push(SolElement {
+                    elements.push(Element {
                         name: "message_id".to_string(),
                         value,
                     });
@@ -99,7 +101,7 @@ pub mod decode {
                 }
                 if flags & TIMESTAMP_FLAG != 0 {
                     let (j, value) = amf3.parse_single_element(k)?;
-                    elements.push(SolElement {
+                    elements.push(Element {
                         name: "timestamp".to_string(),
                         value,
                     });
@@ -107,7 +109,7 @@ pub mod decode {
                 }
                 if flags & TTL_FLAG != 0 {
                     let (j, value) = amf3.parse_single_element(k)?;
-                    elements.push(SolElement {
+                    elements.push(Element {
                         name: "ttl".to_string(),
                         value,
                     });
@@ -117,7 +119,7 @@ pub mod decode {
             } else if pos == 1 {
                 if (flags & CLIENT_ID_BYTES_FLAG) != 0 {
                     let (j, value) = amf3.parse_single_element(k)?;
-                    elements.push(SolElement {
+                    elements.push(Element {
                         name: "client_id_bytes".to_string(),
                         value,
                     });
@@ -125,7 +127,7 @@ pub mod decode {
                 }
                 if (flags & MESSAGE_ID_BYTES_FLAG) != 0 {
                     let (j, value) = amf3.parse_single_element(k)?;
-                    elements.push(SolElement {
+                    elements.push(Element {
                         name: "message_id_bytes".to_string(),
                         value,
                     });
@@ -139,7 +141,7 @@ pub mod decode {
                 for j in reserved..6 {
                     if (flags >> j) != 0 {
                         let (jj, value) = amf3.parse_single_element(k)?;
-                        elements.push(SolElement {
+                        elements.push(Element {
                             name: format!("children_{}", j),
                             value,
                         });
@@ -152,10 +154,10 @@ pub mod decode {
         Ok((i, elements))
     }
 
-    pub fn parse_async_message<'a>(
+    fn parse_async_message<'a>(
         i: &'a [u8],
-        amf3: &AMF3Decoder,
-    ) -> IResult<&'a [u8], Vec<SolElement>> {
+        amf3: &mut AMF3Decoder,
+    ) -> IResult<&'a [u8], Vec<Element>> {
         let (i, msg) = parse_abstract_message(i, amf3)?;
 
         let (i, flags) = parse_abstract_message_flags(i)?;
@@ -168,7 +170,7 @@ pub mod decode {
             if pos == 0 {
                 if (flags & CORRELATION_ID_FLAG) != 0u8 {
                     let (j, value) = amf3.parse_single_element(k)?;
-                    elements.push(SolElement {
+                    elements.push(Element {
                         name: "correlation_id".to_string(),
                         value,
                     });
@@ -176,7 +178,7 @@ pub mod decode {
                 }
                 if (flags & CORRELATION_ID_BYTES_FLAG) != 0u8 {
                     let (j, value) = amf3.parse_single_element(k)?;
-                    elements.push(SolElement {
+                    elements.push(Element {
                         name: "correlation_id_bytes".to_string(),
                         value,
                     });
@@ -189,7 +191,7 @@ pub mod decode {
                 for j in reserved..6 {
                     if (flags >> j) & 1 != 0u8 {
                         let (jj, value) = amf3.parse_single_element(k)?;
-                        elements.push(SolElement {
+                        elements.push(Element {
                             name: format!("children_async_{}", j),
                             value,
                         });
@@ -202,10 +204,10 @@ pub mod decode {
         Ok((k, elements))
     }
 
-    pub fn parse_acknowledge_message<'a>(
+    fn parse_acknowledge_message<'a>(
         i: &'a [u8],
-        amf3: &AMF3Decoder,
-    ) -> IResult<&'a [u8], Vec<SolElement>> {
+        amf3: &mut AMF3Decoder,
+    ) -> IResult<&'a [u8], Vec<Element>> {
         let (i, msg) = parse_async_message(i, amf3)?;
 
         let (i, flags) = parse_abstract_message_flags(i)?;
@@ -218,7 +220,7 @@ pub mod decode {
                 for j in 0..6 {
                     if (flags >> j) & 1 != 0 {
                         let (jj, value) = amf3.parse_single_element(k)?;
-                        elements.push(SolElement {
+                        elements.push(Element {
                             name: format!("children_acknowledge_{}", j),
                             value,
                         });
@@ -231,10 +233,10 @@ pub mod decode {
         Ok((k, elements))
     }
 
-    pub fn parse_command_message<'a>(
+    fn parse_command_message<'a>(
         i: &'a [u8],
-        amf3: &AMF3Decoder,
-    ) -> IResult<&'a [u8], Vec<SolElement>> {
+        amf3: &mut AMF3Decoder,
+    ) -> IResult<&'a [u8], Vec<Element>> {
         let (i, msg) = parse_async_message(i, amf3)?;
 
         let (i, flags) = parse_abstract_message_flags(i)?;
@@ -248,7 +250,7 @@ pub mod decode {
             if pos == 0 {
                 if (flags & OPERATION_FLAG) != 0 {
                     let (j, value) = amf3.parse_single_element(i)?;
-                    elements.push(SolElement {
+                    elements.push(Element {
                         name: "operation".to_string(),
                         value,
                     });
@@ -261,7 +263,7 @@ pub mod decode {
                 for j in reserved..6 {
                     if (flags >> j) & 1 != 0 {
                         let (jj, value) = amf3.parse_single_element(k)?;
-                        elements.push(SolElement {
+                        elements.push(Element {
                             name: format!("children_command_{}", j),
                             value,
                         });
@@ -275,13 +277,13 @@ pub mod decode {
     }
 
     // all arrays
-    pub fn parse_array_collection<'a>(
+    fn parse_array_collection<'a>(
         i: &'a [u8],
-        amf3: &AMF3Decoder,
-    ) -> IResult<&'a [u8], Vec<SolElement>> {
+        amf3: &mut AMF3Decoder,
+    ) -> IResult<&'a [u8], Vec<Element>> {
         let (i, value) = amf3.parse_single_element(i)?;
 
-        let el = vec![SolElement {
+        let el = vec![Element {
             name: "data".to_string(),
             value,
         }];
@@ -290,13 +292,13 @@ pub mod decode {
     }
 
     // all proxies
-    pub fn parse_object_proxy<'a>(
+    fn parse_object_proxy<'a>(
         i: &'a [u8],
-        amf3: &AMF3Decoder,
-    ) -> IResult<&'a [u8], Vec<SolElement>> {
+        amf3: &mut AMF3Decoder,
+    ) -> IResult<&'a [u8], Vec<Element>> {
         let (i, value) = amf3.parse_single_element(i)?;
 
-        let el = vec![SolElement {
+        let el = vec![Element {
             name: "object".to_string(),
             value,
         }];
@@ -304,63 +306,66 @@ pub mod decode {
         Ok((i, el))
     }
 
+    /// Register the flex decoders into the given AMF3Decoder
+    #[inline]
     pub fn register_decoders(decoder: &mut AMF3Decoder) {
         decoder.external_decoders.insert(
             "flex.messaging.io.AbstractMessage".to_string(),
-            Box::new(parse_abstract_message),
+            Rc::new(Box::new(parse_abstract_message)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.AsyncMessage".to_string(),
-            Box::new(parse_async_message),
+            Rc::new(Box::new(parse_async_message)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.AsyncMessageExt".to_string(),
-            Box::new(parse_async_message),
+            Rc::new(Box::new(parse_async_message)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.AcknowledgeMessage".to_string(),
-            Box::new(parse_acknowledge_message),
+            Rc::new(Box::new(parse_acknowledge_message)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.AcknowledgeMessageExt".to_string(),
-            Box::new(parse_acknowledge_message),
+            Rc::new(Box::new(parse_acknowledge_message)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.CommandMessage".to_string(),
-            Box::new(parse_command_message),
+            Rc::new(Box::new(parse_command_message)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.CommandMessageExt".to_string(),
-            Box::new(parse_command_message),
+            Rc::new(Box::new(parse_command_message)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.ErrorMessage".to_string(),
-            Box::new(parse_acknowledge_message),
+            Rc::new(Box::new(parse_acknowledge_message)),
         );
 
         decoder.external_decoders.insert(
             "flex.messaging.io.ArrayCollection".to_string(),
-            Box::new(parse_array_collection),
+            Rc::new(Box::new(parse_array_collection)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.ArrayList".to_string(),
-            Box::new(parse_array_collection),
+            Rc::new(Box::new(parse_array_collection)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.ObjectProxy".to_string(),
-            Box::new(parse_object_proxy),
+            Rc::new(Box::new(parse_object_proxy)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.ManagedObjectProxy".to_string(),
-            Box::new(parse_object_proxy),
+            Rc::new(Box::new(parse_object_proxy)),
         );
         decoder.external_decoders.insert(
             "flex.messaging.io.SerializationProxy".to_string(),
-            Box::new(parse_object_proxy),
+            Rc::new(Box::new(parse_object_proxy)),
         );
     }
 }
 
+/// Handles encoding of flex types
 pub mod encode {
     use crate::amf3::encoder::AMF3Encoder;
     use crate::amf3::CustomEncoder;
@@ -369,19 +374,19 @@ pub mod encode {
         CORRELATION_ID_FLAG, DESTINATION_ID_FLAG, HEADERS_FLAG, MESSAGE_ID_BYTES_FLAG,
         MESSAGE_ID_FLAG, NEXT_FLAG, OPERATION_FLAG, TIMESTAMP_FLAG, TTL_FLAG,
     };
-    use crate::types::{ClassDefinition, SolElement};
+    use crate::types::{ClassDefinition, Element};
     use cookie_factory::bytes::be_u8;
     use cookie_factory::multi::all;
     use cookie_factory::sequence::tuple;
     use cookie_factory::{gen, SerializeFn};
     use std::io::Write;
 
-    pub struct ArrayCollection;
+    struct ArrayCollection;
 
     impl CustomEncoder for ArrayCollection {
         fn encode<'a>(
             &self,
-            elements: &'a [SolElement],
+            elements: &'a [Element],
             _class_def: &Option<ClassDefinition>,
             encoder: &AMF3Encoder,
         ) -> Vec<u8> {
@@ -394,7 +399,7 @@ pub mod encode {
     impl ArrayCollection {
         fn do_encode<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
-            elements: &'b [SolElement],
+            elements: &'b [Element],
             encoder: &'a AMF3Encoder,
         ) -> impl SerializeFn<W> + 'a {
             let data = elements.get(0).unwrap();
@@ -402,12 +407,12 @@ pub mod encode {
         }
     }
 
-    pub struct ObjectProxy;
+    struct ObjectProxy;
 
     impl CustomEncoder for ObjectProxy {
         fn encode<'a>(
             &self,
-            elements: &'a [SolElement],
+            elements: &'a [Element],
             _class_def: &Option<ClassDefinition>,
             encoder: &AMF3Encoder,
         ) -> Vec<u8> {
@@ -420,7 +425,7 @@ pub mod encode {
     impl ObjectProxy {
         fn do_encode<'a, 'b: 'a, W: Write + 'a>(
             &'a self,
-            elements: &'b [SolElement],
+            elements: &'b [Element],
             encoder: &'a AMF3Encoder,
         ) -> impl SerializeFn<W> + 'a {
             let data = elements.get(0).unwrap();
@@ -428,7 +433,7 @@ pub mod encode {
         }
     }
 
-    pub fn write_flags<'a, 'b: 'a, W: Write + 'a>(flags: &'a [u8]) -> impl SerializeFn<W> + 'a {
+    fn write_flags<'a, 'b: 'a, W: Write + 'a>(flags: &'a [u8]) -> impl SerializeFn<W> + 'a {
         all(flags.iter().enumerate().map(move |(index, flag)| {
             if index == flags.len() {
                 be_u8(*flag & !NEXT_FLAG)
@@ -438,12 +443,12 @@ pub mod encode {
         }))
     }
 
-    pub struct AbstractMessage;
+    struct AbstractMessage;
 
     impl CustomEncoder for AbstractMessage {
         fn encode<'a>(
             &self,
-            elements: &'a [SolElement],
+            elements: &'a [Element],
             _class_def: &Option<ClassDefinition>,
             encoder: &AMF3Encoder,
         ) -> Vec<u8> {
@@ -454,7 +459,7 @@ pub mod encode {
     }
 
     fn write_abstract_message<'a, 'b: 'a, W: Write + 'a>(
-        elements: &'b [SolElement],
+        elements: &'b [Element],
         encoder: &'a AMF3Encoder,
     ) -> impl SerializeFn<W> + 'a {
         move |out| {
@@ -604,12 +609,12 @@ pub mod encode {
         }
     }
 
-    pub struct AsyncMessage;
+    struct AsyncMessage;
 
     impl CustomEncoder for AsyncMessage {
         fn encode<'a>(
             &self,
-            elements: &'a [SolElement],
+            elements: &'a [Element],
             _class_def: &Option<ClassDefinition>,
             encoder: &AMF3Encoder,
         ) -> Vec<u8> {
@@ -620,7 +625,7 @@ pub mod encode {
     }
 
     fn write_async_message<'a, 'b: 'a, W: Write + 'a>(
-        elements: &'b [SolElement],
+        elements: &'b [Element],
         encoder: &'a AMF3Encoder,
     ) -> impl SerializeFn<W> + 'a {
         move |out| {
@@ -705,7 +710,7 @@ pub mod encode {
     impl CustomEncoder for AcknowledgeMessage {
         fn encode<'a>(
             &self,
-            elements: &'a [SolElement],
+            elements: &'a [Element],
             _class_def: &Option<ClassDefinition>,
             encoder: &AMF3Encoder,
         ) -> Vec<u8> {
@@ -716,7 +721,7 @@ pub mod encode {
     }
 
     fn write_acknowledge_message<'a, 'b: 'a, W: Write + 'a>(
-        elements: &'b [SolElement],
+        elements: &'b [Element],
         encoder: &'a AMF3Encoder,
     ) -> impl SerializeFn<W> + 'a {
         move |out| {
@@ -767,7 +772,7 @@ pub mod encode {
     impl CustomEncoder for CommandMessage {
         fn encode<'a>(
             &self,
-            elements: &'a [SolElement],
+            elements: &'a [Element],
             _class_def: &Option<ClassDefinition>,
             encoder: &AMF3Encoder,
         ) -> Vec<u8> {
@@ -778,7 +783,7 @@ pub mod encode {
     }
 
     fn write_command_message<'a, 'b: 'a, W: Write + 'a>(
-        elements: &'b [SolElement],
+        elements: &'b [Element],
         encoder: &'a AMF3Encoder,
     ) -> impl SerializeFn<W> + 'a {
         move |out| {
@@ -849,6 +854,8 @@ pub mod encode {
         }
     }
 
+    /// Register the flex encoders into the given AMF3Encoder
+    #[inline]
     pub fn register_encoders(encoder: &mut AMF3Encoder) {
         encoder.external_encoders.insert(
             "flex.messaging.io.ArrayCollection".to_string(),
