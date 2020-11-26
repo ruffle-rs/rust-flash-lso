@@ -48,7 +48,7 @@ impl TreeNodePath {
             return false;
         }
 
-        self.0[..other.0.len()] == other.0
+        self.0[..other.0.len()] == other.0[..]
     }
 
     pub fn string(&self) -> String {
