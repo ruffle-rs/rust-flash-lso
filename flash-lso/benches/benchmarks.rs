@@ -16,7 +16,7 @@ macro_rules! auto_bench {
                     c.bench_function(concat!("parse_", $path), |b| {
                         let input_bytes = include_bytes!(concat!("../tests/sol/", $path, ".sol"));
                         b.iter(|| {
-                            black_box(LSODeserializer::default().parse_full(input_bytes).unwrap());
+                            black_box(LSODeserializer::default().parse(input_bytes).unwrap());
                         })
                     });
                 )*
