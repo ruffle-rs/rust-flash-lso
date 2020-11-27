@@ -8,5 +8,5 @@ extern "C" {
     pub fn jquery(name: &str) -> JQueryValue;
 
     #[wasm_bindgen(method)]
-    pub fn jstree(this: &JQueryValue);
+    pub fn modal(this: &JQueryValue, options: &JsValue);
 }

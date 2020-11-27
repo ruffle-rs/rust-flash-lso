@@ -1,13 +1,15 @@
 use yew::prelude::*;
 use yew::{Children, Component, ComponentLink, Html, Properties};
+use yewtil::NeqAssign;
 
 pub struct Tab {
-    props: Props,
+    pub(crate) props: Props,
 }
 
 #[derive(Properties, Clone, PartialEq)]
 pub struct Props {
     pub label: String,
+    pub loading: bool,
     pub children: Children,
 }
 
@@ -24,12 +26,7 @@ impl Component for Tab {
     }
 
     fn change(&mut self, props: Self::Properties) -> bool {
-        if props != self.props {
-            self.props = props;
-            true
-        } else {
-            false
-        }
+        self.props.neq_assign(props)
     }
 
     fn view(&self) -> Html {

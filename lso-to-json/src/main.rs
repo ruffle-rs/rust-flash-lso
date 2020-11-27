@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use clap::*;
 use flash_lso::flex::decode;
-use flash_lso::types::Sol;
+use flash_lso::types::LSO;
 use flash_lso::LSODeserializer;
 
 fn main() {
@@ -27,13 +27,13 @@ fn main() {
     }
 }
 
-fn read_file(path: PathBuf) -> Option<Sol> {
+fn read_file(path: PathBuf) -> Option<LSO> {
     let mut x = File::open(path).unwrap();
     let mut data = Vec::new();
     let _ = x.read_to_end(&mut data).expect("Unable to read file");
     let mut d = LSODeserializer::default();
     decode::register_decoders(&mut d.amf3_decoder);
 
-    let d = d.parse_full(&data);
+    let d = d.parse(&data);
     d.map(|s| s.1).ok()
 }
