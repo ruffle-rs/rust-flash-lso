@@ -1,7 +1,5 @@
-const REFERENCE_FLAG: u32 = 0x01;
-
+///! Handles encoding AMF3
 use crate::amf3::custom_encoder::CustomEncoder;
-/// Handles encoding AMF3
 use crate::amf3::type_marker::TypeMarker;
 use crate::element_cache::ElementCache;
 use crate::length::Length;

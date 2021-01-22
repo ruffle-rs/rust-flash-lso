@@ -1,6 +1,6 @@
 use crate::amf3::custom_encoder::ExternalDecoderFn;
 use crate::amf3::type_marker::TypeMarker;
-use crate::amf3::write::AMF3Encoder;
+
 use crate::length::Length;
 use crate::types::*;
 use crate::types::{Element, Value};
