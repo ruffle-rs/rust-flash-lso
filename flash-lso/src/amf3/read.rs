@@ -1,7 +1,7 @@
 use crate::amf3::custom_encoder::ExternalDecoderFn;
 use crate::amf3::type_marker::TypeMarker;
 
-use crate::length::Length;
+use crate::amf3::length::Length;
 use crate::types::*;
 use crate::types::{Element, Value};
 use crate::PADDING;

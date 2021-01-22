@@ -6,11 +6,11 @@ use enumset::EnumSetType;
 use std::rc::Rc;
 
 // TODO: sol -> lso, remove Sol/lso prefix from vars
-//TODO: split to read and write
-//todo: amf0/amf3 enable
+//TODO: split to read and write for flex
+//TODO: separate mod for extra (flex)
 //todo: error handling
 
-/// A container for sol files
+/// A container for lso files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct LSO {
@@ -57,7 +57,7 @@ impl fmt::Display for AMFVersion {
     }
 }
 
-/// The header of a sol file
+/// The header of a lso file
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct Header {

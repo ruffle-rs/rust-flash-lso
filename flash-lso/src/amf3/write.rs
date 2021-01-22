@@ -1,8 +1,8 @@
 ///! Handles encoding AMF3
 use crate::amf3::custom_encoder::CustomEncoder;
 use crate::amf3::type_marker::TypeMarker;
-use crate::element_cache::ElementCache;
-use crate::length::Length;
+use crate::amf3::element_cache::ElementCache;
+use crate::amf3::length::Length;
 use crate::nom_utils::either;
 use crate::types::{Attribute, ClassDefinition, Element, Value};
 use crate::PADDING;
@@ -246,10 +246,6 @@ impl AMF3Encoder {
         bytes: &'b str,
         string: bool,
     ) -> impl SerializeFn<W> + 'a {
-        // let mut len = self
-        //     .object_reference_table
-        //     .to_length_store(SolValue::XML(bytes.to_string(), string), bytes.len() as u32);
-
         let len = Length::Size(bytes.len() as u32);
 
         tuple((
@@ -419,9 +415,6 @@ impl AMF3Encoder {
         custom_props: Option<&'b [Element]>,
         class_def: &'b Option<ClassDefinition>,
     ) -> impl SerializeFn<W> + 'a {
-        // let mut had_object = self
-        //     .object_reference_table
-        //     .to_length(SolValue::Object(children.to_vec(), class_def.clone()), 0);
         let had_object = Length::Size(0);
 
         self.object_reference_table
@@ -469,11 +462,6 @@ impl AMF3Encoder {
         &'a self,
         children: &'b [Rc<Value>],
     ) -> impl SerializeFn<W> + 'a {
-        // let mut len = self.object_reference_table.to_length_store(
-        //     SolValue::StrictArray(children.to_vec()),
-        //     children.len() as u32,
-        // );
-
         //TODO: why is this not a reference
         let len = Length::Size(children.len() as u32);
 
@@ -504,11 +492,6 @@ impl AMF3Encoder {
         dense: &'b [Rc<Value>],
         assoc: &'b [Element],
     ) -> impl SerializeFn<W> + 'a {
-        // let mut len = self.object_reference_table.to_length_store(
-        //     SolValue::ECMAArray(dense.to_vec(), assoc.clone().to_vec(), assoc.len() as u32),
-        //     dense.len() as u32,
-        // );
-
         let len = Length::Size(dense.len() as u32);
 
         //TODO: would this also work for strict arrays if they have [] for assoc part?

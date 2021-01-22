@@ -34,12 +34,12 @@ macro_rules! auto_test {
 
                 let empty: Vec<u8> = vec![];
                 if unparsed_bytes.len() > 0 {
-                    assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
+                    assert_eq!(crate::PrettyArray(&empty), crate::PrettyArray(&unparsed_bytes[..100].to_vec()));
                 }
 
-                let bytes = encoder::write_to_bytes(&sol);
+                let bytes = crate::encoder::write_to_bytes(&sol);
 
-                assert_eq!(PrettyArray(&bytes), PrettyArray(&data.to_vec()), "library output != input");
+                assert_eq!(crate::PrettyArray(&bytes), crate::PrettyArray(&data.to_vec()), "library output != input");
             } else {
                 println!("parse failed: {:?}", parse_res);
                 assert_eq!(false, true)
@@ -258,7 +258,7 @@ json_test_flex! {
 }
 
 // As2 / amf0
-auto_test! {
+    auto_test! {
     [as2_array, "AS2-Array-Demo"],
     [as2_boolean, "AS2-Boolean-Demo"],
     [as2_date, "AS2-Date-Demo"],
@@ -276,6 +276,9 @@ auto_test! {
 }
 
 // As3 / amf3
+#[cfg(feature = "amf3")]
+pub mod amf0 {
+    use crate::LSODeserializer;
 auto_test! {
     [as3_number, "AS3-Number-Demo"],
     [as3_boolean, "AS3-Boolean-Demo"],
@@ -296,6 +299,7 @@ auto_test! {
     [as3_vector_object, "AS3-VectorObject-Demo"],
     [as3_vector_typed_object, "AS3-VectorTypedObject-Demo"],
     [as3_dictionary, "AS3-Dictionary-Demo"]
+}
 }
 
 // Other tests, mixed

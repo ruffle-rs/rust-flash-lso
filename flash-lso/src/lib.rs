@@ -13,13 +13,15 @@
     missing_docs
 )]
 
-use crate::amf3::read::AMF3Decoder;
-use crate::types::{AMFVersion, Header, LSO};
+use std::convert::TryInto;
+
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::number::complete::be_u32;
 use nom::IResult;
-use std::convert::TryInto;
+use nom::number::complete::be_u32;
+
+use crate::amf3::read::AMF3Decoder;
+use crate::types::{AMFVersion, Header, LSO};
 
 const HEADER_VERSION: [u8; 2] = [0x00, 0xbf];
 const HEADER_SIGNATURE: [u8; 10] = [0x54, 0x43, 0x53, 0x4f, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00];
@@ -35,22 +37,21 @@ extern crate serde;
 /// Reading and Writing of the AMF0 file format
 pub mod amf0;
 /// Reading and Writing of the AMF3 file format
+#[cfg(feature = "amf3")]
 pub mod amf3;
 
 //TODO: custom error types
 // mod errors;
 
-#[cfg(feature = "flex")]
-/// Reading and Writing of flex types
-pub mod flex;
 /// Types used for representing file contents
 pub mod types;
-
-mod element_cache;
-mod length;
 mod nom_utils;
 
-/// The main entry point of decoding a SOL file
+/// Reading and Writing of flex types
+#[cfg(feature = "flex")]
+pub mod flex;
+
+/// The main entry point of decoding a LSO file
 /// Example of use
 /// ```
 /// use std::fs::File;
@@ -65,6 +66,7 @@ mod nom_utils;
 /// }
 #[derive(Default)]
 pub struct LSODeserializer {
+    #[cfg(feature = "amf3")]
     /// Handles reading Value::AMF3() wrapped types
     pub amf3_decoder: AMF3Decoder,
 }
@@ -114,24 +116,26 @@ impl LSODeserializer {
 
 /// Handles encoding of LSO files
 pub mod encoder {
-    use crate::types::{AMFVersion, Header, LSO};
-    use crate::{
-        FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, HEADER_SIGNATURE, HEADER_VERSION, PADDING,
-    };
-    use cookie_factory::bytes::be_u32;
-    use cookie_factory::SerializeFn;
     use std::io::Write;
 
-    use crate::amf3::write::AMF3Encoder;
-    use crate::nom_utils::write_string;
+    use cookie_factory::bytes::be_u32;
     use cookie_factory::combinator::cond;
     use cookie_factory::combinator::slice;
     use cookie_factory::gen;
     use cookie_factory::sequence::tuple;
+    use cookie_factory::SerializeFn;
+
+    use crate::{
+        FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, HEADER_SIGNATURE, HEADER_VERSION, PADDING,
+    };
+    use crate::amf3::write::AMF3Encoder;
+    use crate::nom_utils::write_string;
+    use crate::types::{AMFVersion, Header, LSO};
 
     /// Handles writing a given LSO
     #[derive(Default)]
     pub struct LSOSerializer {
+        #[cfg(feature = "amf3")]
         /// The encoder used for writing Value::AMF3() wrapped types
         pub amf3_encoder: AMF3Encoder,
     }
