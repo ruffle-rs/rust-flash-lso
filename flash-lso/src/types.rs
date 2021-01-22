@@ -5,7 +5,6 @@ use enumset::EnumSet;
 use enumset::EnumSetType;
 use std::rc::Rc;
 
-// TODO: sol -> lso, remove Sol/lso prefix from vars
 //TODO: split to read and write for flex
 //TODO: separate mod for extra (flex)
 //todo: error handling
@@ -13,14 +12,14 @@ use std::rc::Rc;
 /// A container for lso files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
-pub struct LSO {
+pub struct Lso {
     /// The header of this lso
     pub header: Header,
     /// The elements at the root level of this lso
     pub body: Vec<Element>,
 }
 
-impl LSO {
+impl Lso {
     /// Create a new LSO with a header with the given name and version and an empty body
     #[inline]
     pub fn new_empty(name: impl Into<String>, version: AMFVersion) -> Self {

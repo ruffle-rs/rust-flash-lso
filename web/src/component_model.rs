@@ -3,8 +3,8 @@ use yew::prelude::*;
 use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
 use flash_lso::flex;
-use flash_lso::types::{Attribute, Element, Value, LSO};
-use flash_lso::LSODeserializer;
+use flash_lso::types::{Attribute, Element, Value, Lso};
+use flash_lso::read::Reader;
 
 use crate::blob_bindgen::Blob;
 use crate::component_hexview::HexView;
@@ -20,12 +20,12 @@ use crate::url_bindgen::URL;
 use crate::web_expect::WebSafeExpect;
 use crate::EditableValue;
 use crate::TreeNodePath;
-use flash_lso::encoder::write_to_bytes;
+use flash_lso::write::write_to_bytes;
 use std::ops::Deref;
 
 pub struct LoadedFile {
     pub file_name: String,
-    pub file: Option<LSO>,
+    pub file: Option<Lso>,
 }
 
 impl LoadedFile {
@@ -97,7 +97,7 @@ impl Component for Model {
                 }
             }
             Msg::Loaded(index, file) => {
-                let mut parser = LSODeserializer::default();
+                let mut parser = Reader::default();
                 flex::decode::register_decoders(&mut parser.amf3_decoder);
 
                 match parser.parse(&file.content) {
@@ -622,7 +622,7 @@ impl Model {
         }
     }
 
-    fn view_file(&self, _index: usize, data: &LSO) -> Html {
+    fn view_file(&self, _index: usize, data: &Lso) -> Html {
         let root_class = "text-white bg-primary rounded-pill pl-2 pr-2";
 
         html! {

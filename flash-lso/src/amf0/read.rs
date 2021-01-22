@@ -13,6 +13,8 @@ use nom::IResult;
 use std::convert::{TryFrom, TryInto};
 use std::rc::Rc;
 
+type AMFResult<'a, T> = IResult<&'a [u8], T>;
+
 pub(crate) fn parse_string(i: &[u8]) -> IResult<&[u8], &str> {
     let (i, length) = be_u16(i)?;
     take_str!(i, length)

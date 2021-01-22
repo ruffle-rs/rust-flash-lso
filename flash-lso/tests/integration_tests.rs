@@ -1,6 +1,6 @@
 use core::fmt;
-use flash_lso::encoder;
-use flash_lso::LSODeserializer;
+use flash_lso::write::Writer;
+use flash_lso::read::Reader;
 use nom::error::ErrorKind::Tag;
 use nom::Err::Incomplete;
 use nom::Needed;
@@ -27,7 +27,7 @@ macro_rules! auto_test {
         #[test]
         pub fn $name() {
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let parse_res = LSODeserializer::default().parse(data);
+            let parse_res = Reader::default().parse(data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
                 println!("{:#?}", sol);
@@ -37,7 +37,7 @@ macro_rules! auto_test {
                     assert_eq!(crate::PrettyArray(&empty), crate::PrettyArray(&unparsed_bytes[..100].to_vec()));
                 }
 
-                let bytes = crate::encoder::write_to_bytes(&sol);
+                let bytes = flash_lso::write::write_to_bytes(&sol);
 
                 assert_eq!(crate::PrettyArray(&bytes), crate::PrettyArray(&data.to_vec()), "library output != input");
             } else {
@@ -55,7 +55,7 @@ macro_rules! test_parse_only {
         #[test]
         pub fn $name() {
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let parse_res = LSODeserializer::default().parse(data);
+            let parse_res = Reader::default().parse(data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
                 println!("Parsed sol: {:?}", sol);
@@ -80,10 +80,10 @@ macro_rules! auto_test_flex {
         pub fn $name() {
             use flash_lso::flex;
             use cookie_factory::gen;
-            use flash_lso::encoder::LSOSerializer;
+            use flash_lso::write::Writer;
 
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let mut des = LSODeserializer::default();
+            let mut des = Reader::default();
             flex::decode::register_decoders(&mut des.amf3_decoder);
             let parse_res = des.parse(data);
 
@@ -94,13 +94,13 @@ macro_rules! auto_test_flex {
                 }
 
                 let v = vec![];
-                let mut s = LSOSerializer::default();
+                let mut s = Writer::default();
                 flex::encode::register_encoders(&mut s.amf3_encoder);
                 let serialise = s.write_full(&sol);
                 let (buffer, _size) = gen(serialise, v).unwrap();
                 let bytes = buffer;
 
-                let mut des2 = LSODeserializer::default();
+                let mut des2 = Reader::default();
                 flex::decode::register_decoders(&mut des2.amf3_decoder);
                 let (_, sol2) = des2.parse(&bytes).expect("Unable to round trip");
                 assert!(sol2 == sol);
@@ -121,7 +121,7 @@ macro_rules! should_fail {
         #[test]
         pub fn $name() {
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let parse_res = LSODeserializer::default().parse(data);
+            let parse_res = Reader::default().parse(data);
 
             if let Err(x) = parse_res {
                 assert_eq!(x, $error);
@@ -143,7 +143,7 @@ macro_rules! json_test {
             use serde_json;
 
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let (_, parse_res) = LSODeserializer::default().parse(data).expect("Unable to parse file");
+            let (_, parse_res) = Reader::default().parse(data).expect("Unable to parse file");
             let output_json = serde_json::to_string(&parse_res).expect("Unable to convert to json");
 
 
@@ -166,7 +166,7 @@ macro_rules! json_test_flex {
             use flash_lso::flex;
 
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let mut des = LSODeserializer::default();
+            let mut des = Reader::default();
             flex::decode::register_decoders(&mut des.amf3_decoder);
             let (_, parse_res) = des.parse(data).expect("Unable to parse file");
             let output_json = serde_json::to_string(&parse_res).expect("Unable to convert to json");
@@ -278,7 +278,7 @@ json_test_flex! {
 // As3 / amf3
 #[cfg(feature = "amf3")]
 pub mod amf0 {
-    use crate::LSODeserializer;
+    use crate::Reader;
 auto_test! {
     [as3_number, "AS3-Number-Demo"],
     [as3_boolean, "AS3-Boolean-Demo"],
