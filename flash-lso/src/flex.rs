@@ -18,7 +18,7 @@ const OPERATION_FLAG: u8 = 1;
 
 /// Handles decoding of flex types
 pub mod decode {
-    use crate::amf3::AMF3Decoder;
+    use crate::amf3::read::AMF3Decoder;
     use crate::flex::{
         BODY_FLAG, CLIENT_ID_BYTES_FLAG, CLIENT_ID_FLAG, CORRELATION_ID_BYTES_FLAG,
         CORRELATION_ID_FLAG, DESTINATION_ID_FLAG, HEADERS_FLAG, MESSAGE_ID_BYTES_FLAG,
@@ -367,8 +367,8 @@ pub mod decode {
 
 /// Handles encoding of flex types
 pub mod encode {
-    use crate::amf3::encoder::AMF3Encoder;
-    use crate::amf3::CustomEncoder;
+    use crate::amf3::custom_encoder::CustomEncoder;
+    use crate::amf3::write::AMF3Encoder;
     use crate::flex::{
         BODY_FLAG, CLIENT_ID_BYTES_FLAG, CLIENT_ID_FLAG, CORRELATION_ID_BYTES_FLAG,
         CORRELATION_ID_FLAG, DESTINATION_ID_FLAG, HEADERS_FLAG, MESSAGE_ID_BYTES_FLAG,

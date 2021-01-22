@@ -6,6 +6,9 @@ use enumset::EnumSetType;
 use std::rc::Rc;
 
 // TODO: sol -> lso, remove Sol/lso prefix from vars
+//TODO: split to read and write
+//todo: amf0/amf3 enable
+//todo: error handling
 
 /// A container for sol files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

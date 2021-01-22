@@ -3,7 +3,7 @@ use yew::prelude::*;
 use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
 use flash_lso::flex;
-use flash_lso::types::{Attribute, Element, LSO, Value};
+use flash_lso::types::{Attribute, Element, Value, LSO};
 use flash_lso::LSODeserializer;
 
 use crate::blob_bindgen::Blob;

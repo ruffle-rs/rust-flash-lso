@@ -211,7 +211,16 @@ impl TreeNode {
     }
 
     pub fn has_children(data: &Value) -> bool {
-        matches!(data, Value::Object(_, _) | Value::StrictArray(_) | Value::ECMAArray(_, _, _) | Value::VectorObject(_, _, _) | Value::AMF3(_) | Value::Dictionary(_, _) | Value::Custom(_, _, _))
+        matches!(
+            data,
+            Value::Object(_, _)
+                | Value::StrictArray(_)
+                | Value::ECMAArray(_, _, _)
+                | Value::VectorObject(_, _, _)
+                | Value::AMF3(_)
+                | Value::Dictionary(_, _)
+                | Value::Custom(_, _, _)
+        )
     }
 
     pub fn view_array_element(&self, index: usize, data: &Rc<Value>) -> Html {

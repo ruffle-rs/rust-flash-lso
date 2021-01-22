@@ -13,7 +13,7 @@
     missing_docs
 )]
 
-use crate::amf3::AMF3Decoder;
+use crate::amf3::read::AMF3Decoder;
 use crate::types::{AMFVersion, Header, LSO};
 use nom::branch::alt;
 use nom::bytes::complete::tag;
@@ -75,7 +75,7 @@ impl LSODeserializer {
         let (i, l) = be_u32(i)?;
         let (i, _) = tag(HEADER_SIGNATURE)(i)?;
 
-        let (i, name) = amf0::decoder::parse_string(i)?;
+        let (i, name) = amf0::read::parse_string(i)?;
 
         let (i, _) = tag(PADDING)(i)?;
         let (i, _) = tag(PADDING)(i)?;
@@ -101,7 +101,7 @@ impl LSODeserializer {
         let (i, header) = self.parse_header(i)?;
         match header.format_version {
             AMFVersion::AMF0 => {
-                let (i, body) = amf0::decoder::parse_body(i)?;
+                let (i, body) = amf0::read::parse_body(i)?;
                 Ok((i, LSO { header, body }))
             }
             AMFVersion::AMF3 => {
@@ -122,8 +122,7 @@ pub mod encoder {
     use cookie_factory::SerializeFn;
     use std::io::Write;
 
-    use crate::amf0::encoder as amf0_encoder;
-    use crate::amf3::encoder::AMF3Encoder;
+    use crate::amf3::write::AMF3Encoder;
     use crate::nom_utils::write_string;
     use cookie_factory::combinator::cond;
     use cookie_factory::combinator::slice;
@@ -145,7 +144,7 @@ pub mod encoder {
         ) -> impl SerializeFn<W> + 'a {
             let amf0 = cond(
                 lso.header.format_version == AMFVersion::AMF0,
-                amf0_encoder::write_body(&lso.body),
+                crate::amf0::write::write_body(&lso.body),
             );
             let amf3 = cond(
                 lso.header.format_version == AMFVersion::AMF3,
