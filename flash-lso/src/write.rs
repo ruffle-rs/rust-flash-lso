@@ -8,12 +8,10 @@ use cookie_factory::gen;
 use cookie_factory::sequence::tuple;
 use cookie_factory::SerializeFn;
 
-use crate::{
-    FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, HEADER_SIGNATURE, HEADER_VERSION, PADDING,
-};
 use crate::amf3::write::AMF3Encoder;
 use crate::nom_utils::write_string;
 use crate::types::{AMFVersion, Header, Lso};
+use crate::{FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, HEADER_SIGNATURE, HEADER_VERSION, PADDING};
 
 /// Handles writing a given LSO
 #[derive(Default)]

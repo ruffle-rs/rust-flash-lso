@@ -2,6 +2,7 @@ use crate::amf3::custom_encoder::ExternalDecoderFn;
 use crate::amf3::type_marker::TypeMarker;
 
 use crate::amf3::length::Length;
+use crate::nom_utils::AMFResult;
 use crate::types::*;
 use crate::types::{Element, Value};
 use crate::PADDING;
@@ -22,7 +23,7 @@ use std::rc::Rc;
 
 const REFERENCE_FLAG: u32 = 0x01;
 
-fn read_int_signed(i: &[u8]) -> IResult<&[u8], i32> {
+fn read_int_signed(i: &[u8]) -> AMFResult<i32> {
     let mut vlu_len = 0;
     let mut result: i32 = 0;
 
@@ -53,7 +54,7 @@ fn read_int_signed(i: &[u8]) -> IResult<&[u8], i32> {
     Ok((i, result))
 }
 
-fn read_int(i: &[u8]) -> IResult<&[u8], u32> {
+fn read_int(i: &[u8]) -> AMFResult<u32> {
     let mut n = 0;
     let mut result: u32 = 0;
 
@@ -85,7 +86,7 @@ fn read_int(i: &[u8]) -> IResult<&[u8], u32> {
     Ok((i, result))
 }
 
-fn read_length(i: &[u8]) -> IResult<&[u8], Length> {
+fn read_length(i: &[u8]) -> AMFResult<Length> {
     let (i, val) = read_int(i)?;
     Ok((
         i,
@@ -96,7 +97,7 @@ fn read_length(i: &[u8]) -> IResult<&[u8], Length> {
     ))
 }
 
-fn parse_element_int(i: &[u8]) -> IResult<&[u8], Rc<Value>> {
+fn parse_element_int(i: &[u8]) -> AMFResult<Rc<Value>> {
     let (i, s) = map(read_int_signed, Value::Integer)(i)?;
     Ok((i, Rc::new(s)))
 }
@@ -114,29 +115,25 @@ pub struct AMF3Decoder {
     pub external_decoders: HashMap<String, ExternalDecoderFn>,
 }
 
-fn parse_element_number(i: &[u8]) -> IResult<&[u8], Rc<Value>> {
+fn parse_element_number(i: &[u8]) -> AMFResult<Rc<Value>> {
     let (i, v) = map(be_f64, Value::Number)(i)?;
     Ok((i, Rc::new(v)))
 }
 
 impl AMF3Decoder {
-    fn parse_element_string<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Rc<Value>> {
+    fn parse_element_string<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         let (i, s) = map(|i| self.parse_string(i), Value::String)(i)?;
         Ok((i, Rc::new(s)))
     }
 
-    fn parse_string<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], String> {
+    fn parse_string<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, String> {
         let (i, bytes) = self.parse_byte_stream(i)?;
         let bytes_str =
             String::from_utf8(bytes).map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?;
         Ok((i, bytes_str))
     }
 
-    fn parse_class_def<'a>(
-        &mut self,
-        length: u32,
-        i: &'a [u8],
-    ) -> IResult<&'a [u8], ClassDefinition> {
+    fn parse_class_def<'a>(&mut self, length: u32, i: &'a [u8]) -> AMFResult<'a, ClassDefinition> {
         if length & REFERENCE_FLAG == 0 {
             let len_usize: usize = (length >> 1)
                 .try_into()
@@ -197,8 +194,8 @@ impl AMF3Decoder {
     fn parse_reference_or_val<'a>(
         &mut self,
         i: &'a [u8],
-        parser: impl FnOnce(&mut Self, &'a [u8], usize) -> IResult<&'a [u8], Value>,
-    ) -> IResult<&'a [u8], Rc<Value>> {
+        parser: impl FnOnce(&mut Self, &'a [u8], usize) -> AMFResult<'a, Value>,
+    ) -> AMFResult<'a, Rc<Value>> {
         let (i, len) = read_length(i)?;
 
         match len {
@@ -243,7 +240,7 @@ impl AMF3Decoder {
         }
     }
 
-    fn parse_byte_stream<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Vec<u8>> {
+    fn parse_byte_stream<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<u8>> {
         let (i, len) = read_length(i)?;
 
         match len {
@@ -272,7 +269,7 @@ impl AMF3Decoder {
         &mut self,
         i: &'a [u8],
         class_def: &ClassDefinition,
-    ) -> IResult<&'a [u8], Vec<Element>> {
+    ) -> AMFResult<'a, Vec<Element>> {
         let mut elements = Vec::new();
         let mut i = i;
 
@@ -290,7 +287,7 @@ impl AMF3Decoder {
         Ok((i, elements))
     }
 
-    pub(crate) fn parse_element_object<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Rc<Value>> {
+    pub(crate) fn parse_element_object<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         let (i, mut length) = read_int(i)?;
 
         if length & REFERENCE_FLAG == 0 {
@@ -402,14 +399,14 @@ impl AMF3Decoder {
         ))
     }
 
-    fn parse_element_byte_array<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Rc<Value>> {
+    fn parse_element_byte_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         self.parse_reference_or_val(i, |_this, i, len| {
             let (i, bytes) = take!(i, len)?;
             Ok((i, Value::ByteArray(bytes.to_vec())))
         })
     }
 
-    fn parse_element_vector_int<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Rc<Value>> {
+    fn parse_element_vector_int<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         self.parse_reference_or_val(i, |_this, i, len| {
             // There must be at least `len * 4` (i32 = 4 bytes) bytes to read this, this prevents OOM errors with v.large vecs
             if i.len() < len * 4 {
@@ -424,7 +421,7 @@ impl AMF3Decoder {
         })
     }
 
-    fn parse_element_vector_uint<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Rc<Value>> {
+    fn parse_element_vector_uint<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         self.parse_reference_or_val(i, |_this, i, len| {
             // There must be at least `len * 4` (u32 = 4 bytes) bytes to read this, this prevents OOM errors with v.large vecs
             if i.len() < len * 4 {
@@ -438,7 +435,7 @@ impl AMF3Decoder {
         })
     }
 
-    fn parse_element_vector_double<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Rc<Value>> {
+    fn parse_element_vector_double<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         self.parse_reference_or_val(i, |_this, i, len| {
             // There must be at least `len * 8` (f64 = 8 bytes) bytes to read this, this prevents OOM errors with v.large dicts
             if i.len() < len * 8 {
@@ -452,7 +449,7 @@ impl AMF3Decoder {
         })
     }
 
-    fn parse_element_object_vector<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Rc<Value>> {
+    fn parse_element_object_vector<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         self.parse_reference_or_val(i, |this, i, len| {
             let (i, fixed_length) = be_u8(i)?;
 
@@ -467,7 +464,7 @@ impl AMF3Decoder {
         })
     }
 
-    fn parse_element_array<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Rc<Value>> {
+    fn parse_element_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         self.parse_reference_or_val(i, |this, i, length_usize| {
             // There must be at least `length_usize` bytes to read this, this prevents OOM errors with v.large dicts
             if i.len() < length_usize {
@@ -509,7 +506,7 @@ impl AMF3Decoder {
         })
     }
 
-    fn parse_element_dict<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Rc<Value>> {
+    fn parse_element_dict<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         self.parse_reference_or_val(i, |this, i, len| {
             //TODO: implications of this
             let (i, weak_keys) = be_u8(i)?;
@@ -530,21 +527,21 @@ impl AMF3Decoder {
         })
     }
 
-    fn parse_element_date<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Rc<Value>> {
+    fn parse_element_date<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         self.parse_reference_or_val(i, |_this, i, _len| {
             let (i, ms) = be_f64(i)?;
             Ok((i, Value::Date(ms, None)))
         })
     }
 
-    fn parse_element_xml<'a>(&mut self, i: &'a [u8], string: bool) -> IResult<&'a [u8], Rc<Value>> {
+    fn parse_element_xml<'a>(&mut self, i: &'a [u8], string: bool) -> AMFResult<'a, Rc<Value>> {
         self.parse_reference_or_val(i, |_this, i, len| {
             let (i, data) = take_str!(i, len as u32)?;
             Ok((i, Value::XML(data.into(), string)))
         })
     }
 
-    fn read_type_marker<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], TypeMarker> {
+    fn read_type_marker<'a>(&self, i: &'a [u8]) -> AMFResult<'a, TypeMarker> {
         let (i, type_) = be_u8(i)?;
         if let Ok(type_) = TypeMarker::try_from(type_) {
             Ok((i, type_))
@@ -555,7 +552,7 @@ impl AMF3Decoder {
 
     /// Parse a single AMF3 element from the input
     #[inline]
-    pub fn parse_single_element<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Rc<Value>> {
+    pub fn parse_single_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         let (i, type_) = self.read_type_marker(i)?;
 
         match type_ {
@@ -580,7 +577,7 @@ impl AMF3Decoder {
         }
     }
 
-    fn parse_element<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Element> {
+    fn parse_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Element> {
         let (i, name) = self.parse_string(i)?;
 
         map(
@@ -592,7 +589,7 @@ impl AMF3Decoder {
         )(i)
     }
 
-    pub(crate) fn parse_body<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Vec<Element>> {
+    pub(crate) fn parse_body<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {
         let (i, elements) = separated_list0(tag(PADDING), |i| self.parse_element(i))(i)?;
         let (i, _) = tag(PADDING)(i)?;
         Ok((i, elements))

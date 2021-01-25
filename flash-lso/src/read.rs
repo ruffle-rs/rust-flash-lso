@@ -2,12 +2,13 @@ use std::convert::TryInto;
 
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::IResult;
 use nom::number::complete::be_u32;
+use nom::IResult;
 
-use crate::amf3::read::AMF3Decoder;
-use crate::types::{AMFVersion, Header, Lso};
 use crate::amf0;
+use crate::amf3::read::AMF3Decoder;
+use crate::nom_utils::AMFResult;
+use crate::types::{AMFVersion, Header, Lso};
 
 const HEADER_VERSION: [u8; 2] = [0x00, 0xbf];
 const HEADER_SIGNATURE: [u8; 10] = [0x54, 0x43, 0x53, 0x4f, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00];
@@ -37,7 +38,7 @@ pub struct Reader {
 }
 
 impl Reader {
-    fn parse_header<'a>(&self, i: &'a [u8]) -> IResult<&'a [u8], Header> {
+    fn parse_header<'a>(&self, i: &'a [u8]) -> AMFResult<'a, Header> {
         let (i, _) = tag(HEADER_VERSION)(i)?;
         let (i, l) = be_u32(i)?;
         let (i, _) = tag(HEADER_SIGNATURE)(i)?;
@@ -64,15 +65,16 @@ impl Reader {
     }
 
     /// Read a given buffer as an LSO
-    pub fn parse<'a>(&mut self, i: &'a [u8]) -> IResult<&'a [u8], Lso> {
+    pub fn parse<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Lso> {
         let (i, header) = self.parse_header(i)?;
         match header.format_version {
             AMFVersion::AMF0 => {
                 let (i, body) = amf0::read::parse_body(i)?;
                 Ok((i, Lso { header, body }))
             }
+            #[cfg(feature = "amf3")]
             AMFVersion::AMF3 => {
-                let (i, body) = self.amf3_decoder.parse_body(i)?;
+                let (i, body) = (i, Vec::new()); //self.amf3_decoder.parse_body(i)?;
                 Ok((i, Lso { header, body }))
             }
         }

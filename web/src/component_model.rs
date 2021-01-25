@@ -3,8 +3,8 @@ use yew::prelude::*;
 use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
 use flash_lso::flex;
-use flash_lso::types::{Attribute, Element, Value, Lso};
 use flash_lso::read::Reader;
+use flash_lso::types::{Attribute, Element, Lso, Value};
 
 use crate::blob_bindgen::Blob;
 use crate::component_hexview::HexView;

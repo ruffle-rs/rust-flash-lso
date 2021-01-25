@@ -28,8 +28,9 @@ pub mod decode {
     use nom::number::complete::be_u8;
     use nom::IResult;
     use std::rc::Rc;
+    use crate::nom_utils::AMFResult;
 
-    fn parse_abstract_message_flags(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
+    fn parse_abstract_message_flags(i: &[u8]) -> AMFResult<Vec<u8>> {
         let mut next_flag = true;
         let mut flags = Vec::new();
 
@@ -49,7 +50,7 @@ pub mod decode {
     fn parse_abstract_message<'a>(
         i: &'a [u8],
         amf3: &mut AMF3Decoder,
-    ) -> IResult<&'a [u8], Vec<Element>> {
+    ) -> AMFResult<'a, Vec<Element>> {
         let (i, flags) = parse_abstract_message_flags(i)?;
 
         let mut elements = Vec::new();
@@ -157,7 +158,7 @@ pub mod decode {
     fn parse_async_message<'a>(
         i: &'a [u8],
         amf3: &mut AMF3Decoder,
-    ) -> IResult<&'a [u8], Vec<Element>> {
+    ) -> AMFResult<'a, Vec<Element>> {
         let (i, msg) = parse_abstract_message(i, amf3)?;
 
         let (i, flags) = parse_abstract_message_flags(i)?;
@@ -207,7 +208,7 @@ pub mod decode {
     fn parse_acknowledge_message<'a>(
         i: &'a [u8],
         amf3: &mut AMF3Decoder,
-    ) -> IResult<&'a [u8], Vec<Element>> {
+    ) -> AMFResult<'a, Vec<Element>> {
         let (i, msg) = parse_async_message(i, amf3)?;
 
         let (i, flags) = parse_abstract_message_flags(i)?;
@@ -236,7 +237,7 @@ pub mod decode {
     fn parse_command_message<'a>(
         i: &'a [u8],
         amf3: &mut AMF3Decoder,
-    ) -> IResult<&'a [u8], Vec<Element>> {
+    ) -> AMFResult<'a, Vec<Element>> {
         let (i, msg) = parse_async_message(i, amf3)?;
 
         let (i, flags) = parse_abstract_message_flags(i)?;
@@ -280,7 +281,7 @@ pub mod decode {
     fn parse_array_collection<'a>(
         i: &'a [u8],
         amf3: &mut AMF3Decoder,
-    ) -> IResult<&'a [u8], Vec<Element>> {
+    ) -> AMFResult<'a, Vec<Element>> {
         let (i, value) = amf3.parse_single_element(i)?;
 
         let el = vec![Element {
@@ -295,7 +296,7 @@ pub mod decode {
     fn parse_object_proxy<'a>(
         i: &'a [u8],
         amf3: &mut AMF3Decoder,
-    ) -> IResult<&'a [u8], Vec<Element>> {
+    ) -> AMFResult<'a, Vec<Element>> {
         let (i, value) = amf3.parse_single_element(i)?;
 
         let el = vec![Element {

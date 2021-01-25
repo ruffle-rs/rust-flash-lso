@@ -198,5 +198,3 @@ pub enum Attribute {
     /// If a trait is external then it requires custom serialization and deserialization support
     EXTERNAL,
 }
-
-// pub(crate) type CombinatorResult<'a, T> = IResult<&'a [u8], T, Error>;

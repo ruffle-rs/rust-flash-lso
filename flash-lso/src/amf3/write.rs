@@ -1,8 +1,8 @@
 ///! Handles encoding AMF3
 use crate::amf3::custom_encoder::CustomEncoder;
-use crate::amf3::type_marker::TypeMarker;
 use crate::amf3::element_cache::ElementCache;
 use crate::amf3::length::Length;
+use crate::amf3::type_marker::TypeMarker;
 use crate::nom_utils::either;
 use crate::types::{Attribute, ClassDefinition, Element, Value};
 use crate::PADDING;

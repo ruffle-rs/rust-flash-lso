@@ -17,8 +17,8 @@ use std::convert::TryInto;
 
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::IResult;
 use nom::number::complete::be_u32;
+use nom::IResult;
 
 use crate::amf3::read::AMF3Decoder;
 use crate::types::{AMFVersion, Header, Lso};
@@ -40,16 +40,14 @@ pub mod amf0;
 #[cfg(feature = "amf3")]
 pub mod amf3;
 
-//TODO: custom error types
-// mod errors;
-
+mod nom_utils;
 /// Types used for representing file contents
 pub mod types;
-mod nom_utils;
 
 /// Reading and Writing of flex types
 #[cfg(feature = "flex")]
 pub mod flex;
 
+pub mod errors;
 pub mod read;
 pub mod write;

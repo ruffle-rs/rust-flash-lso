@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 
 use clap::*;
 use flash_lso::flex::decode;
-use flash_lso::types::Lso;
 use flash_lso::read::Reader;
+use flash_lso::types::Lso;
 
 fn main() {
     env_logger::init();
