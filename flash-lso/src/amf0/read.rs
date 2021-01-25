@@ -3,9 +3,9 @@ use crate::amf0::type_marker::TypeMarker;
 
 use crate::nom_utils::{take_str, AMFResult};
 use crate::types::{ClassDefinition, Element, Value};
-use crate::{PADDING};
-use nom::bytes::complete::{tag};
-use nom::combinator::{map};
+use crate::PADDING;
+use nom::bytes::complete::tag;
+use nom::combinator::map;
 use nom::error::{make_error, ErrorKind};
 use nom::multi::{many0, many_m_n};
 use nom::number::complete::{be_f64, be_u16, be_u32, be_u8};

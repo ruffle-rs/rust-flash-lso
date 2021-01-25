@@ -1,7 +1,7 @@
 use nom::error::{ErrorKind, FromExternalError, ParseError};
 use thiserror::Error;
 
-#[derive(Error, Debug, Copy, Clone)]
+#[derive(Error, Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Error<'a> {
     #[error("Out of bounds")]
     OutOfBounds,

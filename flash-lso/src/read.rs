@@ -4,11 +4,12 @@ use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::number::complete::be_u32;
 
-
 use crate::amf0;
 use crate::amf3::read::AMF3Decoder;
+use crate::errors::Error;
 use crate::nom_utils::AMFResult;
 use crate::types::{AMFVersion, Header, Lso};
+use nom::combinator::all_consuming;
 
 const HEADER_VERSION: [u8; 2] = [0x00, 0xbf];
 const HEADER_SIGNATURE: [u8; 10] = [0x54, 0x43, 0x53, 0x4f, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00];
@@ -65,7 +66,7 @@ impl Reader {
     }
 
     /// Read a given buffer as an LSO
-    pub fn parse<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Lso> {
+    fn parse_inner<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Lso> {
         let (i, header) = self.parse_header(i)?;
         match header.format_version {
             AMFVersion::AMF0 => {
@@ -74,9 +75,13 @@ impl Reader {
             }
             #[cfg(feature = "amf3")]
             AMFVersion::AMF3 => {
-                let (i, body) = (i, Vec::new()); //self.amf3_decoder.parse_body(i)?;
+                let (i, body) = self.amf3_decoder.parse_body(i)?;
                 Ok((i, Lso { header, body }))
             }
         }
+    }
+
+    pub fn parse<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Lso> {
+        all_consuming(|i| self.parse_inner(i))(i)
     }
 }

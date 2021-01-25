@@ -5,8 +5,6 @@ use crate::amf3::write::AMF3Encoder;
 use crate::types::Element;
 use crate::types::*;
 
-
-
 use crate::nom_utils::AMFResult;
 use std::rc::Rc;
 
