@@ -9,10 +9,10 @@ use crate::extra::flex::{
 use crate::nom_utils::AMFResult;
 use crate::types::Element;
 use nom::number::complete::be_u8;
-use nom::IResult;
+
 use std::rc::Rc;
 
-fn parse_abstract_message_flags(i: &[u8]) -> AMFResult<Vec<u8>> {
+fn parse_abstract_message_flags(i: &[u8]) -> AMFResult<'_, Vec<u8>> {
     let mut next_flag = true;
     let mut flags = Vec::new();
 

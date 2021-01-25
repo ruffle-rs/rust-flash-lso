@@ -3,7 +3,7 @@ use std::convert::TryInto;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::number::complete::be_u32;
-use nom::IResult;
+
 
 use crate::amf0;
 use crate::amf3::read::AMF3Decoder;

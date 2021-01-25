@@ -16,14 +16,14 @@ use nom::number::complete::{be_f64, be_i32, be_u32, be_u8};
 use nom::take;
 use nom::take_str;
 use nom::Err;
-use nom::IResult;
+
 use std::convert::{TryFrom, TryInto};
 use std::ops::DerefMut;
 use std::rc::Rc;
 
 const REFERENCE_FLAG: u32 = 0x01;
 
-fn read_int_signed(i: &[u8]) -> AMFResult<i32> {
+fn read_int_signed(i: &[u8]) -> AMFResult<'_, i32> {
     let mut vlu_len = 0;
     let mut result: i32 = 0;
 
@@ -54,7 +54,7 @@ fn read_int_signed(i: &[u8]) -> AMFResult<i32> {
     Ok((i, result))
 }
 
-fn read_int(i: &[u8]) -> AMFResult<u32> {
+fn read_int(i: &[u8]) -> AMFResult<'_, u32> {
     let mut n = 0;
     let mut result: u32 = 0;
 
@@ -86,7 +86,7 @@ fn read_int(i: &[u8]) -> AMFResult<u32> {
     Ok((i, result))
 }
 
-fn read_length(i: &[u8]) -> AMFResult<Length> {
+fn read_length(i: &[u8]) -> AMFResult<'_, Length> {
     let (i, val) = read_int(i)?;
     Ok((
         i,
@@ -97,7 +97,7 @@ fn read_length(i: &[u8]) -> AMFResult<Length> {
     ))
 }
 
-fn parse_element_int(i: &[u8]) -> AMFResult<Rc<Value>> {
+fn parse_element_int(i: &[u8]) -> AMFResult<'_, Rc<Value>> {
     let (i, s) = map(read_int_signed, Value::Integer)(i)?;
     Ok((i, Rc::new(s)))
 }
@@ -115,7 +115,7 @@ pub struct AMF3Decoder {
     pub external_decoders: HashMap<String, ExternalDecoderFn>,
 }
 
-fn parse_element_number(i: &[u8]) -> AMFResult<Rc<Value>> {
+fn parse_element_number(i: &[u8]) -> AMFResult<'_, Rc<Value>> {
     let (i, v) = map(be_f64, Value::Number)(i)?;
     Ok((i, Rc::new(v)))
 }
