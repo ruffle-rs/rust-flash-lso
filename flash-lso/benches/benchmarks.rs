@@ -2,7 +2,7 @@
 
 extern crate test;
 
-use flash_lso::Reader;
+use flash_lso::read::Reader;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
