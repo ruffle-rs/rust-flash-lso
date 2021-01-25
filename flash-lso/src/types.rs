@@ -5,10 +5,6 @@ use enumset::EnumSet;
 use enumset::EnumSetType;
 use std::rc::Rc;
 
-//TODO: split to read and write for flex
-//TODO: separate mod for extra (flex)
-//todo: error handling
-
 /// A container for lso files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]

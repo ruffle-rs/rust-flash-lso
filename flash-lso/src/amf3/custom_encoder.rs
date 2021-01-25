@@ -7,8 +7,8 @@ use crate::types::*;
 
 use nom::IResult;
 
-use std::rc::Rc;
 use crate::nom_utils::AMFResult;
+use std::rc::Rc;
 
 /// A trait to define encoding for custom types for use with Externalized objects
 pub trait CustomEncoder {

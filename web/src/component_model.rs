@@ -2,7 +2,7 @@ use std::string::ToString;
 use yew::prelude::*;
 use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
-use flash_lso::flex;
+use flash_lso::extra::flex;
 use flash_lso::read::Reader;
 use flash_lso::types::{Attribute, Element, Lso, Value};
 
@@ -98,7 +98,7 @@ impl Component for Model {
             }
             Msg::Loaded(index, file) => {
                 let mut parser = Reader::default();
-                flex::decode::register_decoders(&mut parser.amf3_decoder);
+                flex::read::register_decoders(&mut parser.amf3_decoder);
 
                 match parser.parse(&file.content) {
                     Ok((_, sol)) => {

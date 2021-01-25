@@ -40,14 +40,11 @@ pub mod amf0;
 #[cfg(feature = "amf3")]
 pub mod amf3;
 
+pub mod errors;
 mod nom_utils;
+pub mod read;
 /// Types used for representing file contents
 pub mod types;
-
-/// Reading and Writing of flex types
-#[cfg(feature = "flex")]
-pub mod flex;
-
-pub mod errors;
-pub mod read;
 pub mod write;
+
+pub mod extra;

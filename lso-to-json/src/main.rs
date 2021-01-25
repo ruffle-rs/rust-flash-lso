@@ -3,7 +3,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use clap::*;
-use flash_lso::flex::decode;
+use flash_lso::extra::*;
 use flash_lso::read::Reader;
 use flash_lso::types::Lso;
 
@@ -32,7 +32,7 @@ fn read_file(path: PathBuf) -> Option<Lso> {
     let mut data = Vec::new();
     let _ = x.read_to_end(&mut data).expect("Unable to read file");
     let mut d = Reader::default();
-    decode::register_decoders(&mut d.amf3_decoder);
+    flex::read::register_decoders(&mut d.amf3_decoder);
 
     let d = d.parse(&data);
     d.map(|s| s.1).ok()
