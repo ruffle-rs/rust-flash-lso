@@ -21,11 +21,11 @@ use std::rc::Rc;
 #[derive(Default)]
 pub struct AMF3Encoder {
     /// The table used to cache repeated byte strings
-    pub string_reference_table: ElementCache<Vec<u8>>,
+    string_reference_table: ElementCache<Vec<u8>>,
     /// The table used to cache repeated trait definitions
-    pub trait_reference_table: RefCell<Vec<ClassDefinition>>,
+    trait_reference_table: RefCell<Vec<ClassDefinition>>,
     /// The table used to cache repeated objects
-    pub object_reference_table: ElementCache<Value>,
+    object_reference_table: ElementCache<Value>,
     /// Encoders used for handling externalized types
     pub external_encoders: HashMap<String, Box<dyn CustomEncoder>>,
 }
@@ -280,11 +280,12 @@ impl AMF3Encoder {
         custom_props: Option<&'b [Element]>,
         def: &'b ClassDefinition,
     ) -> impl SerializeFn<W> + 'a {
+        #[allow(clippy::identity_op)]
         let size = (((index << 1) | 0u32) << 1) | 1u32;
 
         tuple((
             self.write_int(size as i32),
-            cond(def.attributes.contains(Attribute::EXTERNAL), move |out| {
+            cond(def.attributes.contains(Attribute::External), move |out| {
                 if let Some(encoder) = self.external_encoders.get(&def.name) {
                     slice(encoder.encode(custom_props.unwrap(), &Some(def.clone()), self))(out)
                 } else {
@@ -292,7 +293,7 @@ impl AMF3Encoder {
                 }
             }),
             cond(
-                !def.attributes.contains(Attribute::EXTERNAL),
+                !def.attributes.contains(Attribute::External),
                 tuple((
                     cond(
                         def.attributes.is_empty(),
@@ -303,7 +304,7 @@ impl AMF3Encoder {
                             .map(move |e| self.write_value_element(e))),
                     ),
                     cond(
-                        def.attributes.contains(Attribute::DYNAMIC),
+                        def.attributes.contains(Attribute::Dynamic),
                         tuple((
                             all(children
                                 .iter()
@@ -332,6 +333,7 @@ impl AMF3Encoder {
         &'a self,
         index: u32,
     ) -> impl SerializeFn<W> + 'a {
+        #[allow(clippy::identity_op)]
         let size = (index << 1) | 0u32;
         tuple((self.write_int(size as i32),))
     }
@@ -344,8 +346,8 @@ impl AMF3Encoder {
     ) -> impl SerializeFn<W> + 'a {
         self.trait_reference_table.borrow_mut().push(def.clone());
 
-        let is_external = def.attributes.contains(Attribute::EXTERNAL);
-        let is_dynamic = def.attributes.contains(Attribute::DYNAMIC);
+        let is_external = def.attributes.contains(Attribute::External);
+        let is_dynamic = def.attributes.contains(Attribute::Dynamic);
 
         let mut encoding = 0b00;
         if is_external {
@@ -365,7 +367,7 @@ impl AMF3Encoder {
         tuple((
             self.write_int(size as i32),
             self.write_class_definition(def),
-            cond(def.attributes.contains(Attribute::EXTERNAL), move |out| {
+            cond(def.attributes.contains(Attribute::External), move |out| {
                 if let Some(encoder) = self.external_encoders.get(&def.name) {
                     slice(encoder.encode(custom_props.unwrap(), &Some(def.clone()), self))(out)
                 } else {
@@ -373,7 +375,7 @@ impl AMF3Encoder {
                 }
             }),
             cond(
-                !def.attributes.contains(Attribute::EXTERNAL),
+                !def.attributes.contains(Attribute::External),
                 tuple((
                     cond(
                         def.attributes.is_empty(),
@@ -384,7 +386,7 @@ impl AMF3Encoder {
                             .map(move |e| self.write_value_element(e))),
                     ),
                     cond(
-                        def.attributes.contains(Attribute::DYNAMIC),
+                        def.attributes.contains(Attribute::Dynamic),
                         tuple((
                             all(children
                                 .iter()

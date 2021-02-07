@@ -16,7 +16,6 @@ use crate::{FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, HEADER_SIGNATURE, HEADER_V
 /// Handles writing a given LSO
 #[derive(Default)]
 pub struct Writer {
-    #[cfg(feature = "amf3")]
     /// The encoder used for writing Value::AMF3() wrapped types
     pub amf3_encoder: AMF3Encoder,
 }

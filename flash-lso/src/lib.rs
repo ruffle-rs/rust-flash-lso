@@ -27,14 +27,17 @@ extern crate serde;
 /// Reading and Writing of the AMF0 file format
 pub mod amf0;
 /// Reading and Writing of the AMF3 file format
-#[cfg(feature = "amf3")]
 pub mod amf3;
 
+/// Decoding error type
 pub mod errors;
 mod nom_utils;
+/// Reading of the Lso container format
 pub mod read;
-/// Types used for representing file contents
+/// Types used for representing Lso contents
 pub mod types;
+/// Writing of the Lso container format
 pub mod write;
 
+/// Extra functionality such as decoders for popular external class formats
 pub mod extra;

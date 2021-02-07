@@ -3,7 +3,7 @@ use crate::amf0::type_marker::TypeMarker;
 
 use crate::nom_utils::{take_str, AMFResult};
 use crate::types::{ClassDefinition, Element, Value};
-use crate::PADDING;
+use crate::{amf3, PADDING};
 use nom::bytes::complete::tag;
 use nom::combinator::map;
 use nom::error::{make_error, ErrorKind};
@@ -124,10 +124,7 @@ fn parse_element_typed_object(i: &[u8]) -> AMFResult<'_, Value> {
 
 fn parse_element_amf3(i: &[u8]) -> AMFResult<'_, Value> {
     // Hopefully amf3 objects wont have references
-    #[cfg(feature = "amf3")]
-    // let (i, x) = amf3::read::AMF3Decoder::default().parse_element_object(i)?;
-    // #[not(cfg(feature = "amf3"))]
-    let (i, x) = (i, Rc::new(Value::Unsupported));
+    let (i, x) = amf3::read::AMF3Decoder::default().parse_element_object(i)?;
     Ok((i, Value::AMF3(x)))
 }
 

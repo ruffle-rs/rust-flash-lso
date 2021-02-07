@@ -1,10 +1,7 @@
 use core::fmt;
 use flash_lso::errors::Error;
 use flash_lso::read::Reader;
-use flash_lso::write::Writer;
 use nom::error::ErrorKind;
-use nom::Err::Incomplete;
-use nom::Needed;
 // #[cfg(test)]
 // use pretty_assertions::assert_eq;
 
@@ -277,30 +274,27 @@ auto_test! {
 }
 
 // As3 / amf3
-#[cfg(feature = "amf3")]
-pub mod amf3 {
-    use crate::Reader;
-    auto_test! {
-        [as3_number, "AS3-Number-Demo"],
-        [as3_boolean, "AS3-Boolean-Demo"],
-        [as3_string, "AS3-String-Demo"],
-        [as3_object, "AS3-Object-Demo"],
-        [as3_null, "AS3-Null-Demo"],
-        [as3_undefined, "AS3-Undefined-Demo"],
-        [as3_strict_array, "AS3-Array-Demo"],
-        [as3_date, "AS3-Date-Demo"],
-        [as3_xml, "AS3-XML-Demo"],
-        [as3_xml_doc, "AS3-XMLDoc-Demo"],
-        [as3_typed_object, "AS3-TypedObject-Demo"],
-        [as3_integer, "AS3-Integer-Demo"],
-        [as3_byte_array, "AS3-ByteArray-Demo"],
-        [as3_vector_int, "AS3-VectorInt-Demo"],
-        [as3_vector_unsigned_int, "AS3-VectorUint-Demo"],
-        [as3_vector_number, "AS3-VectorNumber-Demo"],
-        [as3_vector_object, "AS3-VectorObject-Demo"],
-        [as3_vector_typed_object, "AS3-VectorTypedObject-Demo"],
-        [as3_dictionary, "AS3-Dictionary-Demo"]
-    }
+
+auto_test! {
+    [as3_number, "AS3-Number-Demo"],
+    [as3_boolean, "AS3-Boolean-Demo"],
+    [as3_string, "AS3-String-Demo"],
+    [as3_object, "AS3-Object-Demo"],
+    [as3_null, "AS3-Null-Demo"],
+    [as3_undefined, "AS3-Undefined-Demo"],
+    [as3_strict_array, "AS3-Array-Demo"],
+    [as3_date, "AS3-Date-Demo"],
+    [as3_xml, "AS3-XML-Demo"],
+    [as3_xml_doc, "AS3-XMLDoc-Demo"],
+    [as3_typed_object, "AS3-TypedObject-Demo"],
+    [as3_integer, "AS3-Integer-Demo"],
+    [as3_byte_array, "AS3-ByteArray-Demo"],
+    [as3_vector_int, "AS3-VectorInt-Demo"],
+    [as3_vector_unsigned_int, "AS3-VectorUint-Demo"],
+    [as3_vector_number, "AS3-VectorNumber-Demo"],
+    [as3_vector_object, "AS3-VectorObject-Demo"],
+    [as3_vector_typed_object, "AS3-VectorTypedObject-Demo"],
+    [as3_dictionary, "AS3-Dictionary-Demo"]
 }
 
 // Other tests, mixed

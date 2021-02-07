@@ -219,12 +219,12 @@ impl Model {
         match val.value {
             Value::Object(children, Some(def)) => {
                 let def_clone = def.clone();
-                let dynamic_icon = if def.attributes.contains(Attribute::DYNAMIC) {
+                let dynamic_icon = if def.attributes.contains(Attribute::Dynamic) {
                     "icon/check.svg"
                 } else {
                     "icon/x.svg"
                 };
-                let external_icon = if def.attributes.contains(Attribute::EXTERNAL) {
+                let external_icon = if def.attributes.contains(Attribute::External) {
                     "icon/check.svg"
                 } else {
                     "icon/x.svg"

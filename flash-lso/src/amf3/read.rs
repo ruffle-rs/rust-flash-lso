@@ -175,10 +175,10 @@ impl AMF3Decoder {
         let mut attributes = EnumSet::empty();
 
         if is_external {
-            attributes |= Attribute::EXTERNAL;
+            attributes |= Attribute::External;
         }
         if is_dynamic {
-            attributes |= Attribute::DYNAMIC;
+            attributes |= Attribute::Dynamic;
         }
 
         let class_def = ClassDefinition {
@@ -328,7 +328,7 @@ impl AMF3Decoder {
         let external_elements;
 
         let mut i = i;
-        if class_def.attributes.contains(Attribute::EXTERNAL) {
+        if class_def.attributes.contains(Attribute::External) {
             return if self.external_decoders.contains_key(&class_def.name) {
                 let decoder = Rc::clone(&self.external_decoders[&class_def.name]);
                 let (j, v) = decoder(i, self)?;
@@ -349,7 +349,7 @@ impl AMF3Decoder {
         }
 
         let mut i = i;
-        if class_def.attributes.contains(Attribute::DYNAMIC) {
+        if class_def.attributes.contains(Attribute::Dynamic) {
             let (j, x) = self.parse_object_static(i, &class_def)?;
             elements.extend(x);
 

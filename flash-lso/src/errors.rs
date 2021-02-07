@@ -1,11 +1,14 @@
 use nom::error::{ErrorKind, FromExternalError, ParseError};
 use thiserror::Error;
 
+/// Enum for representing decoding errors
 #[derive(Error, Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Error<'a> {
+    /// Out of bounds decoding
     #[error("Out of bounds")]
     OutOfBounds,
 
+    /// A nom internal error
     #[error("Nom internal error")]
     Nom(&'a [u8], ErrorKind),
 }

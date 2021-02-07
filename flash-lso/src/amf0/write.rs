@@ -143,7 +143,7 @@ fn write_value<'a, 'b: 'a, W: Write + 'a>(element: &'b Rc<Value>) -> impl Serial
         }
         Value::Null => write_null_element()(out),
         Value::Undefined => write_undefined_element()(out),
-        Value::StrictArray(a) => write_strict_array_element(a)(out),
+        Value::StrictArray(a) => write_strict_array_element(a.as_slice())(out),
         Value::Date(d, tz) => write_date_element(*d, *tz)(out),
         Value::Unsupported => write_unsupported_element()(out),
         Value::XML(x, _string) => write_xml_element(x)(out),

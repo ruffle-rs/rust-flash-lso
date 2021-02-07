@@ -6,7 +6,6 @@ use nom::number::complete::be_u32;
 
 use crate::amf0;
 use crate::amf3::read::AMF3Decoder;
-use crate::errors::Error;
 use crate::nom_utils::AMFResult;
 use crate::types::{AMFVersion, Header, Lso};
 use nom::combinator::all_consuming;
@@ -33,7 +32,6 @@ const FORMAT_VERSION_AMF3: u8 = 0x3;
 /// }
 #[derive(Default)]
 pub struct Reader {
-    #[cfg(feature = "amf3")]
     /// Handles reading Value::AMF3() wrapped types
     pub amf3_decoder: AMF3Decoder,
 }
@@ -65,7 +63,6 @@ impl Reader {
         ))
     }
 
-    /// Read a given buffer as an LSO
     fn parse_inner<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Lso> {
         let (i, header) = self.parse_header(i)?;
         match header.format_version {
@@ -73,7 +70,7 @@ impl Reader {
                 let (i, body) = amf0::read::parse_body(i)?;
                 Ok((i, Lso { header, body }))
             }
-            #[cfg(feature = "amf3")]
+
             AMFVersion::AMF3 => {
                 let (i, body) = self.amf3_decoder.parse_body(i)?;
                 Ok((i, Lso { header, body }))
@@ -81,6 +78,7 @@ impl Reader {
         }
     }
 
+    /// Read a given buffer as an Lso
     pub fn parse<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Lso> {
         all_consuming(|i| self.parse_inner(i))(i)
     }

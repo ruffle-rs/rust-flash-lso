@@ -31,6 +31,5 @@ harness = false
 
 [features]
 default = []
-flex = ["amf3"]
-amf3 = []
-all = ["serde", "amf3", "flex"]
+flex = []
+all = ["serde", "flex"]
