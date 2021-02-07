@@ -1,6 +1,6 @@
 [package]
 name = "flash-lso"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["CUB3D <callumthom11@gmail.com>"]
 description = "Fast and safe SOL/AMF0/AMF3 parsing. Supports serde, Adobe flex and cyclic references"
 repository = "https://github.com/CUB3D/rust-sol"
