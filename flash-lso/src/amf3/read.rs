@@ -23,67 +23,101 @@ use std::rc::Rc;
 
 const REFERENCE_FLAG: u32 = 0x01;
 
+#[allow(clippy::unusual_byte_groupings)]
 fn read_int_signed(i: &[u8]) -> AMFResult<'_, i32> {
-    let mut vlu_len = 0;
-    let mut result: i32 = 0;
-
-    let (mut i, mut v) = be_u8(i)?;
-    //TODO: magic numbers from where??
-    while v & 0x80 != 0 && vlu_len < 3 {
-        result <<= 7;
-        result |= (v & 0x7f) as i32;
-        vlu_len += 1;
-
-        let (j, m) = be_u8(i)?;
-        i = j;
-        v = m;
+    // Read the first byte of the number
+    let (mut i, num) = be_u8(i)?;
+    let mut value = (num & 0b01111111) as i32;
+    // Check if we have another byte
+    if num & 0b10000000 == 0 {
+        return Ok((i, value));
     }
 
-    if vlu_len < 3 {
-        result <<= 7;
-        result |= v as i32;
-    } else {
-        result <<= 8;
-        result |= v as i32;
-
-        if result & 0x10000000 != 0 {
-            result -= 0x20000000;
+    for _ in 0..2 {
+        let (j, num) = be_u8(i)?;
+        i = j;
+        value = (value << 7) | ((num & 0b01111111) as i32);
+        // Check if we have another byte
+        if num & 0b10000000 == 0 {
+            return Ok((i, value));
         }
     }
+    let (i, num) = be_u8(i)?;
+    value = (value << 8) | (num as i32);
 
-    Ok((i, result))
+    // Negate if negative
+    if value & 0b000_1000000_0000000_0000000_00000000 != 0 {
+        value -= 0b001_0000000_0000000_0000000_00000000;
+    }
+
+    Ok((i, value))
 }
 
+#[allow(clippy::unusual_byte_groupings)]
 fn read_int(i: &[u8]) -> AMFResult<'_, u32> {
-    let mut n = 0;
-    let mut result: u32 = 0;
-
-    let (mut i, mut v) = be_u8(i)?;
-    //TODO: magic numbers from where??
-    while v & 0x80 != 0 && n < 3 {
-        result <<= 7;
-        result |= (v & 0x7f) as u32;
-        n += 1;
-
-        let (j, v2) = be_u8(i)?;
-        i = j;
-        v = v2;
+    // Read the first byte of the number
+    let (mut i, num) = be_u8(i)?;
+    let mut value = (num & 0b01111111) as u32;
+    // Check if we have another byte
+    if num & 0b10000000 == 0 {
+        return Ok((i, value));
     }
 
-    if n < 3 {
-        result <<= 7;
-        result |= v as u32;
-    } else {
-        result <<= 8;
-        result |= v as u32;
-
-        if result & 0x10000000 != 0 {
-            result <<= 1;
-            result += 1;
+    for _ in 0..2 {
+        let (j, num) = be_u8(i)?;
+        i = j;
+        value = (value << 7) | ((num & 0b01111111) as u32);
+        // Check if we have another byte
+        if num & 0b10000000 == 0 {
+            return Ok((i, value));
         }
     }
+    let (i, num) = be_u8(i)?;
+    value = (value << 8) | (num as u32);
 
-    Ok((i, result))
+    if value & 0b000_1000000_0000000_0000000_00000000 != 0 {
+        value <<= 1;
+        value += 1;
+    }
+
+    Ok((i, value))
+}
+
+#[cfg(test)]
+mod read_number_tests {
+    use crate::amf3::read::{read_int, read_int_signed};
+
+    #[test]
+    fn test_read_1byte_number() {
+        assert_eq!(0b00101011, read_int_signed(&[0b00101011]).unwrap().1)
+    }
+
+    #[test]
+    fn test_read_4byte_number() {
+        let i = &[0b10000000, 0b11000000, 0b10000000, 0b10000000];
+        assert_eq!(2097280, read_int_signed(i).unwrap().1);
+    }
+
+    #[test]
+    fn read_neg_number() {
+        assert_eq!(-268435455, read_int_signed(&[192, 128, 128, 1]).unwrap().1);
+    }
+
+    #[test]
+    fn test_read_1byte_number_unsigned() {
+        assert_eq!(0b00101011, read_int(&[0b00101011]).unwrap().1)
+    }
+
+    #[test]
+    fn test_read_4byte_number_unsigned() {
+        let i = &[0b10000000, 0b11000000, 0b10000000, 0b10000000];
+        assert_eq!(2097280, read_int(i).unwrap().1);
+    }
+
+    #[test]
+    fn read_neg_number_unsigned() {
+        assert_eq!(536870915, read_int(&[192, 128, 128, 1]).unwrap().1);
+    }
 }
 
 fn read_length(i: &[u8]) -> AMFResult<'_, Length> {

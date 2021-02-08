@@ -30,41 +30,70 @@ pub struct AMF3Encoder {
     pub external_encoders: HashMap<String, Box<dyn CustomEncoder>>,
 }
 
+#[cfg(test)]
+mod write_number_tests {
+    use crate::amf3::write::AMF3Encoder;
+    use cookie_factory::gen;
+
+    #[test]
+    fn test_write_1byte_number() {
+        let e = AMF3Encoder::default();
+        let v = vec![];
+        let (b1, _) = gen(e.write_int(0b00101011), v).unwrap();
+        assert_eq!(b1, &[0b00101011]);
+    }
+
+    #[test]
+    fn test_write_4byte_number() {
+        let e = AMF3Encoder::default();
+        let v = vec![];
+        let (b1, _) = gen(e.write_int(2097280), v).unwrap();
+        assert_eq!(b1, &[0b10000000, 0b11000000, 0b10000000, 0b10000000]);
+    }
+
+    #[test]
+    fn write_neg_number() {
+        let e = AMF3Encoder::default();
+        let v = vec![];
+        let (b1, _) = gen(e.write_int(-268435455), v).unwrap();
+        assert_eq!(b1, &[192, 128, 128, 1]);
+    }
+}
+
 impl AMF3Encoder {
+    #[allow(clippy::unusual_byte_groupings)]
     pub(crate) fn write_int<'a, 'b: 'a, W: Write + 'a>(&self, i: i32) -> impl SerializeFn<W> + 'a {
-        let mut n = i;
-        if n < 0 {
-            n += 0x20000000;
-        }
-
-        let mut real_value = None;
-        let mut bytes: Vec<u8> = Vec::new();
-
-        if n > 0x1fffff {
-            real_value = Some(n);
-            n >>= 1;
-            bytes.push((0x80 | ((n >> 21) & 0xff)) as u8)
-        }
-
-        if n > 0x3fff {
-            bytes.push((0x80 | ((n >> 14) & 0xff)) as u8)
-        }
-
-        if n > 0x7f {
-            bytes.push((0x80 | ((n >> 7) & 0xff)) as u8)
-        }
-
-        if let Some(real_value) = real_value {
-            n = real_value;
-        }
-
-        if n > 0x1fffff {
-            bytes.push((n & 0xff) as u8);
+        let n = if i < 0 {
+            i + 0b001_0000000_0000000_0000000_00000000
         } else {
-            bytes.push((n & 0x7f) as u8);
-        }
+            i
+        };
 
-        move |out| all(bytes.iter().copied().map(be_u8))(out)
+        either(
+            n > 0x1fffff,
+            tuple((
+                be_u8(((n >> (7 * 3 + 1)) | 0b10000000) as u8),
+                be_u8(((n >> (7 * 2 + 1)) | 0b10000000) as u8),
+                be_u8(((n >> (7 + 1)) | 0b10000000) as u8),
+                be_u8((n & 0b11111111) as u8),
+            )),
+            either(
+                n > 0x3fff,
+                tuple((
+                    be_u8(((n >> (7 * 2)) | 0b10000000) as u8),
+                    be_u8(((n >> 7) | 0b10000000) as u8),
+                    be_u8((n & 0b01111111) as u8),
+                )),
+                either(
+                    n > 0x7f,
+                    tuple((
+                        be_u8(((n >> 7) | 0b10000000) as u8),
+                        be_u8((n & 0b01111111) as u8),
+                    )),
+                    be_u8((n & 0b01111111) as u8),
+                ),
+            ),
+        )
     }
 
     fn write_byte_string<'a, 'b: 'a, W: Write + 'a>(
