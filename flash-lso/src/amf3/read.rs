@@ -623,7 +623,8 @@ impl AMF3Decoder {
         )(i)
     }
 
-    pub(crate) fn parse_body<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {
+    /// Parse an AMF3 body from a slice into a list of elements
+    pub fn parse_body<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {
         let (i, elements) = separated_list0(tag(PADDING), |i| self.parse_element(i))(i)?;
         let (i, _) = tag(PADDING)(i)?;
         Ok((i, elements))
