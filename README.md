@@ -40,3 +40,5 @@ cargo fuzz run --release fuzz_amf3_body
 This project is licensed under MIT.
 
 Icons used in the web editor (web/static/icon) are sourced from https://feathericons.com under MIT
+
+Some test cases are covered under their own License, see [README.md](flash-lso/tests/README.md) for details 

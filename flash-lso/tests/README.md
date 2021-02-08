@@ -1,4 +1,4 @@
-The following files in ./sol/ are sourced from minerva: https://github.com/gmariani/minerva 
+The following files in ./sol/ are sourced from minerva and are covered under their own license, see https://github.com/gmariani/minerva for details 
 
 00000004.sol
 2.sol
