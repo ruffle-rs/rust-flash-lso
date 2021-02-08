@@ -1,4 +1,4 @@
-use crate::amf3::encoder::AMF3Encoder;
+use crate::amf3::write::AMF3Encoder;
 use cookie_factory::SerializeFn;
 use std::io::Write;
 

@@ -1,9 +1,7 @@
 use core::fmt;
-use flash_lso::encoder;
-use flash_lso::LSODeserializer;
-use nom::error::ErrorKind::Tag;
-use nom::Err::Incomplete;
-use nom::Needed;
+use flash_lso::errors::Error;
+use flash_lso::read::Reader;
+use nom::error::ErrorKind;
 // #[cfg(test)]
 // use pretty_assertions::assert_eq;
 
@@ -27,19 +25,19 @@ macro_rules! auto_test {
         #[test]
         pub fn $name() {
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let parse_res = LSODeserializer::default().parse(data);
+            let parse_res = Reader::default().parse(data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
                 println!("{:#?}", sol);
 
                 let empty: Vec<u8> = vec![];
                 if unparsed_bytes.len() > 0 {
-                    assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
+                    assert_eq!(crate::PrettyArray(&empty), crate::PrettyArray(&unparsed_bytes[..unparsed_bytes.len().min(100)].to_vec()));
                 }
 
-                let bytes = encoder::write_to_bytes(&sol);
+                let bytes = flash_lso::write::write_to_bytes(&sol);
 
-                assert_eq!(PrettyArray(&bytes), PrettyArray(&data.to_vec()), "library output != input");
+                assert_eq!(crate::PrettyArray(&bytes), crate::PrettyArray(&data.to_vec()), "library output != input");
             } else {
                 println!("parse failed: {:?}", parse_res);
                 assert_eq!(false, true)
@@ -55,7 +53,7 @@ macro_rules! test_parse_only {
         #[test]
         pub fn $name() {
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let parse_res = LSODeserializer::default().parse(data);
+            let parse_res = Reader::default().parse(data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
                 println!("Parsed sol: {:?}", sol);
@@ -78,13 +76,13 @@ macro_rules! auto_test_flex {
         #[cfg(feature = "flex")]
         #[test]
         pub fn $name() {
-            use flash_lso::flex;
+            use flash_lso::extra::flex;
             use cookie_factory::gen;
-            use flash_lso::encoder::LSOSerializer;
+            use flash_lso::write::Writer;
 
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let mut des = LSODeserializer::default();
-            flex::decode::register_decoders(&mut des.amf3_decoder);
+            let mut des = Reader::default();
+            flex::read::register_decoders(&mut des.amf3_decoder);
             let parse_res = des.parse(data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
@@ -94,14 +92,14 @@ macro_rules! auto_test_flex {
                 }
 
                 let v = vec![];
-                let mut s = LSOSerializer::default();
-                flex::encode::register_encoders(&mut s.amf3_encoder);
+                let mut s = Writer::default();
+                flex::write::register_encoders(&mut s.amf3_encoder);
                 let serialise = s.write_full(&sol);
                 let (buffer, _size) = gen(serialise, v).unwrap();
                 let bytes = buffer;
 
-                let mut des2 = LSODeserializer::default();
-                flex::decode::register_decoders(&mut des2.amf3_decoder);
+                let mut des2 = Reader::default();
+                flex::read::register_decoders(&mut des2.amf3_decoder);
                 let (_, sol2) = des2.parse(&bytes).expect("Unable to round trip");
                 assert!(sol2 == sol);
 
@@ -121,7 +119,7 @@ macro_rules! should_fail {
         #[test]
         pub fn $name() {
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let parse_res = LSODeserializer::default().parse(data);
+            let parse_res = Reader::default().parse(data);
 
             if let Err(x) = parse_res {
                 assert_eq!(x, $error);
@@ -143,7 +141,7 @@ macro_rules! json_test {
             use serde_json;
 
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let (_, parse_res) = LSODeserializer::default().parse(data).expect("Unable to parse file");
+            let (_, parse_res) = Reader::default().parse(data).expect("Unable to parse file");
             let output_json = serde_json::to_string(&parse_res).expect("Unable to convert to json");
 
 
@@ -163,11 +161,11 @@ macro_rules! json_test_flex {
         #[test]
         pub fn $name() {
             use serde_json;
-            use flash_lso::flex;
+            use flash_lso::extra::flex;
 
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let mut des = LSODeserializer::default();
-            flex::decode::register_decoders(&mut des.amf3_decoder);
+            let mut des = Reader::default();
+            flex::read::register_decoders(&mut des.amf3_decoder);
             let (_, parse_res) = des.parse(data).expect("Unable to parse file");
             let output_json = serde_json::to_string(&parse_res).expect("Unable to convert to json");
 
@@ -276,6 +274,7 @@ auto_test! {
 }
 
 // As3 / amf3
+
 auto_test! {
     [as3_number, "AS3-Number-Demo"],
     [as3_boolean, "AS3-Boolean-Demo"],
@@ -349,7 +348,7 @@ auto_test_flex! {
 
 should_fail! {
     // Corrupt/invalid file
-    [two, "2", nom::Err::Error(nom::error::Error::new(vec![17, 112, 99, 95, 112, 97, 114, 116, 121, 10, 130, 51, 21, 80, 97, 114, 116, 121, 65, 108, 105, 97, 115, 0, 13, 98, 97, 116, 116, 108, 101, 2, 0].as_slice(), Tag))],
+    [two, "2",  nom::Err::Error(Error::Nom(vec![17, 112, 99, 95, 112, 97, 114, 116, 121, 10, 130, 51, 21, 80, 97, 114, 116, 121, 65, 108, 105, 97, 115, 0, 13, 98, 97, 116, 116, 108, 101, 2, 0].as_slice(), ErrorKind::Tag))],
     // OOB read
-    [zero_four, "00000004", Incomplete(Needed::new(165))]
+    [zero_four, "00000004", nom::Err::Error(Error::Nom(vec![0, 255, 0, 0, 0, 86, 0, 84, 47, 117, 112, 108, 111, 97, 100, 115, 46, 117, 110, 103, 114, 111, 117, 110, 100, 101, 100, 46, 110, 101, 116, 47, 53, 57, 50, 48, 48, 48, 47, 53, 57, 50, 52, 55, 51, 95, 77, 97, 100, 110, 101, 115, 115, 71, 97, 109, 101, 95, 85, 76, 84, 73, 77, 65, 84, 69, 46, 115, 119, 102, 47, 97, 114, 101, 110, 97, 77, 97, 100, 110, 101, 115, 115, 71, 97, 109, 101, 50, 46, 115, 111, 108].as_slice(), ErrorKind::Eof))]
 }

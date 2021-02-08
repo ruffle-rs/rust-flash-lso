@@ -1,7 +1,8 @@
-use crate::length::Length;
+use crate::amf3::length::Length;
 use std::cell::RefCell;
 use std::fmt::Debug;
 
+/// Abstraction over the Amf3 caching mechanism
 #[derive(Clone, Debug)]
 pub struct ElementCache<T> {
     cache: RefCell<Vec<T>>,
@@ -19,13 +20,13 @@ impl<T> Default for ElementCache<T> {
 impl<T: PartialEq + Clone + Debug> ElementCache<T> {
     /// Check if the cache contains a given element
     #[inline]
-    pub fn has(&self, val: &T) -> bool {
+    pub(crate) fn has(&self, val: &T) -> bool {
         self.cache.borrow().contains(val)
     }
 
     /// Add the given item to the cache, if the item already exists will do nothing
     #[inline]
-    pub fn store(&self, val: T) {
+    pub(crate) fn store(&self, val: T) {
         if !self.has(&val) {
             self.cache.borrow_mut().push(val);
         }
@@ -39,7 +40,7 @@ impl<T: PartialEq + Clone + Debug> ElementCache<T> {
 
     /// Retrieve the index for the given value
     #[inline]
-    pub fn get_index(&self, val: T) -> Option<usize> {
+    pub(crate) fn get_index(&self, val: T) -> Option<usize> {
         self.cache.borrow().iter().position(|i| *i == val)
     }
 
@@ -65,7 +66,7 @@ impl<T: PartialEq + Clone + Debug> ElementCache<T> {
 impl<T: PartialEq + Clone + Debug> ElementCache<Vec<T>> {
     /// See #store, will convert slices of &[T] into Vec<T> before storing
     #[inline]
-    pub fn store_slice(&self, val: &[T]) {
+    pub(crate) fn store_slice(&self, val: &[T]) {
         self.store(val.to_vec());
     }
 

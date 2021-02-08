@@ -2,9 +2,9 @@ use std::string::ToString;
 use yew::prelude::*;
 use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
-use flash_lso::flex;
-use flash_lso::types::{Attribute, Element, LSO, Value};
-use flash_lso::LSODeserializer;
+use flash_lso::extra::flex;
+use flash_lso::read::Reader;
+use flash_lso::types::{Attribute, Element, Lso, Value};
 
 use crate::blob_bindgen::Blob;
 use crate::component_hexview::HexView;
@@ -20,12 +20,12 @@ use crate::url_bindgen::URL;
 use crate::web_expect::WebSafeExpect;
 use crate::EditableValue;
 use crate::TreeNodePath;
-use flash_lso::encoder::write_to_bytes;
+use flash_lso::write::write_to_bytes;
 use std::ops::Deref;
 
 pub struct LoadedFile {
     pub file_name: String,
-    pub file: Option<LSO>,
+    pub file: Option<Lso>,
 }
 
 impl LoadedFile {
@@ -97,8 +97,8 @@ impl Component for Model {
                 }
             }
             Msg::Loaded(index, file) => {
-                let mut parser = LSODeserializer::default();
-                flex::decode::register_decoders(&mut parser.amf3_decoder);
+                let mut parser = Reader::default();
+                flex::read::register_decoders(&mut parser.amf3_decoder);
 
                 match parser.parse(&file.content) {
                     Ok((_, sol)) => {
@@ -219,12 +219,12 @@ impl Model {
         match val.value {
             Value::Object(children, Some(def)) => {
                 let def_clone = def.clone();
-                let dynamic_icon = if def.attributes.contains(Attribute::DYNAMIC) {
+                let dynamic_icon = if def.attributes.contains(Attribute::Dynamic) {
                     "icon/check.svg"
                 } else {
                     "icon/x.svg"
                 };
-                let external_icon = if def.attributes.contains(Attribute::EXTERNAL) {
+                let external_icon = if def.attributes.contains(Attribute::External) {
                     "icon/check.svg"
                 } else {
                     "icon/x.svg"
@@ -622,7 +622,7 @@ impl Model {
         }
     }
 
-    fn view_file(&self, _index: usize, data: &LSO) -> Html {
+    fn view_file(&self, _index: usize, data: &Lso) -> Html {
         let root_class = "text-white bg-primary rounded-pill pl-2 pr-2";
 
         html! {

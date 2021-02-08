@@ -2,7 +2,7 @@
 
 extern crate test;
 
-use flash_lso::LSODeserializer;
+use flash_lso::read::Reader;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
@@ -16,7 +16,7 @@ macro_rules! auto_bench {
                     c.bench_function(concat!("parse_", $path), |b| {
                         let input_bytes = include_bytes!(concat!("../tests/sol/", $path, ".sol"));
                         b.iter(|| {
-                            black_box(LSODeserializer::default().parse(input_bytes).unwrap());
+                            black_box(Reader::default().parse(input_bytes).unwrap());
                         })
                     });
                 )*

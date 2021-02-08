@@ -15,12 +15,12 @@ A parser/encoder for Adobe Local Shared Object (LSO) file format (.sol), AMF0 an
 ```rust
 use std::fs::File;
 use std::io::Read;
-use flash_lso::LSODeserializer;
+use flash_lso::read::Reader;
 fn main() {
     let mut x = File::open(path).expect("Couldn't open file");
     let mut data = Vec::new();
     let _ = x.read_to_end(&mut data).expect("Unable to read file");
-    let d = LSODeserializer::default().parse_full(&data).expect("Failed to parse lso file");
+    let d = Reader::default().parse_full(&data).expect("Failed to parse lso file");
     println!("{:#?}", d);
 }
 ``` 
@@ -40,3 +40,5 @@ cargo fuzz run --release fuzz_amf3_body
 This project is licensed under MIT.
 
 Icons used in the web editor (web/static/icon) are sourced from https://feathericons.com under MIT
+
+Some test cases are covered under their own License, see [README.md](flash-lso/tests/README.md) for details 

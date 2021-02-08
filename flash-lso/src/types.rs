@@ -3,34 +3,43 @@ use core::fmt;
 use derive_try_from_primitive::TryFromPrimitive;
 use enumset::EnumSet;
 use enumset::EnumSetType;
+use nom::lib::std::iter::FromIterator;
+use std::ops::Deref;
 use std::rc::Rc;
 
-// TODO: sol -> lso, remove Sol/lso prefix from vars
-
-/// A container for sol files
+/// A container for lso files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
-pub struct LSO {
+pub struct Lso {
     /// The header of this lso
     pub header: Header,
     /// The elements at the root level of this lso
     pub body: Vec<Element>,
 }
 
-impl LSO {
-    /// Create a new LSO with a header with the given name and version and an empty body
+impl Lso {
+    /// Create a new Lso with a header with the given name and version and an empty body
     #[inline]
     pub fn new_empty(name: impl Into<String>, version: AMFVersion) -> Self {
         Self::new(Vec::new(), name, version)
     }
 
-    /// Crate a new LSO with a header with the given name, version and body
+    /// Crate a new Lso with a header with the given name, version and body
     #[inline]
     pub fn new(body: Vec<Element>, name: impl Into<String>, version: AMFVersion) -> Self {
         Self {
             header: Header::new(name, version),
             body,
         }
+    }
+}
+
+impl IntoIterator for Lso {
+    type Item = Element;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.body.into_iter()
     }
 }
 
@@ -54,7 +63,7 @@ impl fmt::Display for AMFVersion {
     }
 }
 
-/// The header of a sol file
+/// The header of a lso file
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct Header {
@@ -96,6 +105,16 @@ impl Element {
             name: name.into(),
             value: Rc::new(value.into()),
         }
+    }
+
+    /// Get the Value of this element
+    pub fn value(&self) -> &Value {
+        self.value.deref()
+    }
+
+    /// Get the name of this element
+    pub fn name(&self) -> &str {
+        self.name.as_str()
     }
 }
 
@@ -154,6 +173,12 @@ pub enum Value {
     Custom(Vec<Element>, Vec<Element>, Option<ClassDefinition>),
 }
 
+impl FromIterator<Value> for Vec<Rc<Value>> {
+    fn from_iter<T: IntoIterator<Item = Value>>(iter: T) -> Self {
+        iter.into_iter().map(Rc::new).collect()
+    }
+}
+
 /// A class definition (trait) used in AMF3
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -192,9 +217,7 @@ impl ClassDefinition {
 #[derive(EnumSetType, Debug)]
 pub enum Attribute {
     /// If a trait is dynamic then the object it constructs may have additional properties other than the ones specified in the trait
-    DYNAMIC,
+    Dynamic,
     /// If a trait is external then it requires custom serialization and deserialization support
-    EXTERNAL,
+    External,
 }
-
-// pub(crate) type CombinatorResult<'a, T> = IResult<&'a [u8], T, Error>;
