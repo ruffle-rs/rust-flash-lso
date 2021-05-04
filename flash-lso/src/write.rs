@@ -12,6 +12,7 @@ use crate::amf3::write::AMF3Encoder;
 use crate::nom_utils::write_string;
 use crate::types::{AMFVersion, Header, Lso};
 use crate::{FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, HEADER_SIGNATURE, HEADER_VERSION, PADDING};
+use crate::errors::Error;
 
 /// Handles writing a given LSO
 #[derive(Default)]
@@ -24,7 +25,7 @@ impl Writer {
     /// Write a given LSO
     pub fn write_full<'a, 'b: 'a, W: Write + 'a>(
         &'a mut self,
-        lso: &'b Lso,
+        lso: &'b mut Lso,
     ) -> impl SerializeFn<W> + 'a {
         let amf0 = cond(
             lso.header.format_version == AMFVersion::AMF0,
@@ -35,7 +36,13 @@ impl Writer {
             self.amf3_encoder.write_body(&lso.body),
         );
 
-        tuple((write_header(&lso.header), amf0, amf3))
+        let v = Vec::new();
+        let serialise = tuple((amf0, amf3));
+        let (buffer, size) = gen(serialise, v).unwrap();
+
+        lso.header.length = size as u32 + header_length(&lso.header) as u32;
+
+        tuple((write_header(&lso.header), slice(buffer)))
     }
 }
 
@@ -59,12 +66,18 @@ fn write_header<'a, 'b: 'a, W: Write + 'a>(header: &'b Header) -> impl Serialize
     ))
 }
 
+/// Get the serialized length of the header in bytes, this does not include the size of the header length field or the lso version marker
+pub fn header_length(header: &Header) -> usize {
+    // signature + (name size u16 + name_len) + 3*padding + amf_version_marker
+    10 + (2 + header.name.len() + 3 + 1)
+}
+
 /// Write a LSO to a vec of bytes
-pub fn write_to_bytes(lso: &Lso) -> Vec<u8> {
+pub fn write_to_bytes<'a>(lso: &mut Lso) -> Result<Vec<u8>, Error<'a>> {
     let v = vec![];
 
     let mut s = Writer::default();
     let serialise = s.write_full(lso);
-    let (buffer, _size) = gen(serialise, v).unwrap();
-    buffer
+    let (buffer, _) = gen(serialise, v)?;
+    Ok(buffer)
 }
