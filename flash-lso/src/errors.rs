@@ -9,6 +9,9 @@ pub enum Error<'a> {
     #[error("Out of bounds")]
     OutOfBounds,
 
+    #[error("Invalid reference")]
+    InvalidReference(u16),
+
     /// A nom internal error
     #[error("Nom internal error")]
     Nom(&'a [u8], ErrorKind),

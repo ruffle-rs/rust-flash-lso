@@ -10,6 +10,7 @@ use crate::nom_utils::AMFResult;
 use crate::types::{AMFVersion, Header, Lso};
 use nom::combinator::all_consuming;
 use crate::errors::Error;
+use crate::amf0::read::AMF0Decoder;
 
 const HEADER_VERSION: [u8; 2] = [0x00, 0xbf];
 const HEADER_SIGNATURE: [u8; 10] = [0x54, 0x43, 0x53, 0x4f, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00];
@@ -33,8 +34,10 @@ const FORMAT_VERSION_AMF3: u8 = 0x3;
 /// }
 #[derive(Default)]
 pub struct Reader {
-    /// Handles reading Value::AMF3() wrapped types
+    /// Handles reading Amf3 data
     pub amf3_decoder: AMF3Decoder,
+    /// Handles reading Amf0 data
+    pub amf0_decoder: AMF0Decoder
 }
 
 impl Reader {
@@ -68,7 +71,7 @@ impl Reader {
         let (i, header) = self.parse_header(i)?;
         match header.format_version {
             AMFVersion::AMF0 => {
-                let (i, body) = amf0::read::parse_body(i)?;
+                let (i, body) = self.amf0_decoder.parse_body(i)?;
                 Ok((i, Lso { header, body }))
             }
 
