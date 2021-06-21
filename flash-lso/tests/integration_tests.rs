@@ -251,6 +251,9 @@ json_test! {
     [json_time_display_config, "timeDisplayConfig"],
     [json_user_1, "user(1)"],
     [json_user, "user"],
+
+    [json_as2_half_life, "AS2-half-life-2-flash"],
+
     // Parse only
     [json_infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
     [json_slot_1, "slot1"],
@@ -346,7 +349,10 @@ test_parse_only! {
     // External classes
     [metadata_history, "MetadataHistory"],
 
-    [as3_demo, "AS3-Demo"]
+    [as3_demo, "AS3-Demo"],
+
+    // Uses amf0 references
+    [as2_half_life, "AS2-half-life-2-flash"]
 }
 
 auto_test_flex! {
