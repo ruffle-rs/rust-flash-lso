@@ -90,8 +90,9 @@ impl AMF0Decoder {
     fn parse_element_reference<'a>(&self, i: &'a [u8]) -> AMFResult<'a, Value> {
         let (i, reference_index) = be_u16(i)?;
 
-        let val = self.cache.get(reference_index as usize)
-            .ok_or(Err::Error(crate::errors::Error::InvalidReference(reference_index)))?;
+        let val = self.cache.get(reference_index as usize).ok_or(Err::Error(
+            crate::errors::Error::InvalidReference(reference_index),
+        ))?;
 
         Ok((i, val.clone()))
     }
@@ -99,27 +100,32 @@ impl AMF0Decoder {
     #[allow(clippy::let_and_return)]
     fn parse_element_mixed_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         let (i, array_length) = be_u32(i)?;
-        map(|i| self.parse_array_element(i), move |elms: Vec<Element>| {
-            Value::ECMAArray(Vec::new(), elms, array_length)
-        })(i)
+        map(
+            |i| self.parse_array_element(i),
+            move |elms: Vec<Element>| Value::ECMAArray(Vec::new(), elms, array_length),
+        )(i)
     }
 
     #[allow(clippy::let_and_return)]
     fn parse_element_typed_object<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         let (i, name) = parse_string(i)?;
 
-        map(|i| self.parse_array_element(i), move |elms: Vec<Element>| {
-            Value::Object(
-                elms,
-                Some(ClassDefinition::default_with_name(name.to_string())),
-            )
-        })(i)
+        map(
+            |i| self.parse_array_element(i),
+            move |elms: Vec<Element>| {
+                Value::Object(
+                    elms,
+                    Some(ClassDefinition::default_with_name(name.to_string())),
+                )
+            },
+        )(i)
     }
 
     fn parse_element_object<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
-        map(|i| self.parse_array_element(i), |elms: Vec<Element>| {
-            Value::Object(elms, None)
-        })(i)
+        map(
+            |i| self.parse_array_element(i),
+            |elms: Vec<Element>| Value::Object(elms, None),
+        )(i)
     }
 
     fn parse_element_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
@@ -135,7 +141,8 @@ impl AMF0Decoder {
         }
 
         // This must parse length elements
-        let (i, elements) = many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
+        let (i, elements) =
+            many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
 
         Ok((
             i,
@@ -143,7 +150,7 @@ impl AMF0Decoder {
         ))
     }
 
-    fn parse_array_element<'a>(&mut self, i: &'a[u8]) -> AMFResult<'a, Vec<Element>> {
+    fn parse_array_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {
         let mut out = Vec::new();
 
         let mut i = i;
@@ -196,10 +203,13 @@ impl AMF0Decoder {
     fn parse_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Element> {
         let (i, name) = parse_string(i)?;
 
-        map(|i| self.parse_single_element(i), move |v| Element {
-            name: name.to_string(),
-            value: Rc::new(v),
-        })(i)
+        map(
+            |i| self.parse_single_element(i),
+            move |v| Element {
+                name: name.to_string(),
+                value: Rc::new(v),
+            },
+        )(i)
     }
 
     fn parse_element_and_padding<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Element> {
