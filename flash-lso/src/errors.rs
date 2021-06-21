@@ -2,6 +2,9 @@ use nom::error::{ErrorKind, FromExternalError, ParseError};
 use thiserror::Error;
 use cookie_factory::GenError;
 
+// Allow the Nom variant to be large
+#[allow(variant_size_differences)]
+
 /// Enum for representing decoding errors
 #[derive(Error, Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Error<'a> {
@@ -9,6 +12,7 @@ pub enum Error<'a> {
     #[error("Out of bounds")]
     OutOfBounds,
 
+    /// Invalid Amf0 reference tag
     #[error("Invalid reference")]
     InvalidReference(u16),
 

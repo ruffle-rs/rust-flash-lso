@@ -36,7 +36,7 @@ pub(crate) enum TypeMarker {
     /// Recordset
     RecordSet = 14,
     /// XML
-    XML = 15,
+    Xml = 15,
     /// Typed object start
     TypedObject = 16,
     /// Embedded AMF3 element

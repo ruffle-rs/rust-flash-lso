@@ -20,7 +20,7 @@ pub(crate) enum TypeMarker {
     /// String
     String = 0x06,
     /// XML
-    XML = 0x07,
+    Xml = 0x07,
     /// Date (always UTC)
     Date = 0x08,
     /// Array

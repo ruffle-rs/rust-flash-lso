@@ -23,11 +23,11 @@ macro_rules! auto_test {
     ($([$name: ident, $path: expr]),*) => {
         $(
         #[test]
-        pub fn $name() {
+        pub fn $name() -> Result<(), Box<dyn std::error::Error>> {
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let parse_res = Reader::default().parse(data);
+            let parse_res = Reader::default().parse_incomplete(data);
 
-            if let Ok((unparsed_bytes, sol)) =  parse_res {
+            if let Ok((unparsed_bytes, mut sol)) =  parse_res {
                 println!("{:#?}", sol);
 
                 let empty: Vec<u8> = vec![];
@@ -35,13 +35,15 @@ macro_rules! auto_test {
                     assert_eq!(crate::PrettyArray(&empty), crate::PrettyArray(&unparsed_bytes[..unparsed_bytes.len().min(100)].to_vec()));
                 }
 
-                let bytes = flash_lso::write::write_to_bytes(&sol);
+                let bytes = flash_lso::write::write_to_bytes(&mut sol)?;
 
                 assert_eq!(crate::PrettyArray(&bytes), crate::PrettyArray(&data.to_vec()), "library output != input");
             } else {
                 println!("parse failed: {:?}", parse_res);
                 assert_eq!(false, true)
             }
+
+            Ok(())
         }
         )*
     }
@@ -53,7 +55,7 @@ macro_rules! test_parse_only {
         #[test]
         pub fn $name() {
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let parse_res = Reader::default().parse(data);
+            let parse_res = Reader::default().parse_incomplete(data);
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
                 println!("Parsed sol: {:?}", sol);
@@ -75,7 +77,7 @@ macro_rules! auto_test_flex {
         $(
         #[cfg(feature = "flex")]
         #[test]
-        pub fn $name() {
+        pub fn $name() -> Result<(), Box<dyn std::error::Error>> {
             use flash_lso::extra::flex;
             use cookie_factory::gen;
             use flash_lso::write::Writer;
@@ -83,9 +85,9 @@ macro_rules! auto_test_flex {
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
             let mut des = Reader::default();
             flex::read::register_decoders(&mut des.amf3_decoder);
-            let parse_res = des.parse(data);
+            let parse_res = des.parse_incomplete(data);
 
-            if let Ok((unparsed_bytes, sol)) =  parse_res {
+            if let Ok((unparsed_bytes, mut sol)) =  parse_res {
                 let empty: Vec<u8> = vec![];
                 if unparsed_bytes.len() > 0 {
                     assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
@@ -94,20 +96,21 @@ macro_rules! auto_test_flex {
                 let v = vec![];
                 let mut s = Writer::default();
                 flex::write::register_encoders(&mut s.amf3_encoder);
-                let serialise = s.write_full(&sol);
-                let (buffer, _size) = gen(serialise, v).unwrap();
-                let bytes = buffer;
+                let serialise = s.write_full(&mut sol);
+                let (buffer, _size) = gen(serialise, v)?;
 
                 let mut des2 = Reader::default();
                 flex::read::register_decoders(&mut des2.amf3_decoder);
-                let (_, sol2) = des2.parse(&bytes).expect("Unable to round trip");
+                let sol2 = des2.parse(&buffer).expect("Failed to parse buffer");
                 assert!(sol2 == sol);
 
-                assert_eq!(PrettyArray(&bytes), PrettyArray(&data.to_vec()), "library output != input");
+                assert_eq!(PrettyArray(&buffer), PrettyArray(&data.to_vec()), "library output != input");
             } else {
                 println!("parse failed: {:?}", parse_res);
                 assert_eq!(false, true)
             }
+
+            Ok(())
         }
         )*
     }
@@ -137,17 +140,19 @@ macro_rules! json_test {
         $(
         #[cfg(feature = "serde")]
         #[test]
-        pub fn $name() {
+        pub fn $name() -> Result<(), Box<dyn std::error::Error>> {
             use serde_json;
 
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let (_, parse_res) = Reader::default().parse(data).expect("Unable to parse file");
-            let output_json = serde_json::to_string(&parse_res).expect("Unable to convert to json");
+            let parse_res = Reader::default().parse(data)?;
+            let output_json = serde_json::to_string(&parse_res)?;
 
 
             let json_expected = include_str!(concat!("sol/", $path, ".json"));
 
             assert_eq!(json_expected.trim(), output_json);
+
+            Ok(())
         }
         )*
     }
@@ -159,19 +164,21 @@ macro_rules! json_test_flex {
         #[cfg(feature = "flex")]
         #[cfg(feature = "serde")]
         #[test]
-        pub fn $name() {
+        pub fn $name() -> Result<(), Box<dyn std::error::Error>> {
             use serde_json;
             use flash_lso::extra::flex;
 
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
             let mut des = Reader::default();
             flex::read::register_decoders(&mut des.amf3_decoder);
-            let (_, parse_res) = des.parse(data).expect("Unable to parse file");
-            let output_json = serde_json::to_string(&parse_res).expect("Unable to convert to json");
+            let parse_res = des.parse(data)?;
+            let output_json = serde_json::to_string(&parse_res)?;
 
             let json_expected = include_str!(concat!("sol/", $path, ".json"));
 
             assert_eq!(json_expected.trim(), output_json);
+
+            Ok(())
         }
         )*
     }

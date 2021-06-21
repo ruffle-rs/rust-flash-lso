@@ -67,7 +67,11 @@ impl Reader {
         ))
     }
 
-    fn parse_inner<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Lso> {
+    /// Read a given buffer as an Lso
+    ///
+    /// Unlike parse, this function will not error if the entire slice isn't consumed
+    /// and will return the data that was not parsed
+    pub fn parse_incomplete<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Lso> {
         let (i, header) = self.parse_header(i)?;
         match header.format_version {
             AMFVersion::AMF0 => {
@@ -82,9 +86,12 @@ impl Reader {
         }
     }
 
-    /// Read a given buffer as an Lso
+    /// Read a given slice as an Lso
+    ///
+    /// This function will return an error if the slice could not be parsed or if the entire slice
+    /// was not consumed
     pub fn parse<'a>(&mut self, i: &'a [u8]) -> Result<Lso, nom::Err<Error<'a>>> {
-        let (_, lso) = all_consuming(|i| self.parse_inner(i))(i)?;
+        let (_, lso) = all_consuming(|i| self.parse_incomplete(i))(i)?;
         Ok(lso)
     }
 }

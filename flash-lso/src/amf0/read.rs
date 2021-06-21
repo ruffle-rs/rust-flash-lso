@@ -92,7 +92,7 @@ impl AMF0Decoder {
         let (i, reference_index) = be_u16(i)?;
 
         let val = self.cache.get(reference_index as usize)
-            .ok_or_else(|| Err::Error(crate::errors::Error::InvalidReference(reference_index)))?;
+            .ok_or(Err::Error(crate::errors::Error::InvalidReference(reference_index)))?;
 
         Ok((i, val.clone()))
     }
@@ -184,7 +184,7 @@ impl AMF0Decoder {
             TypeMarker::LongString => parse_element_long_string(i),
             TypeMarker::Unsupported => Ok((i, Value::Unsupported)),
             TypeMarker::RecordSet => parse_element_record_set(i),
-            TypeMarker::XML => parse_element_xml(i),
+            TypeMarker::Xml => parse_element_xml(i),
             TypeMarker::TypedObject => self.parse_element_typed_object(i),
             TypeMarker::AMF3 => parse_element_amf3(i),
             TypeMarker::ObjectEnd => Err(Err::Error(make_error(i, ErrorKind::Digit))),
