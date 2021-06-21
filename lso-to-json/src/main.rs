@@ -3,11 +3,11 @@
 
 #![deny(missing_docs, clippy::missing_docs_in_private_items)]
 
-use std::path::PathBuf;
+use clap::{App, Arg};
 use flash_lso::extra::*;
 use flash_lso::read::Reader;
 use flash_lso::types::Lso;
-use clap::{App, Arg};
+use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
@@ -24,15 +24,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match parse_file(&data) {
         Ok(lso) => {
-
             let json = serde_json::to_string(&lso).expect("Unable to encode lso as json");
             println!("{}", json);
         }
         Err(e) => {
             eprintln!("Couldn't read lso file, maybe open a issue on github at https://github.com/CUB3D/rust-flash-lso");
-            eprintln!("Error = {:?}",  e);
+            eprintln!("Error = {:?}", e);
         }
-
     }
 
     Ok(())

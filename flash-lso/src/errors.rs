@@ -1,6 +1,6 @@
+use cookie_factory::GenError;
 use nom::error::{ErrorKind, FromExternalError, ParseError};
 use thiserror::Error;
-use cookie_factory::GenError;
 
 // Allow the Nom variant to be large
 #[allow(variant_size_differences)]

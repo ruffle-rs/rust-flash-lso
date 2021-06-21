@@ -599,7 +599,10 @@ impl Model {
 
     fn save_button(&self) -> Html {
         if let Some(tab_index) = self.current_tab {
-            let mut lso = self.files[tab_index].file.clone().web_expect("Failed to get file");
+            let mut lso = self.files[tab_index]
+                .file
+                .clone()
+                .web_expect("Failed to get file");
             let bytes = write_to_bytes(&mut lso).web_expect("Failed to write lso to bytes");
 
             let options: js_sys::Object = js_sys::Object::new();
