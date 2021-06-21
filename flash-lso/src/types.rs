@@ -9,7 +9,7 @@ use std::rc::Rc;
 
 /// A container for lso files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Lso {
     /// The header of this lso
     pub header: Header,
@@ -65,7 +65,7 @@ impl fmt::Display for AMFVersion {
 
 /// The header of a lso file
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Header {
     /// The length of the lso in bytes
     pub length: u32,
