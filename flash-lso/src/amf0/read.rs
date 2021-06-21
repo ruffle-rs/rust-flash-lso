@@ -184,7 +184,7 @@ impl AMF0Decoder {
                 let (i, v) = self.parse_element_object(i)?;
                 self.cache.push(v.clone());
                 Ok((i, v))
-            },
+            }
             TypeMarker::MovieClip => parse_element_movie_clip(i),
             TypeMarker::Null => Ok((i, Value::Null)),
             TypeMarker::Undefined => Ok((i, Value::Undefined)),
@@ -193,12 +193,12 @@ impl AMF0Decoder {
                 let (i, v) = self.parse_element_mixed_array(i)?;
                 self.cache.push(v.clone());
                 Ok((i, v))
-            },
+            }
             TypeMarker::Array => {
                 let (i, v) = self.parse_element_array(i)?;
                 self.cache.push(v.clone());
                 Ok((i, v))
-            },
+            }
             TypeMarker::Date => parse_element_date(i),
             TypeMarker::LongString => parse_element_long_string(i),
             TypeMarker::Unsupported => Ok((i, Value::Unsupported)),
@@ -208,7 +208,7 @@ impl AMF0Decoder {
                 let (i, v) = self.parse_element_typed_object(i)?;
                 self.cache.push(v.clone());
                 Ok((i, v))
-            },
+            }
             TypeMarker::AMF3 => parse_element_amf3(i),
             TypeMarker::ObjectEnd => Err(Err::Error(make_error(i, ErrorKind::Digit))),
         }
