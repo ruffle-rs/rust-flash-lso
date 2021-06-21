@@ -176,30 +176,42 @@ impl AMF0Decoder {
     pub fn parse_single_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         let (i, type_) = read_type_marker(i)?;
 
-        let (i, value) = match type_ {
+        match type_ {
             TypeMarker::Number => parse_element_number(i),
             TypeMarker::Boolean => parse_element_bool(i),
             TypeMarker::String => parse_element_string(i),
-            TypeMarker::Object => self.parse_element_object(i),
+            TypeMarker::Object => {
+                let (i, v) = self.parse_element_object(i)?;
+                self.cache.push(v.clone());
+                Ok((i, v))
+            },
             TypeMarker::MovieClip => parse_element_movie_clip(i),
             TypeMarker::Null => Ok((i, Value::Null)),
             TypeMarker::Undefined => Ok((i, Value::Undefined)),
             TypeMarker::Reference => self.parse_element_reference(i),
-            TypeMarker::MixedArrayStart => self.parse_element_mixed_array(i),
-            TypeMarker::Array => self.parse_element_array(i),
+            TypeMarker::MixedArrayStart => {
+                let (i, v) = self.parse_element_mixed_array(i)?;
+                self.cache.push(v.clone());
+                Ok((i, v))
+            },
+            TypeMarker::Array => {
+                let (i, v) = self.parse_element_array(i)?;
+                self.cache.push(v.clone());
+                Ok((i, v))
+            },
             TypeMarker::Date => parse_element_date(i),
             TypeMarker::LongString => parse_element_long_string(i),
             TypeMarker::Unsupported => Ok((i, Value::Unsupported)),
             TypeMarker::RecordSet => parse_element_record_set(i),
             TypeMarker::Xml => parse_element_xml(i),
-            TypeMarker::TypedObject => self.parse_element_typed_object(i),
+            TypeMarker::TypedObject => {
+                let (i, v) = self.parse_element_typed_object(i)?;
+                self.cache.push(v.clone());
+                Ok((i, v))
+            },
             TypeMarker::AMF3 => parse_element_amf3(i),
             TypeMarker::ObjectEnd => Err(Err::Error(make_error(i, ErrorKind::Digit))),
-        }?;
-
-        self.cache.push(value.clone());
-
-        Ok((i, value))
+        }
     }
 
     fn parse_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Element> {
