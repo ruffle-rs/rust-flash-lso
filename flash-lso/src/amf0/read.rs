@@ -32,54 +32,6 @@ fn parse_element_string(i: &[u8]) -> AMFResult<'_, Value> {
     map(parse_string, |s: &str| Value::String(s.to_string()))(i)
 }
 
-fn parse_element_object(i: &[u8]) -> AMFResult<'_, Value> {
-    map(parse_array_element, |elms: Vec<Element>| {
-        Value::Object(elms, None)
-    })(i)
-}
-
-fn parse_element_movie_clip(i: &[u8]) -> AMFResult<'_, Value> {
-    // Reserved but unsupported
-    Err(Err::Error(make_error(i, ErrorKind::Tag)))
-}
-
-#[allow(clippy::let_and_return)]
-fn parse_element_mixed_array(i: &[u8]) -> AMFResult<'_, Value> {
-    let (i, array_length) = be_u32(i)?;
-    // this `let x = ...` fixes a borrow error on array_length
-    let x = map(parse_array_element, |elms: Vec<Element>| {
-        Value::ECMAArray(Vec::new(), elms, array_length)
-    })(i);
-
-    x
-}
-
-fn parse_element_reference(i: &[u8]) -> AMFResult<'_, Value> {
-    // References arent supported
-    Err(Err::Error(make_error(i, ErrorKind::Tag)))
-}
-
-fn parse_element_array(i: &[u8]) -> AMFResult<'_, Value> {
-    let (i, length) = be_u32(i)?;
-
-    let length_usize = length
-        .try_into()
-        .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
-
-    // There must be at least `length_usize` bytes (u8) to read this, this prevents OOM errors with v.large arrays
-    if i.len() < length_usize {
-        return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
-    }
-
-    // This must parse length elements
-    let (i, elements) = many_m_n(length_usize, length_usize, parse_single_element)(i)?;
-
-    Ok((
-        i,
-        Value::StrictArray(elements.into_iter().map(Rc::new).collect()),
-    ))
-}
-
 fn parse_element_date(i: &[u8]) -> AMFResult<'_, Value> {
     let (i, millis) = be_f64(i)?;
     let (i, time_zone) = be_u16(i)?;
@@ -87,39 +39,19 @@ fn parse_element_date(i: &[u8]) -> AMFResult<'_, Value> {
     Ok((i, Value::Date(millis, Some(time_zone))))
 }
 
-fn parse_element_long_string(i: &[u8]) -> AMFResult<'_, Value> {
+fn parse_long_string_internal(i: &[u8]) -> AMFResult<'_, &str> {
     let (i, length) = be_u32(i)?;
-    let (i, str) = take_str!(i, length)?;
+    take_str!(i, length)
+}
 
+fn parse_element_long_string(i: &[u8]) -> AMFResult<'_, Value> {
+    let (i, str) = parse_long_string_internal(i)?;
     Ok((i, Value::String(str.to_string())))
 }
 
-fn parse_element_record_set(i: &[u8]) -> AMFResult<'_, Value> {
-    // Unsupported
-    Err(Err::Error(make_error(i, ErrorKind::Tag)))
-}
-
 fn parse_element_xml(i: &[u8]) -> AMFResult<'_, Value> {
-    let (i, content) = parse_element_long_string(i)?;
-    if let Value::String(content_string) = content {
-        Ok((i, Value::XML(content_string, true)))
-    } else {
-        // Will never happen
-        Err(Err::Error(make_error(i, ErrorKind::Digit)))
-    }
-}
-
-#[allow(clippy::let_and_return)]
-fn parse_element_typed_object(i: &[u8]) -> AMFResult<'_, Value> {
-    let (i, name) = parse_string(i)?;
-
-    let x = map(parse_array_element, |elms: Vec<Element>| {
-        Value::Object(
-            elms,
-            Some(ClassDefinition::default_with_name(name.to_string())),
-        )
-    })(i);
-    x
+    let (i, content) = parse_long_string_internal(i)?;
+    Ok((i, Value::XML(content.to_string(), true)))
 }
 
 fn parse_element_amf3(i: &[u8]) -> AMFResult<'_, Value> {
@@ -136,69 +68,156 @@ fn read_type_marker(i: &[u8]) -> AMFResult<'_, TypeMarker> {
     ))
 }
 
-fn parse_single_element(i: &[u8]) -> AMFResult<'_, Value> {
-    let (i, type_) = read_type_marker(i)?;
+/// Handles decoding AMF0
+#[derive(Debug, Default)]
+pub struct AMF0Decoder {
+    cache: Vec<Value>,
+}
 
-    match type_ {
-        TypeMarker::Number => parse_element_number(i),
-        TypeMarker::Boolean => parse_element_bool(i),
-        TypeMarker::String => parse_element_string(i),
-        TypeMarker::Object => parse_element_object(i),
-        TypeMarker::MovieClip => parse_element_movie_clip(i),
-        TypeMarker::Null => Ok((i, Value::Null)),
-        TypeMarker::Undefined => Ok((i, Value::Undefined)),
-        TypeMarker::Reference => parse_element_reference(i),
-        TypeMarker::MixedArrayStart => parse_element_mixed_array(i),
-        TypeMarker::Array => parse_element_array(i),
-        TypeMarker::Date => parse_element_date(i),
-        TypeMarker::LongString => parse_element_long_string(i),
-        TypeMarker::Unsupported => Ok((i, Value::Unsupported)),
-        TypeMarker::RecordSet => parse_element_record_set(i),
-        TypeMarker::XML => parse_element_xml(i),
-        TypeMarker::TypedObject => parse_element_typed_object(i),
-        TypeMarker::AMF3 => parse_element_amf3(i),
-        TypeMarker::ObjectEnd => Err(Err::Error(make_error(i, ErrorKind::Digit))),
+impl AMF0Decoder {
+    fn parse_element_reference<'a>(&self, i: &'a [u8]) -> AMFResult<'a, Value> {
+        let (i, reference_index) = be_u16(i)?;
+
+        let val = self.cache.get(reference_index as usize).ok_or(Err::Error(
+            crate::errors::Error::InvalidReference(reference_index),
+        ))?;
+
+        Ok((i, val.clone()))
     }
-}
 
-fn parse_element(i: &[u8]) -> AMFResult<'_, Element> {
-    let (i, name) = parse_string(i)?;
+    fn parse_element_mixed_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
+        let (i, array_length) = be_u32(i)?;
+        map(
+            |i| self.parse_array_element(i),
+            move |elms: Vec<Element>| Value::ECMAArray(Vec::new(), elms, array_length),
+        )(i)
+    }
 
-    map(parse_single_element, move |v| Element {
-        name: name.to_string(),
-        value: Rc::new(v),
-    })(i)
-}
+    fn parse_element_typed_object<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
+        let (i, name) = parse_string(i)?;
 
-fn parse_element_and_padding(i: &[u8]) -> AMFResult<'_, Element> {
-    let (i, e) = parse_element(i)?;
-    let (i, _) = tag(PADDING)(i)?;
+        map(
+            |i| self.parse_array_element(i),
+            move |elms: Vec<Element>| {
+                Value::Object(
+                    elms,
+                    Some(ClassDefinition::default_with_name(name.to_string())),
+                )
+            },
+        )(i)
+    }
 
-    Ok((i, e))
-}
+    fn parse_element_object<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
+        map(
+            |i| self.parse_array_element(i),
+            |elms: Vec<Element>| Value::Object(elms, None),
+        )(i)
+    }
 
-//TODO: can this be done better somehow??
-fn parse_array_element(i: &[u8]) -> AMFResult<'_, Vec<Element>> {
-    let mut out = Vec::new();
+    fn parse_element_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
+        let (i, length) = be_u32(i)?;
 
-    let mut i = i;
-    loop {
-        let (k, _) = parse_string(i)?;
-        let (k, next_type) = read_type_marker(k)?;
-        if next_type == TypeMarker::ObjectEnd {
-            i = k;
-            break;
+        let length_usize = length
+            .try_into()
+            .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
+
+        // There must be at least `length_usize` bytes (u8) to read this, this prevents OOM errors with v.large arrays
+        if i.len() < length_usize {
+            return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
         }
 
-        let (j, e) = parse_element(i)?;
-        i = j;
+        // This must parse length elements
+        let (i, elements) =
+            many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
 
-        out.push(e.clone());
+        Ok((
+            i,
+            Value::StrictArray(elements.into_iter().map(Rc::new).collect()),
+        ))
     }
 
-    Ok((i, out))
-}
+    fn parse_array_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {
+        let mut out = Vec::new();
 
-pub(crate) fn parse_body(i: &[u8]) -> AMFResult<'_, Vec<Element>> {
-    many0(parse_element_and_padding)(i)
+        let mut i = i;
+        loop {
+            let (k, _) = parse_string(i)?;
+            let (k, next_type) = read_type_marker(k)?;
+            if next_type == TypeMarker::ObjectEnd {
+                i = k;
+                break;
+            }
+
+            let (j, e) = self.parse_element(i)?;
+            i = j;
+
+            out.push(e.clone());
+        }
+
+        Ok((i, out))
+    }
+
+    fn parse_single_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
+        let (i, type_) = read_type_marker(i)?;
+
+        match type_ {
+            TypeMarker::Number => parse_element_number(i),
+            TypeMarker::Boolean => parse_element_bool(i),
+            TypeMarker::String => parse_element_string(i),
+            TypeMarker::Object => {
+                let (i, v) = self.parse_element_object(i)?;
+                self.cache.push(v.clone());
+                Ok((i, v))
+            }
+            TypeMarker::Null => Ok((i, Value::Null)),
+            TypeMarker::Undefined => Ok((i, Value::Undefined)),
+            TypeMarker::Reference => self.parse_element_reference(i),
+            TypeMarker::MixedArrayStart => {
+                let (i, v) = self.parse_element_mixed_array(i)?;
+                self.cache.push(v.clone());
+                Ok((i, v))
+            }
+            TypeMarker::Array => {
+                let (i, v) = self.parse_element_array(i)?;
+                self.cache.push(v.clone());
+                Ok((i, v))
+            }
+            TypeMarker::Date => parse_element_date(i),
+            TypeMarker::LongString => parse_element_long_string(i),
+            TypeMarker::Unsupported => Ok((i, Value::Unsupported)),
+            TypeMarker::Xml => parse_element_xml(i),
+            TypeMarker::TypedObject => {
+                let (i, v) = self.parse_element_typed_object(i)?;
+                self.cache.push(v.clone());
+                Ok((i, v))
+            }
+            TypeMarker::AMF3 => parse_element_amf3(i),
+            TypeMarker::MovieClip | TypeMarker::RecordSet | TypeMarker::ObjectEnd => Err(
+                Err::Error(crate::errors::Error::UnsupportedType(type_ as u8)),
+            ),
+        }
+    }
+
+    fn parse_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Element> {
+        let (i, name) = parse_string(i)?;
+
+        map(
+            |i| self.parse_single_element(i),
+            move |v| Element {
+                name: name.to_string(),
+                value: Rc::new(v),
+            },
+        )(i)
+    }
+
+    fn parse_element_and_padding<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Element> {
+        let (i, e) = self.parse_element(i)?;
+        let (i, _) = tag(PADDING)(i)?;
+
+        Ok((i, e))
+    }
+
+    pub(crate) fn parse_body<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {
+        many0(|i| self.parse_element_and_padding(i))(i)
+    }
 }

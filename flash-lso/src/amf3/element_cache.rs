@@ -64,13 +64,13 @@ impl<T: PartialEq + Clone + Debug> ElementCache<T> {
 }
 
 impl<T: PartialEq + Clone + Debug> ElementCache<Vec<T>> {
-    /// See #store, will convert slices of &[T] into Vec<T> before storing
+    /// See #store, will convert slices of &\[T\] into Vec<T> before storing
     #[inline]
     pub(crate) fn store_slice(&self, val: &[T]) {
         self.store(val.to_vec());
     }
 
-    /// See #get_index, will convert slices of &[T] into Vec<T> before retrieving
+    /// See #get_index, will convert slices of &\[T\] into Vec<T> before retrieving
     #[inline]
     pub fn get_slice_index(&self, val: &[T]) -> Option<usize> {
         self.get_index(val.to_vec())
