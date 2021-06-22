@@ -580,12 +580,11 @@ impl AMF3Decoder {
         if let Ok(type_) = TypeMarker::try_from(type_) {
             Ok((i, type_))
         } else {
-            Err(Err::Error(make_error(i, ErrorKind::HexDigit)))
+            Err(Err::Error(crate::errors::Error::UnsupportedType(type_)))
         }
     }
 
     /// Parse a single AMF3 element from the input
-    #[inline]
     pub fn parse_single_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         let (i, type_) = self.read_type_marker(i)?;
 

@@ -16,6 +16,10 @@ pub enum Error<'a> {
     #[error("Invalid reference")]
     InvalidReference(u16),
 
+    /// Invalid type marker
+    #[error("Unsupported tag")]
+    UnsupportedType(u8),
+
     /// A nom internal error
     #[error("Nom internal error")]
     Nom(&'a [u8], ErrorKind),

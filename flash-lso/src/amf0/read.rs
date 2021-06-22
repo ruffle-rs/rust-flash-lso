@@ -32,11 +32,6 @@ fn parse_element_string(i: &[u8]) -> AMFResult<'_, Value> {
     map(parse_string, |s: &str| Value::String(s.to_string()))(i)
 }
 
-fn parse_element_movie_clip(i: &[u8]) -> AMFResult<'_, Value> {
-    // Reserved but unsupported
-    Err(Err::Error(make_error(i, ErrorKind::Tag)))
-}
-
 fn parse_element_date(i: &[u8]) -> AMFResult<'_, Value> {
     let (i, millis) = be_f64(i)?;
     let (i, time_zone) = be_u16(i)?;
@@ -44,26 +39,19 @@ fn parse_element_date(i: &[u8]) -> AMFResult<'_, Value> {
     Ok((i, Value::Date(millis, Some(time_zone))))
 }
 
-fn parse_element_long_string(i: &[u8]) -> AMFResult<'_, Value> {
+fn parse_long_string_internal(i: &[u8]) -> AMFResult<'_, &str> {
     let (i, length) = be_u32(i)?;
-    let (i, str) = take_str!(i, length)?;
+    take_str!(i, length)
+}
 
+fn parse_element_long_string(i: &[u8]) -> AMFResult<'_, Value> {
+    let (i, str) = parse_long_string_internal(i)?;
     Ok((i, Value::String(str.to_string())))
 }
 
-fn parse_element_record_set(i: &[u8]) -> AMFResult<'_, Value> {
-    // Unsupported
-    Err(Err::Error(make_error(i, ErrorKind::Tag)))
-}
-
 fn parse_element_xml(i: &[u8]) -> AMFResult<'_, Value> {
-    let (i, content) = parse_element_long_string(i)?;
-    if let Value::String(content_string) = content {
-        Ok((i, Value::XML(content_string, true)))
-    } else {
-        // Will never happen
-        Err(Err::Error(make_error(i, ErrorKind::Digit)))
-    }
+    let (i, content) = parse_long_string_internal(i)?;
+    Ok((i, Value::XML(content.to_string(), true)))
 }
 
 fn parse_element_amf3(i: &[u8]) -> AMFResult<'_, Value> {
@@ -98,7 +86,6 @@ impl AMF0Decoder {
         Ok((i, val.clone()))
     }
 
-    #[allow(clippy::let_and_return)]
     fn parse_element_mixed_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         let (i, array_length) = be_u32(i)?;
         map(
@@ -107,7 +94,6 @@ impl AMF0Decoder {
         )(i)
     }
 
-    #[allow(clippy::let_and_return)]
     fn parse_element_typed_object<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         let (i, name) = parse_string(i)?;
 
@@ -185,7 +171,6 @@ impl AMF0Decoder {
                 self.cache.push(v.clone());
                 Ok((i, v))
             }
-            TypeMarker::MovieClip => parse_element_movie_clip(i),
             TypeMarker::Null => Ok((i, Value::Null)),
             TypeMarker::Undefined => Ok((i, Value::Undefined)),
             TypeMarker::Reference => self.parse_element_reference(i),
@@ -202,7 +187,6 @@ impl AMF0Decoder {
             TypeMarker::Date => parse_element_date(i),
             TypeMarker::LongString => parse_element_long_string(i),
             TypeMarker::Unsupported => Ok((i, Value::Unsupported)),
-            TypeMarker::RecordSet => parse_element_record_set(i),
             TypeMarker::Xml => parse_element_xml(i),
             TypeMarker::TypedObject => {
                 let (i, v) = self.parse_element_typed_object(i)?;
@@ -210,7 +194,9 @@ impl AMF0Decoder {
                 Ok((i, v))
             }
             TypeMarker::AMF3 => parse_element_amf3(i),
-            TypeMarker::ObjectEnd => Err(Err::Error(make_error(i, ErrorKind::Digit))),
+            TypeMarker::MovieClip | TypeMarker::RecordSet | TypeMarker::ObjectEnd => Err(
+                Err::Error(crate::errors::Error::UnsupportedType(type_ as u8)),
+            ),
         }
     }
 
