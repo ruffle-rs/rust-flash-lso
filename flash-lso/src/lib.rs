@@ -1,6 +1,6 @@
 //! Library for reading and writing the Adobe Flash Local Shared Object (LSO) file format and the contained AMF0/AMF3 data
 
-#![warn(
+#![deny(
     anonymous_parameters,
     nonstandard_style,
     rust_2018_idioms,

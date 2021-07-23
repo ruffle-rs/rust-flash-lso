@@ -136,6 +136,7 @@ fn read_type_marker(i: &[u8]) -> AMFResult<'_, TypeMarker> {
     ))
 }
 
+/// Parse a single AMF0 element
 pub fn parse_single_element(i: &[u8]) -> AMFResult<'_, Value> {
     let (i, type_) = read_type_marker(i)?;
 
