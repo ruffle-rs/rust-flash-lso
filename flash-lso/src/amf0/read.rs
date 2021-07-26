@@ -157,7 +157,7 @@ impl AMF0Decoder {
         Ok((i, out))
     }
 
-    fn parse_single_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
+    pub fn parse_single_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         let (i, type_) = read_type_marker(i)?;
 
         match type_ {
@@ -217,7 +217,7 @@ impl AMF0Decoder {
         Ok((i, e))
     }
 
-    pub(crate) fn parse_body<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {
+    pub fn parse_body<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {
         many0(|i| self.parse_element_and_padding(i))(i)
     }
 }
