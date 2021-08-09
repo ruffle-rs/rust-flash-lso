@@ -101,7 +101,7 @@ impl Component for Model {
                 flex::read::register_decoders(&mut parser.amf3_decoder);
 
                 match parser.parse(&file.content) {
-                    Ok((_, sol)) => {
+                    Ok(sol) => {
                         self.files
                             .get_mut(index)
                             .web_expect(&format!("No loading file at index {}", index))
@@ -599,7 +599,11 @@ impl Model {
 
     fn save_button(&self) -> Html {
         if let Some(tab_index) = self.current_tab {
-            let bytes = write_to_bytes(self.files[tab_index].file.as_ref().unwrap());
+            let mut lso = self.files[tab_index]
+                .file
+                .clone()
+                .web_expect("Failed to get file");
+            let bytes = write_to_bytes(&mut lso).web_expect("Failed to write lso to bytes");
 
             let options: js_sys::Object = js_sys::Object::new();
 

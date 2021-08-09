@@ -17,7 +17,7 @@ impl Length {
         matches!(self, Length::Size(_))
     }
 
-    pub(crate) fn to_position(&self) -> Option<usize> {
+    pub(crate) fn as_position(&self) -> Option<usize> {
         match self {
             Length::Reference(x) => Some(*x),
             _ => None,

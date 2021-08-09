@@ -89,7 +89,7 @@ fn write_unsupported_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W>
 
 fn write_xml_element<'a, 'b: 'a, W: Write + 'a>(content: &'b str) -> impl SerializeFn<W> + 'a {
     tuple((
-        write_type_marker(TypeMarker::XML),
+        write_type_marker(TypeMarker::Xml),
         write_long_string_content(content),
     ))
 }

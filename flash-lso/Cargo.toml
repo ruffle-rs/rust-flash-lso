@@ -13,17 +13,17 @@ categories = ["data-structures", "encoding", "parser-implementations"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nom = "6.0.1"
-cookie-factory = "0.3.1"
+nom = "6.2.0"
+cookie-factory = "0.3.2"
 derive-try-from-primitive = "1.0.0"
-enumset = { version = "1.0.0", features = ["serde"] }
-thiserror = "1.0.22"
-serde = { version = "1", optional = true, features = ["derive", "rc"] }
+enumset = { version = "1.0.6", features = ["serde"] }
+thiserror = "1.0.25"
+serde = { version = "1.0.126", optional = true, features = ["derive", "rc"] }
 
 [dev-dependencies]
 pretty_assertions = "0.7.2"
-serde_json = "1.0.59"
-criterion = "0.3.3"
+serde_json = "1.0.64"
+criterion = "0.3.4"
 
 [[bench]]
 name = "benchmarks"

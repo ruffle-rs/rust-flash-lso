@@ -5,7 +5,9 @@ use nom::bytes::complete::tag;
 use nom::number::complete::be_u32;
 
 use crate::amf0;
+use crate::amf0::read::AMF0Decoder;
 use crate::amf3::read::AMF3Decoder;
+use crate::errors::Error;
 use crate::nom_utils::AMFResult;
 use crate::types::{AMFVersion, Header, Lso};
 use nom::combinator::all_consuming;
@@ -32,8 +34,10 @@ const FORMAT_VERSION_AMF3: u8 = 0x3;
 /// }
 #[derive(Default)]
 pub struct Reader {
-    /// Handles reading Value::AMF3() wrapped types
+    /// Handles reading Amf3 data
     pub amf3_decoder: AMF3Decoder,
+    /// Handles reading Amf0 data
+    pub amf0_decoder: AMF0Decoder,
 }
 
 impl Reader {
@@ -63,11 +67,15 @@ impl Reader {
         ))
     }
 
-    fn parse_inner<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Lso> {
+    /// Read a given buffer as an Lso
+    ///
+    /// Unlike parse, this function will not error if the entire slice isn't consumed
+    /// and will return the data that was not parsed
+    pub fn parse_incomplete<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Lso> {
         let (i, header) = self.parse_header(i)?;
         match header.format_version {
             AMFVersion::AMF0 => {
-                let (i, body) = amf0::read::parse_body(i)?;
+                let (i, body) = self.amf0_decoder.parse_body(i)?;
                 Ok((i, Lso { header, body }))
             }
 
@@ -78,8 +86,12 @@ impl Reader {
         }
     }
 
-    /// Read a given buffer as an Lso
-    pub fn parse<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Lso> {
-        all_consuming(|i| self.parse_inner(i))(i)
+    /// Read a given slice as an Lso
+    ///
+    /// This function will return an error if the slice could not be parsed or if the entire slice
+    /// was not consumed
+    pub fn parse<'a>(&mut self, i: &'a [u8]) -> Result<Lso, nom::Err<Error<'a>>> {
+        let (_, lso) = all_consuming(|i| self.parse_incomplete(i))(i)?;
+        Ok(lso)
     }
 }

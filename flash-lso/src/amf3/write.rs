@@ -115,8 +115,8 @@ impl AMF3Encoder {
 
         either(
             only_length,
-            len.write(&self),
-            tuple((len.write(&self), slice(s))),
+            len.write(self),
+            tuple((len.write(self), slice(s))),
         )
     }
 
@@ -178,9 +178,9 @@ impl AMF3Encoder {
             self.write_type_marker(TypeMarker::VectorInt),
             either(
                 len.is_reference(),
-                len.write(&self),
+                len.write(self),
                 tuple((
-                    Length::Size(items.len() as u32).write(&self),
+                    Length::Size(items.len() as u32).write(self),
                     be_u8(fixed_length as u8),
                     all(items.iter().copied().map(be_i32)),
                 )),
@@ -202,9 +202,9 @@ impl AMF3Encoder {
             self.write_type_marker(TypeMarker::VectorUInt),
             either(
                 len.is_reference(),
-                len.write(&self),
+                len.write(self),
                 tuple((
-                    Length::Size(items.len() as u32).write(&self),
+                    Length::Size(items.len() as u32).write(self),
                     be_u8(fixed_length as u8),
                     all(items.iter().copied().map(be_u32)),
                 )),
@@ -226,9 +226,9 @@ impl AMF3Encoder {
             self.write_type_marker(TypeMarker::VectorDouble),
             either(
                 len.is_reference(),
-                len.write(&self),
+                len.write(self),
                 tuple((
-                    Length::Size(items.len() as u32).write(&self),
+                    Length::Size(items.len() as u32).write(self),
                     be_u8(fixed_length as u8),
                     all(items.iter().copied().map(be_f64)),
                 )),
@@ -243,7 +243,7 @@ impl AMF3Encoder {
 
         tuple((
             self.write_type_marker(TypeMarker::Date),
-            len.write(&self),
+            len.write(self),
             cond(len.is_size(), be_f64(time)),
         ))
     }
@@ -265,7 +265,7 @@ impl AMF3Encoder {
 
         tuple((
             self.write_type_marker(TypeMarker::ByteArray),
-            len.write(&self),
+            len.write(self),
             cond(len.is_size(), slice(bytes)),
         ))
     }
@@ -281,9 +281,9 @@ impl AMF3Encoder {
             either(
                 string,
                 self.write_type_marker(TypeMarker::XmlString),
-                self.write_type_marker(TypeMarker::XML),
+                self.write_type_marker(TypeMarker::Xml),
             ),
-            len.write(&self),
+            len.write(self),
             cond(len.is_size(), slice(bytes.as_bytes())),
         ))
     }
@@ -464,7 +464,7 @@ impl AMF3Encoder {
             let x = tuple((
                 self.write_type_marker(TypeMarker::Object),
                 cond(had_object.is_reference(), move |out| {
-                    self.write_object_reference(had_object.to_position().unwrap() as u32)(out)
+                    self.write_object_reference(had_object.as_position().unwrap() as u32)(out)
                 }),
                 cond(
                     !had_object.is_reference(),
@@ -501,12 +501,12 @@ impl AMF3Encoder {
             children.is_empty(),
             tuple((
                 self.write_type_marker(TypeMarker::Array),
-                Length::Size(0).write(&self),
+                Length::Size(0).write(self),
                 self.write_byte_string(&[]), // Empty key
             )),
             tuple((
                 self.write_type_marker(TypeMarker::Array),
-                len.write(&self),
+                len.write(self),
                 cond(
                     len.is_size(),
                     tuple((
@@ -528,7 +528,7 @@ impl AMF3Encoder {
         //TODO: would this also work for strict arrays if they have [] for assoc part?
         tuple((
             self.write_type_marker(TypeMarker::Array),
-            len.write(&self),
+            len.write(self),
             cond(
                 len.is_size(),
                 tuple((
@@ -553,7 +553,7 @@ impl AMF3Encoder {
 
         tuple((
             self.write_type_marker(TypeMarker::VectorObject),
-            len.write(&self),
+            len.write(self),
             cond(
                 len.is_size(),
                 tuple((
@@ -579,7 +579,7 @@ impl AMF3Encoder {
 
         tuple((
             self.write_type_marker(TypeMarker::Dictionary),
-            len.write(&self),
+            len.write(self),
             cond(
                 len.is_size(),
                 tuple((
