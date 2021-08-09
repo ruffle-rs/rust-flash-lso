@@ -219,6 +219,7 @@ impl AMF0Decoder {
         Ok((i, e))
     }
 
+    /// Parse a sequence of `PADDING` delimited `Values`
     pub fn parse_body<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {
         many0(|i| self.parse_element_and_padding(i))(i)
     }
