@@ -110,7 +110,7 @@ impl HexView {
                         { for chunk.iter().enumerate().map(move |(subchunk_index, v)| html! {
                             <td>
                                 <NumberInput<u8>
-                                    value={v}
+                                    value=v.clone()
                                     onchange=self.link.callback(move |data| Msg::Edit(data, chunk_index*CHUNK_SIZE + subchunk_index))
                                     onfocus=self.link.callback(move |_| Msg::Focus(chunk_index*CHUNK_SIZE + subchunk_index))
                                     onblur=self.link.callback(move |_| Msg::Blur)/>

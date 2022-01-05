@@ -2,7 +2,7 @@
 name = "web"
 version = "0.1.0"
 authors = ["CUB3D <callumthom11@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,11 +10,10 @@ edition = "2018"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-yew = "0.17.4"
+yew = "0.18"
 yewtil = "0.4.0"
-wasm-bindgen = "0.2.67"
-js-sys = "0.3.44"
-log = "0.4.11"
+wasm-bindgen = "0.2.78"
+js-sys = "0.3.55"
+log = "0.4.14"
 wasm-logger = "0.2.0"
-
 flash-lso = { path = "../flash-lso", features = ["serde", "flex"] }
