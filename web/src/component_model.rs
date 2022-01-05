@@ -39,7 +39,6 @@ impl LoadedFile {
 
 pub struct Model {
     link: ComponentLink<Self>,
-    reader: ReaderService,
     tasks: Vec<ReaderTask>,
     files: Vec<LoadedFile>,
     current_selection: Option<EditableValue>,
@@ -68,7 +67,6 @@ impl Component for Model {
     fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
         Self {
             link,
-            reader: ReaderService::new(),
             tasks: vec![],
             files: vec![],
             current_selection: None,
@@ -89,9 +87,7 @@ impl Component for Model {
                         let callback = self
                             .link
                             .callback(move |file_data| Msg::Loaded(index, file_data));
-                        self.reader
-                            .read_file(file, callback)
-                            .web_expect("Unable to read file")
+                        ReaderService::read_file(file, callback).web_expect("Unable to read file")
                     };
                     self.tasks.push(task);
                 }
@@ -190,7 +186,7 @@ impl Component for Model {
 
                 <Tabs selected={self.current_tab} ontabselect=self.link.callback(move |index| Msg::TabSelected(index)) ontabremove=self.link.callback(move |index| Msg::CloseTab(index))>
                     { for self.files.iter().enumerate().map(|(i,f)| html_nested! {
-                    <Tab label={&f.file_name} loading=f.file.is_none()>
+                    <Tab label=f.file_name.clone() loading=f.file.is_none()>
                         { if let Some(file) = &f.file {
                             self.view_file(i, file)
                         } else {
@@ -209,7 +205,7 @@ impl Model {
         html! {
             <ModalContainer onclose=self.link.callback(|index| Msg::CloseModal(index))>
                 { for self.error_messages.iter().map(|e| html_nested! {
-                    <Modal title={"Loading Failed"} content={e}/>
+                    <Modal title={"Loading Failed"} content=e.clone()/>
                 })}
             </ModalContainer>
         }
@@ -278,7 +274,7 @@ impl Model {
                 let elements_clone_2 = elements.clone();
                 return html! {
                     <>
-                    <StringInput onchange=self.link.callback(move |new_name| Msg::Edited(Value::VectorObject(elements.clone(), new_name, fixed_length))) value={&name}/>
+                    <StringInput onchange=self.link.callback(move |new_name| Msg::Edited(Value::VectorObject(elements.clone(), new_name, fixed_length))) value=name.clone()/>
                     <div class="custom-control custom-switch">
                       <input type={"checkbox"} class={"custom-control-input"} id={"customSwitch1"} checked={fixed_length} onclick={self.link.callback(move |_| {
                         Msg::Edited(Value::VectorObject(elements_clone_2.clone(), name.clone(), !fixed_length))
@@ -341,7 +337,7 @@ impl Model {
                         } else {
                             Msg::Edited(Value::Date(x, tz))
                         }
-                    })} value={x} class="form-control" type="number"/>
+                    })} value=format!("{}", x) class="form-control" type="number"/>
                   </div>
 
                   { if tz.is_some() { html!{
@@ -359,7 +355,7 @@ impl Model {
                         } else {
                             Msg::Edited(Value::Date(x, tz))
                         }
-                    })} value={tz.web_expect("Unable to get timezone")} class="form-control" type="number"/>
+                    })} value=format!("{}", tz.web_expect("Unable to get timezone")) class="form-control" type="number"/>
                   </div>
                   }} else {html!{}}}
                 </>
@@ -408,7 +404,7 @@ impl Model {
                                             } else {
                                                 Msg::Edited(Value::VectorInt(elements_clone5.clone(), fixed_length))
                                             }
-                                        })} value={e} class="form-control" type="text"/>
+                                        })} value=format!("{}", e) class="form-control" type="text"/>
                                     </td>
                                     <td></td>
                                     <td>
@@ -474,7 +470,7 @@ impl Model {
                                             } else {
                                                 Msg::Edited(Value::VectorUInt(elements_clone5.clone(), fixed_length))
                                             }
-                                        })} value={e} class="form-control" type="text"/>
+                                        })} value=format!("{}", e) class="form-control" type="text"/>
                                     </td>
                                     <td></td>
                                     <td>
@@ -540,7 +536,7 @@ impl Model {
                                             } else {
                                                 Msg::Edited(Value::VectorDouble(elements_clone5.clone(), fixed_length))
                                             }
-                                        })} value={e} class="form-control" type="text"/>
+                                        })} value=format!("{}", e) class="form-control" type="text"/>
                                     </td>
                                     <td></td>
                                     <td>
@@ -633,7 +629,7 @@ impl Model {
             <div class="container-fluid">
                 <div class="row">
                     <div class="col-5">
-                        <StringInput value=&self.search onchange=self.link.callback(|s| Msg::SearchQuery(s)) class="mt-2 col-md-4" placeholder="Search..."/>
+                        <StringInput value=self.search.clone() onchange=self.link.callback(|s| Msg::SearchQuery(s)) class="mt-2 col-md-4" placeholder="Search..."/>
 
                         <div id="tree" class="mt-2">
                             <span onclick=self.link.callback(|_| Msg::RootSelected)>
@@ -680,7 +676,6 @@ impl Model {
                                             "Custom<Unknown>".to_string()
                                         }
                                     },
-                                     _ => "Unknown".to_string()
                                 };
 
                                 html! {

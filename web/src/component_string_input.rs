@@ -75,10 +75,10 @@ impl Component for StringInput {
                         Msg::Ignored
                     }
                 })
-                placeholder=self.props.placeholder
+                placeholder=self.props.placeholder.clone()
                 onblur=self.link.callback(move |_fe| Msg::UnFocus)
                 onfocus=self.link.callback(move |_fe| Msg::Focus)
-                value={&self.props.value}
+                value=self.props.value.clone()
                 class=format!("form-control {}", self.props.class)/>
         }
     }

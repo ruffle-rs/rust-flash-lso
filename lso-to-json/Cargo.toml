@@ -2,12 +2,12 @@
 name = "lso-to-json"
 version = "0.1.0"
 authors = ["CUB3D <callumthom11@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 flash-lso = { path = "../flash-lso", features = ["serde", "flex"] }
 env_logger = "0.9.0"
-clap = "3"
-serde_json = "1.0.57"
+clap = "3.0.4"
+serde_json = "1.0.74"

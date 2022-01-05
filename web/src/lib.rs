@@ -32,15 +32,12 @@ pub struct EditableValue {
 pub struct TreeNodePath(Vec<String>);
 impl TreeNodePath {
     pub fn root() -> Self {
-        Self {
-            0: vec!["/".to_string()],
-        }
+        Self(vec!["/".to_string()])
     }
 
+    #[must_use]
     pub fn join(&self, child: String) -> Self {
-        Self {
-            0: self.0.iter().chain(&[child]).cloned().collect(),
-        }
+        Self(self.0.iter().chain(&[child]).cloned().collect())
     }
 
     pub fn contains(&self, other: Self) -> bool {

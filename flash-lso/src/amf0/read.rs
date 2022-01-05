@@ -4,14 +4,12 @@ use crate::amf0::type_marker::TypeMarker;
 use crate::nom_utils::{take_str, AMFResult};
 use crate::types::{ClassDefinition, Element, Value};
 use crate::{amf3, PADDING};
-use nom::bytes::complete::tag;
-use nom::combinator::map;
+use nom::bytes::complete::{tag, take};
+use nom::combinator::{map, map_res};
 use nom::error::{make_error, ErrorKind};
 use nom::multi::{many0, many_m_n};
 use nom::number::complete::{be_f64, be_u16, be_u32, be_u8};
-use nom::take_str;
 use nom::Err;
-
 use std::convert::{TryFrom, TryInto};
 use std::rc::Rc;
 
@@ -41,7 +39,7 @@ fn parse_element_date(i: &[u8]) -> AMFResult<'_, Value> {
 
 fn parse_long_string_internal(i: &[u8]) -> AMFResult<'_, &str> {
     let (i, length) = be_u32(i)?;
-    take_str!(i, length)
+    map_res(take(length), std::str::from_utf8)(i)
 }
 
 fn parse_element_long_string(i: &[u8]) -> AMFResult<'_, Value> {

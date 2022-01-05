@@ -128,7 +128,7 @@ pub mod modal {
         //TODO: only fix seems to be to not use a js modal but rather a custom one
         fn view(&self) -> Html {
             html! {
-                <div class="modal fade" tabindex="-1" role="dialog" id={&self.props.id}>
+                <div class="modal fade" tabindex="-1" role="dialog" id=self.props.id.clone()>
                   <div class="modal-dialog" role="document">
                     <div class="modal-content">
                       <div class="modal-header">
