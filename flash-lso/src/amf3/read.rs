@@ -7,14 +7,12 @@ use crate::types::*;
 use crate::types::{Element, Value};
 use crate::PADDING;
 use enumset::EnumSet;
-use nom::bytes::complete::tag;
-use nom::combinator::map;
+use nom::bytes::complete::{tag, take};
+use nom::combinator::{map, map_res};
 use nom::error::{make_error, ErrorKind};
 use nom::lib::std::collections::HashMap;
 use nom::multi::{many_m_n, separated_list0};
 use nom::number::complete::{be_f64, be_i32, be_u32, be_u8};
-use nom::take;
-use nom::take_str;
 use nom::Err;
 
 use std::convert::{TryFrom, TryInto};
@@ -282,7 +280,7 @@ impl AMF3Decoder {
                 if len == 0 {
                     Ok((i, vec![]))
                 } else {
-                    let (i, bytes) = take!(i, len)?;
+                    let (i, bytes) = take(len)(i)?;
                     self.string_reference_table.push(bytes.to_vec());
                     Ok((i, bytes.to_vec()))
                 }
@@ -435,7 +433,7 @@ impl AMF3Decoder {
 
     fn parse_element_byte_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         self.parse_reference_or_val(i, |_this, i, len| {
-            let (i, bytes) = take!(i, len)?;
+            let (i, bytes) = take(len)(i)?;
             Ok((i, Value::ByteArray(bytes.to_vec())))
         })
     }
@@ -570,7 +568,7 @@ impl AMF3Decoder {
 
     fn parse_element_xml<'a>(&mut self, i: &'a [u8], string: bool) -> AMFResult<'a, Rc<Value>> {
         self.parse_reference_or_val(i, |_this, i, len| {
-            let (i, data) = take_str!(i, len as u32)?;
+            let (i, data) = map_res(take(len as u32), std::str::from_utf8)(i)?;
             Ok((i, Value::XML(data.into(), string)))
         })
     }

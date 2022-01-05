@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matched = App::new("Lso -> json converter")
         .version("1.0")
         .author("CUB3D <callumthom11@gmail.com>")
-        .arg(Arg::with_name("INPUT").help("").required(true))
+        .arg(Arg::new("INPUT").help("").required(true))
         .get_matches();
 
     let file_name = matched.value_of("INPUT").unwrap();
