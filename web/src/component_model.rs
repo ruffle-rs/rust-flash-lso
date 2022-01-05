@@ -87,8 +87,7 @@ impl Component for Model {
                         let callback = self
                             .link
                             .callback(move |file_data| Msg::Loaded(index, file_data));
-                        ReaderService::read_file(file, callback)
-                            .web_expect("Unable to read file")
+                        ReaderService::read_file(file, callback).web_expect("Unable to read file")
                     };
                     self.tasks.push(task);
                 }
