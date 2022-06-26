@@ -4,13 +4,13 @@ name = "flash-lso-fuzz"
 version = "0.0.0"
 authors = ["Automatically generated"]
 publish = false
-edition = "2018"
+edition = "2021"
 
 [package.metadata]
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.2"
+libfuzzer-sys = "0.4.3"
 
 [dependencies.flash-lso]
 path = "../flash-lso"
