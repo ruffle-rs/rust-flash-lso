@@ -92,11 +92,11 @@ const CHUNK_SIZE: usize = 8;
 impl HexView {
     fn remove_button(&self) -> Html {
         if self.selected.is_some() {
-            return html! {
+            html! {
                 <span onclick=self.link.callback(move |_| Msg::Remove) class="ml-2 btn btn-danger">{"Remove"}</span>
-            };
+            }
         } else {
-            return html! {};
+            html! {}
         }
     }
 
@@ -110,7 +110,7 @@ impl HexView {
                         { for chunk.iter().enumerate().map(move |(subchunk_index, v)| html! {
                             <td>
                                 <NumberInput<u8>
-                                    value=v.clone()
+                                    value=*v
                                     onchange=self.link.callback(move |data| Msg::Edit(data, chunk_index*CHUNK_SIZE + subchunk_index))
                                     onfocus=self.link.callback(move |_| Msg::Focus(chunk_index*CHUNK_SIZE + subchunk_index))
                                     onblur=self.link.callback(move |_| Msg::Blur)/>

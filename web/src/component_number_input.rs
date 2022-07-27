@@ -65,7 +65,7 @@ impl<T: 'static + Clone + Display + PartialEq + FromStr> Component for NumberInp
     fn view(&self) -> Html {
         html! {
             <StringInput
-                onchange=self.link.callback(move |s| Msg::Value(s))
+                onchange=self.link.callback(Msg::Value)
                 onblur=self.link.callback(move |_fe| Msg::UnFocus)
                 onfocus=self.link.callback(move |_fe| Msg::Focus)
                 value={format!("{}", self.props.value)}/>

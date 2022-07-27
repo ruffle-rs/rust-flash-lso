@@ -226,7 +226,7 @@ impl TreeNode {
     pub fn view_array_element(&self, index: usize, data: &Rc<Value>) -> Html {
         html! {
             <div>
-                <TreeNode filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={format!("{}", index)} value={data.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                <TreeNode filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={format!("{}", index)} value={data.deref().clone()} parent_callback={self.link.callback(Msg::Selection)}></TreeNode>
             </div>
         }
     }
@@ -237,7 +237,7 @@ impl TreeNode {
             Value::Object(elements, _class_def) => html! {
                 <ul>
                     { for elements.iter().map(|e| html! {
-                        <TreeNode element_callback=self.link.callback(|el| Msg::ElementChange(el)) filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                        <TreeNode element_callback=self.link.callback(Msg::ElementChange) filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(Msg::Selection)}></TreeNode>
                     })}
                 </ul>
             },
@@ -250,7 +250,7 @@ impl TreeNode {
                     <ul>
                        { for dense.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
                         { for assoc.iter().map(|e| html! {
-                            <TreeNode filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                            <TreeNode filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(Msg::Selection)}></TreeNode>
                         })}
                     </ul>
             },
@@ -264,10 +264,10 @@ impl TreeNode {
                     { for children.iter().map(|(k, v)| html! {
                             <>
                             <li>
-                                <TreeNode filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name="key" value={k.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
+                                <TreeNode filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name="key" value={k.deref().clone()} parent_callback=self.link.callback(Msg::Selection)></TreeNode>
                             </li>
                             <li>
-                                <TreeNode filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name="value" value={v.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
+                                <TreeNode filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name="value" value={v.deref().clone()} parent_callback=self.link.callback(Msg::Selection)></TreeNode>
                             </li>
                             </>
                         })}
@@ -279,7 +279,7 @@ impl TreeNode {
                         {"Custom elements"}
                         <ul>
                             { for el.iter().map(|e| html! {
-                                <TreeNode element_callback=self.link.callback(|el| Msg::CustomElementChange(el)) filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                                <TreeNode element_callback=self.link.callback(Msg::CustomElementChange) filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(Msg::Selection)}></TreeNode>
                             })}
                         </ul>
                     </li>
@@ -287,7 +287,7 @@ impl TreeNode {
                         {"Standard elements"}
                         <ul>
                            { for el2.iter().map(|e| html! {
-                                <TreeNode element_callback=self.link.callback(|el| Msg::CustomElementChangeStandard(el)) filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(|val| Msg::Selection(val))}></TreeNode>
+                                <TreeNode element_callback=self.link.callback(Msg::CustomElementChangeStandard) filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(Msg::Selection)}></TreeNode>
                             })}
                         </ul>
                     </li>

@@ -184,7 +184,7 @@ impl Component for Model {
                 { self.navbar() }
                 { self.error_modal() }
 
-                <Tabs selected={self.current_tab} ontabselect=self.link.callback(move |index| Msg::TabSelected(index)) ontabremove=self.link.callback(move |index| Msg::CloseTab(index))>
+                <Tabs selected={self.current_tab} ontabselect=self.link.callback(Msg::TabSelected) ontabremove=self.link.callback(Msg::CloseTab)>
                     { for self.files.iter().enumerate().map(|(i,f)| html_nested! {
                     <Tab label=f.file_name.clone() loading=f.file.is_none()>
                         { if let Some(file) = &f.file {
@@ -203,7 +203,7 @@ impl Component for Model {
 impl Model {
     fn error_modal(&self) -> Html {
         html! {
-            <ModalContainer onclose=self.link.callback(|index| Msg::CloseModal(index))>
+            <ModalContainer onclose=self.link.callback(Msg::CloseModal)>
                 { for self.error_messages.iter().map(|e| html_nested! {
                     <Modal title={"Loading Failed"} content=e.clone()/>
                 })}
@@ -245,7 +245,7 @@ impl Model {
                     }
                 };
 
-                return html! {
+                html! {
                     <>
                       <div class="input-group mb-2">
                         <div class="input-group-prepend">
@@ -268,11 +268,11 @@ impl Model {
                       </ul>
                         { static_props_details }
                     </>
-                };
+                }
             }
             Value::VectorObject(elements, name, fixed_length) => {
                 let elements_clone_2 = elements.clone();
-                return html! {
+                html! {
                     <>
                     <StringInput onchange=self.link.callback(move |new_name| Msg::Edited(Value::VectorObject(elements.clone(), new_name, fixed_length))) value=name.clone()/>
                     <div class="custom-control custom-switch">
@@ -282,7 +282,7 @@ impl Model {
                       <label class={"custom-control-label"} for={"customSwitch1"}>{"Fixed Length"}</label>
                     </div>
                     </>
-                };
+                }
             }
             Value::Number(n) => html! {
                 <NumberInput<f64> onchange=self.link.callback(move |data| Msg::Edited(Value::Number(data))) value={n}/>
@@ -292,7 +292,7 @@ impl Model {
             },
             Value::ByteArray(n) => {
                 let n_clone = n.clone();
-                return html! {
+                html! {
                 <>
                     <HexView
                         bytes={n.clone()}
@@ -308,10 +308,10 @@ impl Model {
                             Msg::Edited(Value::ByteArray(e))
                         })/>
                   </>
-                };
+                }
             }
             Value::String(s) => html! {
-                <StringInput onchange=self.link.callback(move |s| Msg::Edited(Value::String(s))) value={s.clone()}/>
+                <StringInput onchange=self.link.callback(move |s| Msg::Edited(Value::String(s))) value={s}/>
             },
             Value::Bool(b) => html! {
                 <div class="custom-control custom-switch">
@@ -361,12 +361,12 @@ impl Model {
                 </>
             },
             Value::XML(content, string) => html! {
-                <StringInput onchange=self.link.callback(move |s| Msg::Edited(Value::XML(s, string))) value={content.clone()}/>
+                <StringInput onchange=self.link.callback(move |s| Msg::Edited(Value::XML(s, string))) value={content}/>
             },
             Value::VectorInt(elements, fixed_length) => {
                 let elements_clone = elements.clone();
                 let elements_clone3 = elements.clone();
-                return html! {
+                html! {
                     <>
                         <div class="custom-control custom-switch mb-2">
                           <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={fixed_length} onclick={self.link.callback(move |_| {
@@ -427,12 +427,12 @@ impl Model {
                             Msg::Edited(Value::VectorInt(e, fixed_length))
                           })} class="btn btn-primary">{"Add"}</span>
                     </>
-                };
+                }
             }
             Value::VectorUInt(elements, fixed_length) => {
                 let elements_clone = elements.clone();
                 let elements_clone3 = elements.clone();
-                return html! {
+                html! {
                     <>
                         <div class="custom-control custom-switch mb-2">
                           <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={fixed_length} onclick={self.link.callback(move |_| {
@@ -493,12 +493,12 @@ impl Model {
                             Msg::Edited(Value::VectorUInt(e, fixed_length))
                           })} class="btn btn-primary">{"Add"}</span>
                     </>
-                };
+                }
             }
             Value::VectorDouble(elements, fixed_length) => {
                 let elements_clone = elements.clone();
                 let elements_clone3 = elements.clone();
-                return html! {
+                html! {
                     <>
                         <div class="custom-control custom-switch mb-2">
                           <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={fixed_length} onclick={self.link.callback(move |_| {
@@ -559,7 +559,7 @@ impl Model {
                             Msg::Edited(Value::VectorDouble(e, fixed_length))
                           })} class="btn btn-primary">{"Add"}</span>
                     </>
-                };
+                }
             }
             // Value::AMF3(e) => self.value_details(e.clone()),
             _ => html! {},
@@ -614,11 +614,11 @@ impl Model {
             let blob = Blob::new(arr2, options.into());
             let url = URL::createObjectURL(&blob);
 
-            return html! {
+            html! {
                 <a href={url} download={"save.sol"} class="btn btn-primary" style="height: 38px">{"Save"}</a>
-            };
+            }
         } else {
-            return html! {};
+            html! {}
         }
     }
 
@@ -629,7 +629,7 @@ impl Model {
             <div class="container-fluid">
                 <div class="row">
                     <div class="col-5">
-                        <StringInput value=self.search.clone() onchange=self.link.callback(|s| Msg::SearchQuery(s)) class="mt-2 col-md-4" placeholder="Search..."/>
+                        <StringInput value=self.search.clone() onchange=self.link.callback(Msg::SearchQuery) class="mt-2 col-md-4" placeholder="Search..."/>
 
                         <div id="tree" class="mt-2">
                             <span onclick=self.link.callback(|_| Msg::RootSelected)>
@@ -640,7 +640,7 @@ impl Model {
                                 onclick=self.link.callback(move |_| Msg::RootSelected)>{ "/" }</span>
                             <ul>
                                 { for data.body.iter().map(|e| html! {
-                                    <TreeNode element_callback=self.link.callback(|e| Msg::ElementChange(e)) filter=self.search.clone() selection=self.current_selection.clone() parent_path={TreeNodePath::root()} name={e.name.clone()} value={e.value.deref().clone()} parent_callback=self.link.callback(|val| Msg::Selection(val))></TreeNode>
+                                    <TreeNode element_callback=self.link.callback(Msg::ElementChange) filter=self.search.clone() selection=self.current_selection.clone() parent_path={TreeNodePath::root()} name={e.name.clone()} value={e.value.deref().clone()} parent_callback=self.link.callback(Msg::Selection)></TreeNode>
                                 })}
                             </ul>
                         </div>
@@ -682,7 +682,7 @@ impl Model {
                                     <>
                                     <ul class="list-group list-group-horizontal mt-2 mb-2">
                                       <li class="list-group-item">{value_type}</li>
-                                      <li class="list-group-item">{self.current_selection.clone().map(|cs| cs.path.string()).unwrap_or("/".to_string())}</li>
+                                      <li class="list-group-item">{self.current_selection.clone().map(|cs| cs.path.string()).unwrap_or_else(|| "/".to_string())}</li>
                                     </ul>
                                     {{details_content}}
                                     </>
