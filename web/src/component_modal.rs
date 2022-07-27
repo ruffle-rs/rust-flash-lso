@@ -34,19 +34,11 @@ impl Component for ModalContainer {
         false
     }
 
-    // fn change(&mut self, props: Self::Properties) -> bool {
-    //     if props != ctx.props() {
-    //         ctx.props() = props;
-    //         true
-    //     } else {
-    //         false
-    //     }
-    // }
-
     fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
              <>
              { for ctx.props().children.iter().enumerate().map(|(i, mut modal)| {
+                 //TODO: fix
                 // modal.props.id = format!("modal-{}", i);
                 // modal.props.onclosed = Some(ctx.link().callback(move |_| {
                 //     Msg::Close(i)
@@ -75,7 +67,6 @@ impl Component for ModalContainer {
 
 pub mod modal {
     use yew::prelude::*;
-    use yewtil::NeqAssign;
 
     pub enum Msg {
         Closed,

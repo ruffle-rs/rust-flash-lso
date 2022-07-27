@@ -2,7 +2,6 @@ use crate::component_tab::Tab;
 use yew::prelude::*;
 use yew::virtual_dom::VChild;
 use yew::{ChildrenWithProps, Component, Html, Properties};
-use yewtil::NeqAssign;
 
 pub struct Tabs {}
 

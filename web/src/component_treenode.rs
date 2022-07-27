@@ -4,7 +4,6 @@ use std::ops::Deref;
 use std::rc::Rc;
 use yew::prelude::*;
 use yew::{Component, Html, Properties};
-use yewtil::NeqAssign;
 
 #[derive(Debug)]
 pub enum Msg {

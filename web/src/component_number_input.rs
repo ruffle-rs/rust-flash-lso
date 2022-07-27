@@ -4,7 +4,6 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 use yew::prelude::*;
 use yew::{Component, Html, Properties};
-use yewtil::NeqAssign;
 
 pub struct NumberInput<T: 'static + Clone + Display + PartialEq + FromStr> {
     pd: PhantomData<T>,

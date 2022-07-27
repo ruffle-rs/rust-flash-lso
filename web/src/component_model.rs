@@ -1,6 +1,5 @@
 use std::string::ToString;
 use yew::prelude::*;
-// use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
 use flash_lso::extra::flex;
 use flash_lso::read::Reader;
@@ -23,6 +22,9 @@ use crate::TreeNodePath;
 use flash_lso::write::write_to_bytes;
 use std::ops::Deref;
 use web_sys::File;
+use wasm_bindgen::JsCast;
+use web_sys::{EventTarget, HtmlInputElement};
+use yew::events::Event;
 
 pub struct LoadedFile {
     pub file_name: String,
@@ -39,6 +41,7 @@ impl LoadedFile {
 }
 
 pub struct Model {
+    //TODO: fix
     tasks: Vec<() /*ReaderTask*/>,
     files: Vec<LoadedFile>,
     current_selection: Option<EditableValue>,
@@ -47,6 +50,7 @@ pub struct Model {
     search: String,
 }
 
+//TODO: fix
 #[derive(Default, Debug)]
 pub struct FileData {
     pub name: String,
@@ -89,6 +93,7 @@ impl Component for Model {
                     let index = self.files.len();
                     self.files.push(LoadedFile::empty_from_file(&file));
                     let task = {
+                        //TODO: fix
                         // let callback = ctx
                         //     .link()
                         //     .callback(|_| Msg::Loaded(index, /*file_data*/ FileData::default()));
@@ -253,15 +258,17 @@ impl Model {
                         <div class="input-group-prepend">
                           <div class="input-group-text">{"Name"}</div>
                         </div>
-                        // <input onchange={ ctx.link().callback(move |cd| {
-                        //     if let ChangeData::Value(s) = cd {
-                        //         let mut new_def = def.clone();
-                        //         new_def.name = s;
-                        //         Msg::Edited(Value::Object(children.clone(), Some(new_def)))
-                        //     } else {
-                        //         Msg::Edited(Value::Object(children.clone(), Some(def.clone())))
-                        //     }
-                        // })} value={def.name.clone()} class="form-control" type="text"/>
+                        <input
+                        onchange={ctx.link().batch_callback(move |e: Event| {
+                            let target: Option<EventTarget> = e.target();
+                            let input = target.and_then(|t| t.dyn_into::<HtmlInputElement>().ok());
+
+                            input.map(|input| {
+                                let mut new_def = def.clone();
+                                new_def.name = input.value();
+                                Msg::Edited(Value::Object(children.clone(), Some(new_def)))
+                            })
+                        })}  value={def.name.clone()} class="form-control" type="text"/>
                       </div>
 
                       <ul class="list-group list-group-horizontal mt-2 mb-2">
@@ -330,6 +337,7 @@ impl Model {
                       <div class="input-group-text">{"Epoch"}</div>
                     </div>
                     <input
+                //TODO: fix
                 // onchange={ ctx.link().callback(move |cd| {
                 //         if let ChangeData::Value(s) = cd {
                 //             if let Ok(x) = s.parse::<f64>() {
@@ -350,6 +358,7 @@ impl Model {
                       <div class="input-group-text">{"Timezone"}</div>
                     </div>
                     <input
+                      //TODO: fix
                         //   onchange={ ctx.link().callback(move |cd| {
                         //     if let ChangeData::Value(s) = cd {
                         //         if let Ok(tz) = s.parse::<u16>() {
@@ -399,6 +408,7 @@ impl Model {
                                     <td>{i}</td>
                                     <td>
                                         <input
+                                    //TODO: fix
                                         // onchange={ ctx.link().callback(move |cd| {
                                         //     if let ChangeData::Value(s) = cd {
                                         //         if let Ok(data) = s.parse::<i32>() {
@@ -467,6 +477,7 @@ impl Model {
                                     <td>{i}</td>
                                     <td>
                                      <input
+                                    //TODO: fix
                                     // onchange={ ctx.link().callback(move |cd| {
                                     //         if let ChangeData::Value(s) = cd {
                                     //             if let Ok(data) = s.parse::<u32>() {
@@ -535,6 +546,7 @@ impl Model {
                                     <td>{i}</td>
                                     <td>
                                         <input
+                                    //TODO: fix
                                         //     onchange={ ctx.link().callback(move |cd| {
                                         //     if let ChangeData::Value(s) = cd {
                                         //         if let Ok(data) = s.parse::<f64>() {
@@ -589,6 +601,7 @@ impl Model {
                         </div>
                     </li>
                     <input id="files" style="visibility:hidden;" type="file"
+            //TODO: fix
             // onchange={ctx.link().callback(move |value| {
             //                         let mut result = Vec::new();
             //                         if let ChangeData::Files(files) = value {

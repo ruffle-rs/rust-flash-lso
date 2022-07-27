@@ -2,7 +2,6 @@ use crate::component_number_input::NumberInput;
 use crate::web_expect::WebSafeExpect;
 use yew::prelude::*;
 use yew::{Component, Html, Properties};
-use yewtil::NeqAssign;
 
 pub struct HexView {
     selected: Option<usize>,
@@ -61,10 +60,6 @@ impl Component for HexView {
             }
         }
     }
-
-    /*fn change(&mut self, props: Self::Properties) -> bool {
-        cxt.props().neq_assign(props)
-    }*/
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
