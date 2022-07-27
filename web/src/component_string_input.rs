@@ -1,13 +1,10 @@
-use yew::prelude::*;
-use yew::{Component, ComponentLink, Html, Properties};
-use yewtil::NeqAssign;
+use wasm_bindgen::JsCast;
+use web_sys::{EventTarget, HtmlInputElement};
+use yew::{events::Event, html, Callback, Component, Context, Html, Properties};
 
-pub struct StringInput {
-    link: ComponentLink<Self>,
-    pub(crate) props: Props,
-}
+pub struct StringInput {}
 
-#[derive(Properties, Clone, PartialEq)]
+#[derive(PartialEq, Properties)]
 pub struct Props {
     pub onchange: Callback<String>,
     pub value: String,
@@ -35,24 +32,24 @@ impl Component for StringInput {
     type Message = Msg;
     type Properties = Props;
 
-    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        Self { link, props }
+    fn create(_ctx: &Context<Self>) -> Self {
+        StringInput {}
     }
 
-    fn update(&mut self, msg: Self::Message) -> bool {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Value(s) => {
-                self.props.onchange.emit(s);
+                ctx.props().onchange.emit(s);
                 true
             }
             Msg::Focus => {
-                if let Some(onfocus) = &self.props.onfocus {
+                if let Some(onfocus) = &ctx.props().onfocus {
                     onfocus.emit(());
                 }
                 true
             }
             Msg::UnFocus => {
-                if let Some(onblur) = &self.props.onblur {
+                if let Some(onblur) = &ctx.props().onblur {
                     onblur.emit(());
                 }
                 true
@@ -61,25 +58,20 @@ impl Component for StringInput {
         }
     }
 
-    fn change(&mut self, props: Self::Properties) -> bool {
-        self.props.neq_assign(props)
-    }
-
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
             <input
-                onchange=self.link.callback(move |cd| {
-                    if let ChangeData::Value(s) = cd {
-                        Msg::Value(s)
-                    } else {
-                        Msg::Ignored
-                    }
-                })
-                placeholder=self.props.placeholder.clone()
-                onblur=self.link.callback(move |_fe| Msg::UnFocus)
-                onfocus=self.link.callback(move |_fe| Msg::Focus)
-                value=self.props.value.clone()
-                class=format!("form-control {}", self.props.class)/>
+                onchange={ctx.link().batch_callback(|e: Event| {
+                    let target: Option<EventTarget> = e.target();
+                    let input = target.and_then(|t| t.dyn_into::<HtmlInputElement>().ok());
+
+                    input.map(|input| Msg::Value(input.value()))
+                })}
+                placeholder={ctx.props().placeholder.clone()}
+                onblur={ctx.link().callback(move |_fe| Msg::UnFocus)}
+                onfocus={ctx.link().callback(move |_fe| Msg::Focus)}
+                value={ctx.props().value.clone()}
+                class={format!("form-control {}", ctx.props().class)}/>
         }
     }
 }

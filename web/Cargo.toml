@@ -10,8 +10,9 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-yew = "0.18"
+yew = "0.19.3"
 yewtil = "0.4.0"
+web-sys = "0.3.59"
 wasm-bindgen = "0.2.81"
 js-sys = "0.3.58"
 log = "0.4.17"

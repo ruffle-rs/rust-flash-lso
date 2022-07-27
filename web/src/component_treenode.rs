@@ -3,7 +3,7 @@ use flash_lso::types::{Element, Value};
 use std::ops::Deref;
 use std::rc::Rc;
 use yew::prelude::*;
-use yew::{Component, ComponentLink, Html, Properties};
+use yew::{Component, Html, Properties};
 use yewtil::NeqAssign;
 
 #[derive(Debug)]
@@ -17,13 +17,11 @@ pub enum Msg {
 }
 
 pub struct TreeNode {
-    props: Props,
-    link: ComponentLink<Self>,
     expanded: bool,
     value: Value,
 }
 
-#[derive(Properties, Clone, PartialEq)]
+#[derive(PartialEq, Properties, Clone)]
 pub struct Props {
     pub parent_path: TreeNodePath,
     pub name: String,
@@ -39,21 +37,19 @@ impl Component for TreeNode {
     type Message = Msg;
     type Properties = Props;
 
-    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        let value = props.value.clone();
+    fn create(ctx: &Context<Self>) -> Self {
+        let value = ctx.props().value.clone();
         Self {
-            props,
-            link,
             expanded: false,
             value,
         }
     }
 
-    fn update(&mut self, msg: Self::Message) -> bool {
-        log::info!("<TreeNode>@{}, MSG: {:?}", self.path().string(), msg);
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+        log::info!("<TreeNode>@{}, MSG: {:?}", self.path(ctx).string(), msg);
         match msg {
             Msg::Selection(val) => {
-                self.props.parent_callback.emit(val);
+                ctx.props().parent_callback.emit(val);
                 true
             }
             Msg::Toggle => {
@@ -62,8 +58,8 @@ impl Component for TreeNode {
             }
             Msg::Edited(v) => {
                 self.value = v.clone();
-                if let Some(x) = &self.props.element_callback {
-                    x.emit(Element::new(self.props.name.clone(), v));
+                if let Some(x) = &ctx.props().element_callback {
+                    x.emit(Element::new(ctx.props().name.clone(), v));
                 }
                 true
             }
@@ -115,12 +111,8 @@ impl Component for TreeNode {
         }
     }
 
-    fn change(&mut self, props: Self::Properties) -> bool {
-        self.props.neq_assign(props)
-    }
-
-    fn view(&self) -> Html {
-        let name = self.props.name.clone();
+    fn view(&self, ctx: &Context<Self>) -> Html {
+        let name = ctx.props().name.clone();
         let value = self.value.clone();
 
         let icon = if TreeNode::has_children(&value) {
@@ -133,34 +125,34 @@ impl Component for TreeNode {
             "icon/file-text.svg"
         };
 
-        let classes = if self.selected() {
+        let classes = if self.selected(ctx) {
             "text-white bg-primary rounded-pill pl-2 pr-2"
         } else {
             "pl-2 pr-2"
         };
 
-        let callback = self.link.callback(Msg::Edited);
+        let callback = ctx.link().callback(Msg::Edited);
         let v = self.value.clone();
-        let path = self.path();
+        let path = self.path(ctx);
 
-        if !self.is_visible() {
+        if !self.is_visible(ctx) {
             return html! {};
         }
 
         html! {
              <div>
-                <span onclick=self.link.callback(|_| Msg::Toggle)>
+                <span onclick={ctx.link().callback(|_| Msg::Toggle)}>
                     <img src={icon} style={"width: 32; height: 32;"} class={"mr-2"}/>
                 </span>
                 <span
                     class={classes}
-                    onclick=self.link.callback(move |_| Msg::Selection(EditableValue {
+                    onclick={ctx.link().callback(move |_| Msg::Selection(EditableValue {
                         value: v.clone(),
                         callback: callback.clone(),
                         path: path.clone(),
-                    }))>{ name }</span>
+                    }))}>{ name }</span>
                 { if self.expanded {
-                    self.view_sol_value(Rc::new(self.value.clone()))
+                    self.view_sol_value(ctx, Rc::new(self.value.clone()))
                 } else {
                     html!{}
                 }}
@@ -170,44 +162,44 @@ impl Component for TreeNode {
 }
 
 impl TreeNode {
-    pub fn is_visible(&self) -> bool {
+    pub fn is_visible(&self, ctx: &Context<Self>) -> bool {
         // Visible if no filter or if we are included in filter, also we must be visible if we have visible children
-        let has_visible_children = match &self.props.value {
-            Value::Object(ele, _) => ele.iter().any(|e| e.name.contains(&self.props.filter)),
+        let has_visible_children = match &ctx.props().value {
+            Value::Object(ele, _) => ele.iter().any(|e| e.name.contains(&ctx.props().filter)),
             Value::ECMAArray(e1, e2, _) => {
-                e2.iter().any(|e| e.name.contains(&self.props.filter))
+                e2.iter().any(|e| e.name.contains(&ctx.props().filter))
                     || e1
                         .iter()
                         .enumerate()
-                        .any(|(i, _e)| format!("{}", i).contains(&self.props.filter))
+                        .any(|(i, _e)| format!("{}", i).contains(&ctx.props().filter))
             }
             Value::StrictArray(e1) => e1
                 .iter()
                 .enumerate()
-                .any(|(i, _e)| format!("{}", i).contains(&self.props.filter)),
+                .any(|(i, _e)| format!("{}", i).contains(&ctx.props().filter)),
             Value::VectorObject(e1, _, _) => e1
                 .iter()
                 .enumerate()
-                .any(|(i, _e)| format!("{}", i).contains(&self.props.filter)),
+                .any(|(i, _e)| format!("{}", i).contains(&ctx.props().filter)),
             Value::Custom(e1, e2, _) => {
-                e1.iter().any(|e| e.name.contains(&self.props.filter))
-                    || e2.iter().any(|e| e.name.contains(&self.props.filter))
+                e1.iter().any(|e| e.name.contains(&ctx.props().filter))
+                    || e2.iter().any(|e| e.name.contains(&ctx.props().filter))
             }
             _ => false,
         };
 
-        self.props.filter.is_empty()
-            || self.props.name.contains(&self.props.filter)
-            || (TreeNode::has_children(&self.props.value) && has_visible_children)
+        ctx.props().filter.is_empty()
+            || ctx.props().name.contains(&ctx.props().filter)
+            || (TreeNode::has_children(&ctx.props().value) && has_visible_children)
     }
 
-    pub fn path(&self) -> TreeNodePath {
-        self.props.parent_path.join(self.props.name.clone())
+    pub fn path(&self, ctx: &Context<Self>) -> TreeNodePath {
+        ctx.props().parent_path.join(ctx.props().name.clone())
     }
 
-    pub fn selected(&self) -> bool {
-        let selected_path = self.props.selection.clone().map(|s| s.path);
-        selected_path.map_or(false, |tnp| tnp.contains(self.path()))
+    pub fn selected(&self, ctx: &Context<Self>) -> bool {
+        let selected_path = ctx.props().selection.clone().map(|s| s.path);
+        selected_path.map_or(false, |tnp| tnp.contains(self.path(ctx)))
     }
 
     pub fn has_children(data: &Value) -> bool {
@@ -223,40 +215,40 @@ impl TreeNode {
         )
     }
 
-    pub fn view_array_element(&self, index: usize, data: &Rc<Value>) -> Html {
+    pub fn view_array_element(&self, ctx: &Context<Self>, index: usize, data: &Rc<Value>) -> Html {
         html! {
             <div>
-                <TreeNode filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={format!("{}", index)} value={data.deref().clone()} parent_callback={self.link.callback(Msg::Selection)}></TreeNode>
+                <TreeNode filter={ctx.props().filter.clone()} selection={ctx.props().selection.clone()} parent_path={self.path(ctx)} name={format!("{}", index)} value={data.deref().clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
             </div>
         }
     }
 
-    pub fn view_sol_value(&self, data: Rc<Value>) -> Html {
+    pub fn view_sol_value(&self, ctx: &Context<Self>, data: Rc<Value>) -> Html {
         match data.deref() {
-            Value::AMF3(e) => self.view_sol_value(e.clone()),
+            Value::AMF3(e) => self.view_sol_value(ctx, e.clone()),
             Value::Object(elements, _class_def) => html! {
                 <ul>
                     { for elements.iter().map(|e| html! {
-                        <TreeNode element_callback=self.link.callback(Msg::ElementChange) filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(Msg::Selection)}></TreeNode>
+                        <TreeNode element_callback={ctx.link().callback(Msg::ElementChange)} filter={ctx.props().filter.clone()} selection={ctx.props().selection.clone()} parent_path={self.path(ctx)} name={e.name.clone()} value={e.value.deref().clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
                     })}
                 </ul>
             },
             Value::StrictArray(x) => html! {
                 <ul>
-                    { for x.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
+                    { for x.iter().enumerate().map(|(i, v)| self.view_array_element(ctx, i, v))}
                 </ul>
             },
             Value::ECMAArray(dense, assoc, _size) => html! {
                     <ul>
-                       { for dense.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
+                       { for dense.iter().enumerate().map(|(i, v)| self.view_array_element(ctx, i, v))}
                         { for assoc.iter().map(|e| html! {
-                            <TreeNode filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(Msg::Selection)}></TreeNode>
+                            <TreeNode filter={ctx.props().filter.clone()} selection={ctx.props().selection.clone()} parent_path={self.path(ctx)} name={e.name.clone()} value={e.value.deref().clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
                         })}
                     </ul>
             },
             Value::VectorObject(children, _name, _fixed_len) => html! {
                 <ul>
-                   { for children.iter().enumerate().map(|(i, v)| self.view_array_element(i, v))}
+                   { for children.iter().enumerate().map(|(i, v)| self.view_array_element(ctx, i, v))}
                 </ul>
             },
             Value::Dictionary(children, _) => html! {
@@ -264,10 +256,10 @@ impl TreeNode {
                     { for children.iter().map(|(k, v)| html! {
                             <>
                             <li>
-                                <TreeNode filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name="key" value={k.deref().clone()} parent_callback=self.link.callback(Msg::Selection)></TreeNode>
+                                <TreeNode filter={ctx.props().filter.clone()} selection={ctx.props().selection.clone()} parent_path={self.path(ctx)} name="key" value={k.deref().clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
                             </li>
                             <li>
-                                <TreeNode filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name="value" value={v.deref().clone()} parent_callback=self.link.callback(Msg::Selection)></TreeNode>
+                                <TreeNode filter={ctx.props().filter.clone()} selection={ctx.props().selection.clone()} parent_path={self.path(ctx)} name="value" value={v.deref().clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
                             </li>
                             </>
                         })}
@@ -279,7 +271,7 @@ impl TreeNode {
                         {"Custom elements"}
                         <ul>
                             { for el.iter().map(|e| html! {
-                                <TreeNode element_callback=self.link.callback(Msg::CustomElementChange) filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(Msg::Selection)}></TreeNode>
+                                <TreeNode element_callback={ctx.link().callback(Msg::CustomElementChange)} filter={ctx.props().filter.clone()} selection={ctx.props().selection.clone()} parent_path={self.path(ctx)} name={e.name.clone()} value={e.value.deref().clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
                             })}
                         </ul>
                     </li>
@@ -287,7 +279,7 @@ impl TreeNode {
                         {"Standard elements"}
                         <ul>
                            { for el2.iter().map(|e| html! {
-                                <TreeNode element_callback=self.link.callback(Msg::CustomElementChangeStandard) filter=self.props.filter.clone() selection=self.props.selection.clone() parent_path=self.path() name={e.name.clone()} value={e.value.deref().clone()} parent_callback={self.link.callback(Msg::Selection)}></TreeNode>
+                                <TreeNode element_callback={ctx.link().callback(Msg::CustomElementChangeStandard)} filter={ctx.props().filter.clone()} selection={ctx.props().selection.clone()} parent_path={self.path(ctx)} name={e.name.clone()} value={e.value.deref().clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
                             })}
                         </ul>
                     </li>

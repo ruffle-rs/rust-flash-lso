@@ -1,6 +1,6 @@
 use std::string::ToString;
 use yew::prelude::*;
-use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
+// use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
 use flash_lso::extra::flex;
 use flash_lso::read::Reader;
@@ -22,6 +22,7 @@ use crate::EditableValue;
 use crate::TreeNodePath;
 use flash_lso::write::write_to_bytes;
 use std::ops::Deref;
+use web_sys::File;
 
 pub struct LoadedFile {
     pub file_name: String,
@@ -38,13 +39,18 @@ impl LoadedFile {
 }
 
 pub struct Model {
-    link: ComponentLink<Self>,
-    tasks: Vec<ReaderTask>,
+    tasks: Vec<() /*ReaderTask*/>,
     files: Vec<LoadedFile>,
     current_selection: Option<EditableValue>,
     current_tab: Option<usize>,
     error_messages: Vec<String>,
     search: String,
+}
+
+#[derive(Default, Debug)]
+pub struct FileData {
+    pub name: String,
+    pub content: Vec<u8>,
 }
 
 #[derive(Debug)]
@@ -64,9 +70,8 @@ pub enum Msg {
 impl Component for Model {
     type Message = Msg;
     type Properties = ();
-    fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(_ctx: &Context<Self>) -> Self {
         Self {
-            link,
             tasks: vec![],
             files: vec![],
             current_selection: None,
@@ -76,7 +81,7 @@ impl Component for Model {
         }
     }
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         log::info!("MODEL msg={:?}", msg);
         match msg {
             Msg::Files(files) => {
@@ -84,10 +89,11 @@ impl Component for Model {
                     let index = self.files.len();
                     self.files.push(LoadedFile::empty_from_file(&file));
                     let task = {
-                        let callback = self
-                            .link
-                            .callback(move |file_data| Msg::Loaded(index, file_data));
-                        ReaderService::read_file(file, callback).web_expect("Unable to read file")
+                        // let callback = ctx
+                        //     .link()
+                        //     .callback(|_| Msg::Loaded(index, /*file_data*/ FileData::default()));
+                        panic!()
+                        // ReaderService::read_file(file, callback).web_expect("Unable to read file")
                     };
                     self.tasks.push(task);
                 }
@@ -174,21 +180,17 @@ impl Component for Model {
         true
     }
 
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        false
-    }
-
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div>
-                { self.navbar() }
-                { self.error_modal() }
+                { self.navbar(ctx) }
+                { self.error_modal(ctx) }
 
-                <Tabs selected={self.current_tab} ontabselect=self.link.callback(Msg::TabSelected) ontabremove=self.link.callback(Msg::CloseTab)>
+                <Tabs selected={self.current_tab} ontabselect={ctx.link().callback(Msg::TabSelected)} ontabremove={ctx.link().callback(Msg::CloseTab)}>
                     { for self.files.iter().enumerate().map(|(i,f)| html_nested! {
-                    <Tab label=f.file_name.clone() loading=f.file.is_none()>
+                    <Tab label={f.file_name.clone()} loading={f.file.is_none()}>
                         { if let Some(file) = &f.file {
-                            self.view_file(i, file)
+                            self.view_file(ctx, i, file)
                         } else {
                             html! {}
                         }}
@@ -201,17 +203,17 @@ impl Component for Model {
 }
 
 impl Model {
-    fn error_modal(&self) -> Html {
+    fn error_modal(&self, ctx: &Context<Self>) -> Html {
         html! {
-            <ModalContainer onclose=self.link.callback(Msg::CloseModal)>
+            <ModalContainer onclose={ctx.link().callback(Msg::CloseModal)}>
                 { for self.error_messages.iter().map(|e| html_nested! {
-                    <Modal title={"Loading Failed"} content=e.clone()/>
+                    <Modal title={"Loading Failed"} content={e.clone()}/>
                 })}
             </ModalContainer>
         }
     }
 
-    fn value_details(&self, val: EditableValue) -> Html {
+    fn value_details(&self, val: EditableValue, ctx: &Context<Self>) -> Html {
         match val.value {
             Value::Object(children, Some(def)) => {
                 let def_clone = def.clone();
@@ -251,15 +253,15 @@ impl Model {
                         <div class="input-group-prepend">
                           <div class="input-group-text">{"Name"}</div>
                         </div>
-                        <input onchange={ self.link.callback(move |cd| {
-                            if let ChangeData::Value(s) = cd {
-                                let mut new_def = def.clone();
-                                new_def.name = s;
-                                Msg::Edited(Value::Object(children.clone(), Some(new_def)))
-                            } else {
-                                Msg::Edited(Value::Object(children.clone(), Some(def.clone())))
-                            }
-                        })} value={def.name.clone()} class="form-control" type="text"/>
+                        // <input onchange={ ctx.link().callback(move |cd| {
+                        //     if let ChangeData::Value(s) = cd {
+                        //         let mut new_def = def.clone();
+                        //         new_def.name = s;
+                        //         Msg::Edited(Value::Object(children.clone(), Some(new_def)))
+                        //     } else {
+                        //         Msg::Edited(Value::Object(children.clone(), Some(def.clone())))
+                        //     }
+                        // })} value={def.name.clone()} class="form-control" type="text"/>
                       </div>
 
                       <ul class="list-group list-group-horizontal mt-2 mb-2">
@@ -274,9 +276,9 @@ impl Model {
                 let elements_clone_2 = elements.clone();
                 html! {
                     <>
-                    <StringInput onchange=self.link.callback(move |new_name| Msg::Edited(Value::VectorObject(elements.clone(), new_name, fixed_length))) value=name.clone()/>
+                    <StringInput onchange={ctx.link().callback(move |new_name| Msg::Edited(Value::VectorObject(elements.clone(), new_name, fixed_length)))} value={name.clone()}/>
                     <div class="custom-control custom-switch">
-                      <input type={"checkbox"} class={"custom-control-input"} id={"customSwitch1"} checked={fixed_length} onclick={self.link.callback(move |_| {
+                      <input type={"checkbox"} class={"custom-control-input"} id={"customSwitch1"} checked={fixed_length} onclick={ctx.link().callback(move |_| {
                         Msg::Edited(Value::VectorObject(elements_clone_2.clone(), name.clone(), !fixed_length))
                       })}/>
                       <label class={"custom-control-label"} for={"customSwitch1"}>{"Fixed Length"}</label>
@@ -285,10 +287,10 @@ impl Model {
                 }
             }
             Value::Number(n) => html! {
-                <NumberInput<f64> onchange=self.link.callback(move |data| Msg::Edited(Value::Number(data))) value={n}/>
+                <NumberInput<f64> onchange={ctx.link().callback(move |data| Msg::Edited(Value::Number(data)))} value={n}/>
             },
             Value::Integer(n) => html! {
-                <NumberInput<i32> onchange=self.link.callback(move |data| Msg::Edited(Value::Integer(data))) value={n}/>
+                <NumberInput<i32> onchange={ctx.link().callback(move |data| Msg::Edited(Value::Integer(data)))} value={n}/>
             },
             Value::ByteArray(n) => {
                 let n_clone = n.clone();
@@ -296,26 +298,26 @@ impl Model {
                 <>
                     <HexView
                         bytes={n.clone()}
-                        onchange=self.link.callback(move |data| Msg::Edited(Value::ByteArray(data)))
-                        onadd=self.link.callback(move |_| {
+                        onchange={ctx.link().callback(move |data| Msg::Edited(Value::ByteArray(data)))}
+                        onadd={ctx.link().callback(move |_| {
                             let mut e = n.clone();
                             e.push(0);
                             Msg::Edited(Value::ByteArray(e))
-                        })
-                        onremove=self.link.callback(move |index| {
+                        })}
+                        onremove={ctx.link().callback(move |index| {
                             let mut e = n_clone.clone();
                             e.remove(index);
                             Msg::Edited(Value::ByteArray(e))
-                        })/>
+                        })}/>
                   </>
                 }
             }
             Value::String(s) => html! {
-                <StringInput onchange=self.link.callback(move |s| Msg::Edited(Value::String(s))) value={s}/>
+                <StringInput onchange={ctx.link().callback(move |s| Msg::Edited(Value::String(s)))} value={s}/>
             },
             Value::Bool(b) => html! {
                 <div class="custom-control custom-switch">
-                  <input type={"checkbox"} class={"custom-control-input"} id={"customSwitch1"} checked={b} onclick={self.link.callback(move |_| {
+                  <input type={"checkbox"} class={"custom-control-input"} id={"customSwitch1"} checked={b} onclick={ctx.link().callback(move |_| {
                     Msg::Edited(Value::Bool(!b))
                   })}/>
                   <label class={"custom-control-label"} for={"customSwitch1"}>{"State"}</label>
@@ -327,17 +329,19 @@ impl Model {
                     <div class="input-group-prepend">
                       <div class="input-group-text">{"Epoch"}</div>
                     </div>
-                    <input onchange={ self.link.callback(move |cd| {
-                        if let ChangeData::Value(s) = cd {
-                            if let Ok(x) = s.parse::<f64>() {
-                                Msg::Edited(Value::Date(x, tz))
-                            } else {
-                                Msg::Edited(Value::Date(x, tz))
-                            }
-                        } else {
-                            Msg::Edited(Value::Date(x, tz))
-                        }
-                    })} value=format!("{}", x) class="form-control" type="number"/>
+                    <input
+                // onchange={ ctx.link().callback(move |cd| {
+                //         if let ChangeData::Value(s) = cd {
+                //             if let Ok(x) = s.parse::<f64>() {
+                //                 Msg::Edited(Value::Date(x, tz))
+                //             } else {
+                //                 Msg::Edited(Value::Date(x, tz))
+                //             }
+                //         } else {
+                //             Msg::Edited(Value::Date(x, tz))
+                //         }
+                //     })}
+                value={format!("{}", x)} class="form-control" type="number"/>
                   </div>
 
                   { if tz.is_some() { html!{
@@ -345,23 +349,25 @@ impl Model {
                     <div class="input-group-prepend">
                       <div class="input-group-text">{"Timezone"}</div>
                     </div>
-                    <input onchange={ self.link.callback(move |cd| {
-                        if let ChangeData::Value(s) = cd {
-                            if let Ok(tz) = s.parse::<u16>() {
-                                Msg::Edited(Value::Date(x, Some(tz)))
-                            } else {
-                                Msg::Edited(Value::Date(x, tz))
-                            }
-                        } else {
-                            Msg::Edited(Value::Date(x, tz))
-                        }
-                    })} value=format!("{}", tz.web_expect("Unable to get timezone")) class="form-control" type="number"/>
+                    <input
+                        //   onchange={ ctx.link().callback(move |cd| {
+                        //     if let ChangeData::Value(s) = cd {
+                        //         if let Ok(tz) = s.parse::<u16>() {
+                        //             Msg::Edited(Value::Date(x, Some(tz)))
+                        //         } else {
+                        //             Msg::Edited(Value::Date(x, tz))
+                        //         }
+                        //     } else {
+                        //         Msg::Edited(Value::Date(x, tz))
+                        //     }
+                        // })}
+                      value={format!("{}", tz.web_expect("Unable to get timezone"))} class="form-control" type="number"/>
                   </div>
                   }} else {html!{}}}
                 </>
             },
             Value::XML(content, string) => html! {
-                <StringInput onchange=self.link.callback(move |s| Msg::Edited(Value::XML(s, string))) value={content}/>
+                <StringInput onchange={ctx.link().callback(move |s| Msg::Edited(Value::XML(s, string)))} value={content}/>
             },
             Value::VectorInt(elements, fixed_length) => {
                 let elements_clone = elements.clone();
@@ -369,7 +375,7 @@ impl Model {
                 html! {
                     <>
                         <div class="custom-control custom-switch mb-2">
-                          <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={fixed_length} onclick={self.link.callback(move |_| {
+                          <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={fixed_length} onclick={ctx.link().callback(move |_| {
                             Msg::Edited(Value::VectorInt(elements_clone.clone(), !fixed_length))
                           })}/>
                           <label class={"custom-control-label"} for={"vectorIntFixed"}>{"Fixed Length"}</label>
@@ -392,23 +398,25 @@ impl Model {
                                 <tr>
                                     <td>{i}</td>
                                     <td>
-                                        <input onchange={ self.link.callback(move |cd| {
-                                            if let ChangeData::Value(s) = cd {
-                                                if let Ok(data) = s.parse::<i32>() {
-                                                    let mut new_elements = elements_clone5.clone();
-                                                    new_elements[i] = data;
-                                                    Msg::Edited(Value::VectorInt(new_elements, fixed_length))
-                                                } else {
-                                                    Msg::Edited(Value::VectorInt(elements_clone5.clone(), fixed_length))
-                                                }
-                                            } else {
-                                                Msg::Edited(Value::VectorInt(elements_clone5.clone(), fixed_length))
-                                            }
-                                        })} value=format!("{}", e) class="form-control" type="text"/>
+                                        <input
+                                        // onchange={ ctx.link().callback(move |cd| {
+                                        //     if let ChangeData::Value(s) = cd {
+                                        //         if let Ok(data) = s.parse::<i32>() {
+                                        //             let mut new_elements = elements_clone5.clone();
+                                        //             new_elements[i] = data;
+                                        //             Msg::Edited(Value::VectorInt(new_elements, fixed_length))
+                                        //         } else {
+                                        //             Msg::Edited(Value::VectorInt(elements_clone5.clone(), fixed_length))
+                                        //         }
+                                        //     } else {
+                                        //         Msg::Edited(Value::VectorInt(elements_clone5.clone(), fixed_length))
+                                        //     }
+                                        // })}
+                                    value={format!("{}", e)} class="form-control" type="text"/>
                                     </td>
                                     <td></td>
                                     <td>
-                                    <span onclick={self.link.callback(move |_| {
+                                    <span onclick={ctx.link().callback(move |_| {
                                         let mut e = elements_clone4.clone();
                                         e.remove(i);
                                         Msg::Edited(Value::VectorInt(e, fixed_length))
@@ -421,7 +429,7 @@ impl Model {
                             })}
                             </tbody>
                         </table>
-                        <span onclick={self.link.callback(move |_| {
+                        <span onclick={ctx.link().callback(move |_| {
                             let mut e = elements_clone3.clone();
                             e.push(0);
                             Msg::Edited(Value::VectorInt(e, fixed_length))
@@ -435,7 +443,7 @@ impl Model {
                 html! {
                     <>
                         <div class="custom-control custom-switch mb-2">
-                          <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={fixed_length} onclick={self.link.callback(move |_| {
+                          <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={fixed_length} onclick={ctx.link().callback(move |_| {
                             Msg::Edited(Value::VectorUInt(elements_clone.clone(), !fixed_length))
                           })}/>
                           <label class={"custom-control-label"} for={"vectorIntFixed"}>{"Fixed Length"}</label>
@@ -458,23 +466,25 @@ impl Model {
                                 <tr>
                                     <td>{i}</td>
                                     <td>
-                                        <input onchange={ self.link.callback(move |cd| {
-                                            if let ChangeData::Value(s) = cd {
-                                                if let Ok(data) = s.parse::<u32>() {
-                                                    let mut new_elements = elements_clone5.clone();
-                                                    new_elements[i] = data;
-                                                    Msg::Edited(Value::VectorUInt(new_elements, fixed_length))
-                                                } else {
-                                                    Msg::Edited(Value::VectorUInt(elements_clone5.clone(), fixed_length))
-                                                }
-                                            } else {
-                                                Msg::Edited(Value::VectorUInt(elements_clone5.clone(), fixed_length))
-                                            }
-                                        })} value=format!("{}", e) class="form-control" type="text"/>
+                                     <input
+                                    // onchange={ ctx.link().callback(move |cd| {
+                                    //         if let ChangeData::Value(s) = cd {
+                                    //             if let Ok(data) = s.parse::<u32>() {
+                                    //                 let mut new_elements = elements_clone5.clone();
+                                    //                 new_elements[i] = data;
+                                    //                 Msg::Edited(Value::VectorUInt(new_elements, fixed_length))
+                                    //             } else {
+                                    //                 Msg::Edited(Value::VectorUInt(elements_clone5.clone(), fixed_length))
+                                    //             }
+                                    //         } else {
+                                    //             Msg::Edited(Value::VectorUInt(elements_clone5.clone(), fixed_length))
+                                    //         }
+                                    //     })}
+                                    value={format!("{}", e)} class="form-control" type="text"/>
                                     </td>
                                     <td></td>
                                     <td>
-                                    <span onclick={self.link.callback(move |_| {
+                                    <span onclick={ctx.link().callback(move |_| {
                                         let mut e = elements_clone4.clone();
                                         e.remove(i);
                                         Msg::Edited(Value::VectorUInt(e, fixed_length))
@@ -487,7 +497,7 @@ impl Model {
                             })}
                             </tbody>
                         </table>
-                        <span onclick={self.link.callback(move |_| {
+                        <span onclick={ctx.link().callback(move |_| {
                             let mut e = elements_clone3.clone();
                             e.push(0);
                             Msg::Edited(Value::VectorUInt(e, fixed_length))
@@ -501,7 +511,7 @@ impl Model {
                 html! {
                     <>
                         <div class="custom-control custom-switch mb-2">
-                          <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={fixed_length} onclick={self.link.callback(move |_| {
+                          <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={fixed_length} onclick={ctx.link().callback(move |_| {
                             Msg::Edited(Value::VectorDouble(elements_clone.clone(), !fixed_length))
                           })}/>
                           <label class={"custom-control-label"} for={"vectorIntFixed"}>{"Fixed Length"}</label>
@@ -524,23 +534,25 @@ impl Model {
                                 <tr>
                                     <td>{i}</td>
                                     <td>
-                                        <input onchange={ self.link.callback(move |cd| {
-                                            if let ChangeData::Value(s) = cd {
-                                                if let Ok(data) = s.parse::<f64>() {
-                                                    let mut new_elements = elements_clone5.clone();
-                                                    new_elements[i] = data;
-                                                    Msg::Edited(Value::VectorDouble(new_elements, fixed_length))
-                                                } else {
-                                                    Msg::Edited(Value::VectorDouble(elements_clone5.clone(), fixed_length))
-                                                }
-                                            } else {
-                                                Msg::Edited(Value::VectorDouble(elements_clone5.clone(), fixed_length))
-                                            }
-                                        })} value=format!("{}", e) class="form-control" type="text"/>
+                                        <input
+                                        //     onchange={ ctx.link().callback(move |cd| {
+                                        //     if let ChangeData::Value(s) = cd {
+                                        //         if let Ok(data) = s.parse::<f64>() {
+                                        //             let mut new_elements = elements_clone5.clone();
+                                        //             new_elements[i] = data;
+                                        //             Msg::Edited(Value::VectorDouble(new_elements, fixed_length))
+                                        //         } else {
+                                        //             Msg::Edited(Value::VectorDouble(elements_clone5.clone(), fixed_length))
+                                        //         }
+                                        //     } else {
+                                        //         Msg::Edited(Value::VectorDouble(elements_clone5.clone(), fixed_length))
+                                        //     }
+                                        // })}
+                                    value={format!("{}", e)} class="form-control" type="text"/>
                                     </td>
                                     <td></td>
                                     <td>
-                                    <span onclick={self.link.callback(move |_| {
+                                    <span onclick={ctx.link().callback(move |_| {
                                         let mut e = elements_clone4.clone();
                                         e.remove(i);
                                         Msg::Edited(Value::VectorDouble(e, fixed_length))
@@ -553,7 +565,7 @@ impl Model {
                             })}
                             </tbody>
                         </table>
-                        <span onclick={self.link.callback(move |_| {
+                        <span onclick={ctx.link().callback(move |_| {
                             let mut e = elements_clone3.clone();
                             e.push(0.0);
                             Msg::Edited(Value::VectorDouble(e, fixed_length))
@@ -566,34 +578,36 @@ impl Model {
         }
     }
 
-    fn navbar(&self) -> Html {
+    fn navbar(&self, ctx: &Context<Self>) -> Html {
         html! {
             <nav class="navbar navbar-expand-lg">
                 <ul class="navbar-nav mr-auto">
                     <li class="nav-item">
                         <div class="btn-group mr-2" role="group">
                             <label for="files" class="btn btn-primary">{"Open"}</label>
-                            { self.save_button() }
+                            { self.save_button(ctx) }
                         </div>
                     </li>
-                    <input id="files" style="visibility:hidden;" type="file" onchange=self.link.callback(move |value| {
-                                    let mut result = Vec::new();
-                                    if let ChangeData::Files(files) = value {
-                                        let files = js_sys::try_iter(&files)
-                                            .web_expect("Unable to try_iter files")
-                                            .web_expect("Unable to try_iter files 2")
-                                            .into_iter()
-                                            .map(|v| File::from(v.web_expect("File from")));
-                                        result.extend(files);
-                                    }
-                                    Msg::Files(result)
-                                })/>
+                    <input id="files" style="visibility:hidden;" type="file"
+            // onchange={ctx.link().callback(move |value| {
+            //                         let mut result = Vec::new();
+            //                         if let ChangeData::Files(files) = value {
+            //                             let files = js_sys::try_iter(&files)
+            //                                 .web_expect("Unable to try_iter files")
+            //                                 .web_expect("Unable to try_iter files 2")
+            //                                 .into_iter()
+            //                                 .map(|v| File::from(v.web_expect("File from")));
+            //                             result.extend(files);
+            //                         }
+            //                         Msg::Files(result)
+            //                     })}
+            />
                 </ul>
             </nav>
         }
     }
 
-    fn save_button(&self) -> Html {
+    fn save_button(&self, ctx: &Context<Self>) -> Html {
         if let Some(tab_index) = self.current_tab {
             let mut lso = self.files[tab_index]
                 .file
@@ -622,25 +636,25 @@ impl Model {
         }
     }
 
-    fn view_file(&self, _index: usize, data: &Lso) -> Html {
+    fn view_file(&self, ctx: &Context<Self>, _index: usize, data: &Lso) -> Html {
         let root_class = "text-white bg-primary rounded-pill pl-2 pr-2";
 
         html! {
             <div class="container-fluid">
                 <div class="row">
                     <div class="col-5">
-                        <StringInput value=self.search.clone() onchange=self.link.callback(Msg::SearchQuery) class="mt-2 col-md-4" placeholder="Search..."/>
+                        <StringInput value={self.search.clone()} onchange={ctx.link().callback(Msg::SearchQuery)} class="mt-2 col-md-4" placeholder="Search..."/>
 
                         <div id="tree" class="mt-2">
-                            <span onclick=self.link.callback(|_| Msg::RootSelected)>
+                            <span onclick={ctx.link().callback(|_| Msg::RootSelected)}>
                                 <img src={"icon/file.svg"} style={"width: 32; height: 32;"} class="mr-2"/>
                             </span>
                             <span
                                 class={root_class}
-                                onclick=self.link.callback(move |_| Msg::RootSelected)>{ "/" }</span>
+                                onclick={ctx.link().callback(move |_| Msg::RootSelected)}>{ "/" }</span>
                             <ul>
                                 { for data.body.iter().map(|e| html! {
-                                    <TreeNode element_callback=self.link.callback(Msg::ElementChange) filter=self.search.clone() selection=self.current_selection.clone() parent_path={TreeNodePath::root()} name={e.name.clone()} value={e.value.deref().clone()} parent_callback=self.link.callback(Msg::Selection)></TreeNode>
+                                    <TreeNode element_callback={ctx.link().callback(Msg::ElementChange)} filter={self.search.clone()} selection={self.current_selection.clone()} parent_path={TreeNodePath::root()} name={e.name.clone()} value={e.value.deref().clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
                                 })}
                             </ul>
                         </div>
@@ -648,7 +662,7 @@ impl Model {
                     <div class="col-7">
                         {
                             if let Some(selection) = &self.current_selection {
-                                let details_content = self.value_details(selection.clone());
+                                let details_content = self.value_details(selection.clone(), ctx);
                                 let value_type = match &selection.value {
                                     Value::Number(_) => "Number".to_string(),
                                     Value::Bool(_) => "Boolean".to_string(),
