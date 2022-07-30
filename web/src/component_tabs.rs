@@ -48,7 +48,7 @@ impl Component for Tabs {
                       { for ctx.props().children.iter().enumerate().map(|(i, e)| html! {
                          <li class="nav-item" role="tablist">
                             <span class={format!("nav-link {}", if ctx.props().selected == Some(i) {"active"} else {""})} role="tab" onclick={ctx.link().callback(move |_| Msg::Selected(i))}>
-                                <a style="vertical-align: middle;">{&e.props.label}</a>{ self.tab_details(ctx, e, i) }
+                                <a href="_blank" style="vertical-align: middle;">{&e.props.label}</a>{ self.tab_details(ctx, e, i) }
                              </span>
                          </li>
                       })}
@@ -77,7 +77,7 @@ impl Tabs {
 
     fn remove_button(&self, ctx: &Context<Self>, index: usize) -> Html {
         html! {
-            <span onclick={ctx.link().callback(move |_| Msg::Removed(index))}><img src={"icon/x.svg"} style={"width: 24px; height: 24px;"} class={"mr-2"}/></span>
+            <span onclick={ctx.link().callback(move |_| Msg::Removed(index))}><img alt={"Close"} src={"icon/x.svg"} style={"width: 24px; height: 24px;"} class={"mr-2"}/></span>
         }
     }
 

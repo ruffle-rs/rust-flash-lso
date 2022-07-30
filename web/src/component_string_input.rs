@@ -23,7 +23,6 @@ pub struct Props {
 
 pub enum Msg {
     Value(String),
-    Ignored,
     Focus,
     UnFocus,
 }
@@ -54,7 +53,6 @@ impl Component for StringInput {
                 }
                 true
             }
-            _ => false,
         }
     }
 

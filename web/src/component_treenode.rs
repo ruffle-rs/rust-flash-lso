@@ -141,7 +141,7 @@ impl Component for TreeNode {
         html! {
              <div>
                 <span onclick={ctx.link().callback(|_| Msg::Toggle)}>
-                    <img src={icon} style={"width: 32; height: 32;"} class={"mr-2"}/>
+                    <img alt={"Toggle"} src={icon} style={"width: 32; height: 32;"} class={"mr-2"}/>
                 </span>
                 <span
                     class={classes}

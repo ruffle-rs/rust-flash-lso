@@ -37,12 +37,11 @@ impl Component for ModalContainer {
     fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
              <>
-             { for ctx.props().children.iter().enumerate().map(|(i, mut modal)| {
-                 //TODO: fix
-                // modal.props.id = format!("modal-{}", i);
-                // modal.props.onclosed = Some(ctx.link().callback(move |_| {
-                //     Msg::Close(i)
-                // }));
+             { for ctx.props().children.iter().enumerate().map(|(i, modal)| {
+                 *modal.props.id.borrow_mut() = format!("modal-{}", i);
+                 *modal.props.onclosed.borrow_mut() = Some(ctx.link().callback(move |_| {
+                     Msg::Close(i)
+                 }));
                 modal
              })}
              </>
@@ -66,13 +65,16 @@ impl Component for ModalContainer {
 }
 
 pub mod modal {
+    use std::cell::RefCell;
+    use std::ops::Deref;
     use yew::prelude::*;
 
     pub enum Msg {
         Closed,
     }
 
-    pub struct Modal {}
+    #[derive(Default)]
+    pub struct Modal;
 
     #[derive(Properties, Clone, PartialEq)]
     pub struct Props {
@@ -80,10 +82,10 @@ pub mod modal {
         pub title: String,
 
         // Props filled by container
-        #[prop_or(None)]
-        pub onclosed: Option<Callback<()>>,
-        #[prop_or("".to_string())]
-        pub id: String,
+        #[prop_or(RefCell::<Option<Callback<()>>>::new(None))]
+        pub onclosed: RefCell<Option<Callback<()>>>,
+        #[prop_or(RefCell::<String>::new("".to_string()))]
+        pub id: RefCell<String>,
     }
 
     impl Component for Modal {
@@ -91,13 +93,13 @@ pub mod modal {
         type Properties = Props;
 
         fn create(_ctx: &Context<Self>) -> Self {
-            Self {}
+            Self::default()
         }
 
         fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
             match msg {
                 Msg::Closed => {
-                    if let Some(callback) = &ctx.props().onclosed {
+                    if let Some(callback) = ctx.props().onclosed.borrow().deref() {
                         callback.emit(())
                     }
                 }
@@ -109,7 +111,7 @@ pub mod modal {
         //TODO: only fix seems to be to not use a js modal but rather a custom one
         fn view(&self, ctx: &Context<Self>) -> Html {
             html! {
-                <div class="modal fade" tabindex="-1" role="dialog" id={ctx.props().id.clone()}>
+                <div class="modal fade" tabindex="-1" role="dialog" id={ctx.props().id.borrow().to_string()}>
                   <div class="modal-dialog" role="document">
                     <div class="modal-content">
                       <div class="modal-header">
