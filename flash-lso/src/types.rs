@@ -65,7 +65,7 @@ impl fmt::Display for AMFVersion {
 
 /// The header of a lso file
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Header {
     /// The length of the lso in bytes
     pub length: u32,

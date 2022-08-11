@@ -1,16 +1,13 @@
 use crate::component_number_input::NumberInput;
 use crate::web_expect::WebSafeExpect;
 use yew::prelude::*;
-use yew::{Component, ComponentLink, Html, Properties};
-use yewtil::NeqAssign;
+use yew::{Component, Html, Properties};
 
 pub struct HexView {
-    link: ComponentLink<Self>,
-    props: Props,
     selected: Option<usize>,
 }
 
-#[derive(Properties, Clone, PartialEq)]
+#[derive(PartialEq, Properties, Clone)]
 pub struct Props {
     pub bytes: Vec<u8>,
     pub onchange: Callback<Vec<u8>>,
@@ -31,20 +28,16 @@ impl Component for HexView {
     type Message = Msg;
     type Properties = Props;
 
-    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        Self {
-            link,
-            props,
-            selected: None,
-        }
+    fn create(_ctx: &Context<Self>) -> Self {
+        Self { selected: None }
     }
 
-    fn update(&mut self, msg: Self::Message) -> bool {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Edit(data, index) => {
-                let mut new_data = self.props.bytes.clone();
+                let mut new_data = ctx.props().bytes.clone();
                 new_data[index] = data;
-                self.props.onchange.emit(new_data);
+                ctx.props().onchange.emit(new_data);
                 true
             }
             Msg::Focus(index) => {
@@ -56,32 +49,28 @@ impl Component for HexView {
                 true
             }
             Msg::Remove => {
-                self.props
+                ctx.props()
                     .onremove
                     .emit(self.selected.web_expect("Nothing selected"));
                 true
             }
             Msg::Add => {
-                self.props.onadd.emit(());
+                ctx.props().onadd.emit(());
                 true
             }
         }
     }
 
-    fn change(&mut self, props: Self::Properties) -> bool {
-        self.props.neq_assign(props)
-    }
-
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
             <>
             <table class="table table-striped">
               <tbody>
-               { self.table_body() }
+               { self.table_body(ctx) }
               </tbody>
             </table>
-                <span onclick=self.link.callback(move |_| Msg::Add) class="btn btn-primary">{"Add"}</span>
-                {self.remove_button()}
+                <span onclick={ctx.link().callback(move |_| Msg::Add)} class="btn btn-primary">{"Add"}</span>
+                {self.remove_button(ctx)}
             </>
         }
     }
@@ -90,18 +79,18 @@ impl Component for HexView {
 const CHUNK_SIZE: usize = 8;
 
 impl HexView {
-    fn remove_button(&self) -> Html {
+    fn remove_button(&self, ctx: &Context<Self>) -> Html {
         if self.selected.is_some() {
-            return html! {
-                <span onclick=self.link.callback(move |_| Msg::Remove) class="ml-2 btn btn-danger">{"Remove"}</span>
-            };
+            html! {
+                <span onclick={ctx.link().callback(move |_| Msg::Remove)} class="ml-2 btn btn-danger">{"Remove"}</span>
+            }
         } else {
-            return html! {};
+            html! {}
         }
     }
 
-    fn table_body(&self) -> Html {
-        let chunks: Vec<&[u8]> = self.props.bytes.chunks(CHUNK_SIZE).collect();
+    fn table_body(&self, ctx: &Context<Self>) -> Html {
+        let chunks: Vec<&[u8]> = ctx.props().bytes.chunks(CHUNK_SIZE).collect();
 
         html! {
             <>
@@ -110,10 +99,10 @@ impl HexView {
                         { for chunk.iter().enumerate().map(move |(subchunk_index, v)| html! {
                             <td>
                                 <NumberInput<u8>
-                                    value=v.clone()
-                                    onchange=self.link.callback(move |data| Msg::Edit(data, chunk_index*CHUNK_SIZE + subchunk_index))
-                                    onfocus=self.link.callback(move |_| Msg::Focus(chunk_index*CHUNK_SIZE + subchunk_index))
-                                    onblur=self.link.callback(move |_| Msg::Blur)/>
+                                    value={*v}
+                                    onchange={ctx.link().callback(move |data| Msg::Edit(data, chunk_index*CHUNK_SIZE + subchunk_index))}
+                                    onfocus={ctx.link().callback(move |_| Msg::Focus(chunk_index*CHUNK_SIZE + subchunk_index))}
+                                        onblur={ctx.link().callback(move |_| Msg::Blur)}/>
                             </td>
                         })}
                     </tr>

@@ -1,13 +1,9 @@
 use crate::component_tab::Tab;
 use yew::prelude::*;
 use yew::virtual_dom::VChild;
-use yew::{ChildrenWithProps, Component, ComponentLink, Html, Properties};
-use yewtil::NeqAssign;
+use yew::{ChildrenWithProps, Component, Html, Properties};
 
-pub struct Tabs {
-    link: ComponentLink<Self>,
-    props: Props,
-}
+pub struct Tabs {}
 
 #[derive(Properties, Clone, PartialEq)]
 pub struct Props {
@@ -27,44 +23,40 @@ impl Component for Tabs {
     type Message = Msg;
     type Properties = Props;
 
-    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        Self { link, props }
+    fn create(_ctx: &Context<Self>) -> Self {
+        Self {}
     }
 
-    fn update(&mut self, msg: Self::Message) -> bool {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         log::info!("TAB msg={:?}", msg);
         match msg {
             Msg::Selected(pos) => {
-                self.props.ontabselect.emit(pos);
+                ctx.props().ontabselect.emit(pos);
                 true
             }
             Msg::Removed(pos) => {
-                self.props.ontabremove.emit(pos);
+                ctx.props().ontabremove.emit(pos);
                 true
             }
         }
     }
 
-    fn change(&mut self, props: Self::Properties) -> bool {
-        self.props.neq_assign(props)
-    }
-
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
              <>
                  <ul class="nav nav-tabs">
-                      { for self.props.children.iter().enumerate().map(|(i, e)| html! {
+                      { for ctx.props().children.iter().enumerate().map(|(i, e)| html! {
                          <li class="nav-item" role="tablist">
-                            <span class={format!("nav-link {}", if self.props.selected == Some(i) {"active"} else {""})} role="tab" onclick=self.link.callback(move |_| Msg::Selected(i))>
-                                <a style="vertical-align: middle;">{&e.props.label}</a>{ self.tab_details(e, i) }
+                            <span class={format!("nav-link {}", if ctx.props().selected == Some(i) {"active"} else {""})} role="tab" onclick={ctx.link().callback(move |_| Msg::Selected(i))}>
+                                <a href="_blank" style="vertical-align: middle;">{&e.props.label}</a>{ self.tab_details(ctx, e, i) }
                              </span>
                          </li>
                       })}
                  </ul>
 
                  <div class="tab-content">
-                      { for self.props.children.iter().enumerate().map(|(i, e)| html! {
-                         <div class={format!("tab-pane fade {}", if self.props.selected == Some(i) {"show active"} else {""})} role="tabpanel">
+                      { for ctx.props().children.iter().enumerate().map(|(i, e)| html! {
+                         <div class={format!("tab-pane fade {}", if ctx.props().selected == Some(i) {"show active"} else {""})} role="tabpanel">
                              {e}
                          </div>
                       })}
@@ -75,17 +67,17 @@ impl Component for Tabs {
 }
 
 impl Tabs {
-    fn tab_details(&self, tab: VChild<Tab>, index: usize) -> Html {
+    fn tab_details(&self, ctx: &Context<Self>, tab: VChild<Tab>, index: usize) -> Html {
         if tab.props.loading {
             self.loading_spinner()
         } else {
-            self.remove_button(index)
+            self.remove_button(ctx, index)
         }
     }
 
-    fn remove_button(&self, index: usize) -> Html {
+    fn remove_button(&self, ctx: &Context<Self>, index: usize) -> Html {
         html! {
-            <span onclick=self.link.callback(move |_| Msg::Removed(index))><img src={"icon/x.svg"} style={"width: 24px; height: 24px;"} class={"mr-2"}/></span>
+            <span onclick={ctx.link().callback(move |_| Msg::Removed(index))}><img alt={"Close"} src={"icon/x.svg"} style={"width: 24px; height: 24px;"} class={"mr-2"}/></span>
         }
     }
 

@@ -1,17 +1,16 @@
 use crate::component_string_input::StringInput;
 use std::fmt::Display;
+use std::marker::PhantomData;
 use std::str::FromStr;
 use yew::prelude::*;
-use yew::{Component, ComponentLink, Html, Properties};
-use yewtil::NeqAssign;
+use yew::{Component, Html, Properties};
 
 pub struct NumberInput<T: 'static + Clone + Display + PartialEq + FromStr> {
-    link: ComponentLink<Self>,
-    pub(crate) props: Props<T>,
+    pd: PhantomData<T>,
 }
 
-#[derive(Properties, Clone, PartialEq)]
-pub struct Props<T: Clone> {
+#[derive(PartialEq, Clone, Properties)]
+pub struct Props<T: Clone + PartialEq> {
     pub onchange: Callback<T>,
     pub value: T,
 
@@ -31,26 +30,28 @@ impl<T: 'static + Clone + Display + PartialEq + FromStr> Component for NumberInp
     type Message = Msg;
     type Properties = Props<T>;
 
-    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        Self { link, props }
+    fn create(_ctx: &Context<Self>) -> Self {
+        Self {
+            pd: Default::default(),
+        }
     }
 
-    fn update(&mut self, msg: Self::Message) -> bool {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Value(s) => {
                 if let Ok(f) = s.parse::<T>() {
-                    self.props.onchange.emit(f);
+                    ctx.props().onchange.emit(f);
                 }
                 true
             }
             Msg::Focus => {
-                if let Some(onfocus) = &self.props.onfocus {
+                if let Some(onfocus) = &ctx.props().onfocus {
                     onfocus.emit(());
                 }
                 true
             }
             Msg::UnFocus => {
-                if let Some(onblur) = &self.props.onblur {
+                if let Some(onblur) = &ctx.props().onblur {
                     onblur.emit(());
                 }
                 true
@@ -58,17 +59,13 @@ impl<T: 'static + Clone + Display + PartialEq + FromStr> Component for NumberInp
         }
     }
 
-    fn change(&mut self, props: Self::Properties) -> bool {
-        self.props.neq_assign(props)
-    }
-
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
             <StringInput
-                onchange=self.link.callback(move |s| Msg::Value(s))
-                onblur=self.link.callback(move |_fe| Msg::UnFocus)
-                onfocus=self.link.callback(move |_fe| Msg::Focus)
-                value={format!("{}", self.props.value)}/>
+                onchange={ctx.link().callback(Msg::Value)}
+                onblur={ctx.link().callback(move |_fe| Msg::UnFocus)}
+                onfocus={ctx.link().callback(move |_fe| Msg::Focus)}
+                value={format!("{}", ctx.props().value)}/>
         }
     }
 }
