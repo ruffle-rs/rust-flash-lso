@@ -3,7 +3,7 @@
 
 #![deny(missing_docs, clippy::missing_docs_in_private_items)]
 
-use clap::{App, Arg};
+use clap::{Arg, Command};
 use flash_lso::extra::*;
 use flash_lso::read::Reader;
 use flash_lso::types::Lso;
@@ -12,13 +12,13 @@ use std::path::PathBuf;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
-    let matched = App::new("Lso -> json converter")
+    let matched = Command::new("Lso -> json converter")
         .version("1.0")
         .author("CUB3D <callumthom11@gmail.com>")
         .arg(Arg::new("INPUT").help("").required(true))
         .get_matches();
 
-    let file_name = matched.value_of("INPUT").unwrap();
+    let file_name: &String = matched.get_one("INPUT").unwrap();
 
     let data = std::fs::read(PathBuf::from(file_name))?;
 
