@@ -24,10 +24,7 @@ fn write_number_element<'a, 'b: 'a, W: Write + 'a>(s: f64) -> impl SerializeFn<W
 }
 
 fn write_bool_element<'a, 'b: 'a, W: Write + 'a>(s: bool) -> impl SerializeFn<W> + 'a {
-    tuple((
-        write_type_marker(TypeMarker::Boolean),
-        be_u8(u8::from(s)),
-    ))
+    tuple((write_type_marker(TypeMarker::Boolean), be_u8(u8::from(s))))
 }
 
 fn write_long_string_content<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
