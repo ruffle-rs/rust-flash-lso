@@ -13,6 +13,8 @@
     missing_docs
 )]
 
+#![feature(get_mut_unchecked)]
+
 const HEADER_VERSION: [u8; 2] = [0x00, 0xbf];
 const HEADER_SIGNATURE: [u8; 10] = [0x54, 0x43, 0x53, 0x4f, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00];
 const PADDING: [u8; 1] = [0x00];
@@ -41,3 +43,26 @@ pub mod write;
 
 /// Extra functionality such as decoders for popular external class formats
 pub mod extra;
+
+
+//TODOS:
+// formatting, general cleanup
+// remove thiserror maybe (is it updated?, build slow)
+// Make build fast
+// better writer, one that makes recursive structures easy to write
+// expose references in public api, if we expand them then we can run out of memory, instead they should be returned as references so that we can make them references in the GC
+// writing a reference should be possible and simple, somthing like:
+/*
+let mut w = AmfWriter::new();
+let obj_writer, token = w.object(name);
+self.cache_token(token, current_object_ptr);
+for child_key in obj_keys {
+    if obj[child_key] is object {
+        if self.has_token(object.ptr) {
+            obj_writer.ref(self.get_token(object.ptr);
+        } else {
+            obj_writer.object(object.name);
+        }
+    }
+}
+*/
