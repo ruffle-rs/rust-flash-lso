@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use super::{Element, ClassDefinition};
+use super::{Element, ClassDefinition, Reference};
 
 //TODO: should amf3 assoc arrays be their own type with a dense and assoc section
 /// A single or compound value
@@ -73,6 +73,9 @@ pub enum Value {
     /// Represent a external object, such as from flex
     /// (custom_elements, regular elements, class def)
     Custom(Vec<Element>, Vec<Element>, Option<ClassDefinition>),
+
+    /// Represent an existing value, stored by reference, the value here should be considered opaque
+    Reference(Reference),
 }
 
 impl FromIterator<Value> for Vec<Rc<Value>> {

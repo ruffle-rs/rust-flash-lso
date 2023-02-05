@@ -36,6 +36,7 @@ const FORMAT_VERSION_AMF3: u8 = 0x3;
 pub struct Reader {
     /// Handles reading Amf3 data
     pub amf3_decoder: AMF3Decoder,
+    
     /// Handles reading Amf0 data
     pub amf0_decoder: AMF0Decoder,
 }

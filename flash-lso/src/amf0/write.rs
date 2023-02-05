@@ -1,5 +1,5 @@
 /// Support for encoding AMF0
-use crate::types::{Element, Value};
+use crate::types::{Element, Value, Reference};
 use crate::PADDING;
 use cookie_factory::bytes::{be_f64, be_u16, be_u32, be_u8};
 use cookie_factory::{SerializeFn, WriteContext};
@@ -17,6 +17,10 @@ use std::rc::Rc;
 
 fn write_type_marker<'a, 'b: 'a, W: Write + 'a>(type_: TypeMarker) -> impl SerializeFn<W> + 'a {
     be_u8(type_ as u8)
+}
+
+fn write_reference_element<'a, 'b: 'a, W: Write + 'a>(r: &Reference) -> impl SerializeFn<W> + 'a {
+    tuple((write_type_marker(TypeMarker::Reference), be_u16(r.0)))
 }
 
 fn write_number_element<'a, 'b: 'a, W: Write + 'a>(s: f64) -> impl SerializeFn<W> + 'a {
@@ -148,6 +152,7 @@ fn write_value<'a, 'b: 'a, W: Write + 'a>(element: &'b Rc<Value>) -> impl Serial
             write_mixed_array(elems, *elems_length)(out)
         }
         Value::AMF3(e) => AMF3Encoder::default().write_value_element(e)(out),
+        Value::Reference(r) => write_reference_element(r)(out),
         _ => {
             write_unsupported_element()(out) /* Not in amf0, TODO: use the amf3 embedding for every thing else */
         }

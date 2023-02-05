@@ -6,14 +6,13 @@
     rust_2018_idioms,
     trivial_casts,
     trivial_numeric_casts,
-    unreachable_pub,
+    // Temporarily removed, this has a false-positive on `Reference`
+    //unreachable_pub,
     unused_extern_crates,
     unused_qualifications,
     variant_size_differences,
     missing_docs
 )]
-
-#![feature(get_mut_unchecked)]
 
 const HEADER_VERSION: [u8; 2] = [0x00, 0xbf];
 const HEADER_SIGNATURE: [u8; 10] = [0x54, 0x43, 0x53, 0x4f, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00];
@@ -28,41 +27,24 @@ extern crate serde;
 
 /// Reading and Writing of the AMF0 file format
 pub mod amf0;
+
 /// Reading and Writing of the AMF3 file format
 pub mod amf3;
 
 /// Decoding error type
 pub mod errors;
+
+/// Private internal utils for reading
 mod nom_utils;
+
 /// Reading of the Lso container format
 pub mod read;
+
 /// Types used for representing Lso contents
 pub mod types;
+
 /// Writing of the Lso container format
 pub mod write;
 
 /// Extra functionality such as decoders for popular external class formats
 pub mod extra;
-
-
-//TODOS:
-// formatting, general cleanup
-// remove thiserror maybe (is it updated?, build slow)
-// Make build fast
-// better writer, one that makes recursive structures easy to write
-// expose references in public api, if we expand them then we can run out of memory, instead they should be returned as references so that we can make them references in the GC
-// writing a reference should be possible and simple, somthing like:
-/*
-let mut w = AmfWriter::new();
-let obj_writer, token = w.object(name);
-self.cache_token(token, current_object_ptr);
-for child_key in obj_keys {
-    if obj[child_key] is object {
-        if self.has_token(object.ptr) {
-            obj_writer.ref(self.get_token(object.ptr);
-        } else {
-            obj_writer.object(object.name);
-        }
-    }
-}
-*/
