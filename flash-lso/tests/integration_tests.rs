@@ -341,7 +341,8 @@ auto_test! {
     [time_display_config, "timeDisplayConfig"],
     [user_1, "user(1)"],
     [user, "user"],
-    [self_referential, "other/self-referential"]
+    [self_referential, "other/self-referential"],
+    [fish_tycoon, "other/fishtycoon"]
 }
 
 // Samples that can be parsed but not written

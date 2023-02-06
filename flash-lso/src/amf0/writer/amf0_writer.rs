@@ -17,7 +17,7 @@ pub struct Amf0Writer {
     pub(crate) cache: BTreeMap<CacheKey, Reference>,
 }
 
-impl<'a> ObjWriter<'a> for Amf0Writer {
+impl<'a, 'b> ObjWriter<'a> for Amf0Writer {
     fn add_element(&mut self, name: &str, s: Value, inc_ref: bool) {
         if inc_ref {
             self.ref_num += 1;
@@ -26,7 +26,7 @@ impl<'a> ObjWriter<'a> for Amf0Writer {
         self.elements.push(Element::new(name, s))
     }
 
-    fn object<'b, 'c: 'b>(&'c mut self, cache_key: CacheKey) -> (Option<ObjectWriter<'b>>, Reference) where 'a: 'b {
+    fn object<'c: 'a, 'd>(&'d mut self, cache_key: CacheKey) -> (Option<ObjectWriter<'d, 'c>>, Reference)  where 'a: 'c, 'a: 'd {
         if let Some(existing_ref) = self.cache.get(&cache_key) {
             (None, *existing_ref)
         } else {
@@ -45,7 +45,7 @@ impl<'a> ObjWriter<'a> for Amf0Writer {
         }
     }
 
-    fn array<'b, 'c: 'b>(&'c mut self, cache_key: CacheKey) -> (Option<ArrayWriter<'b>>, Reference) where 'a: 'b {
+    fn array<'c: 'a, 'd>(&'d mut self, cache_key: CacheKey) -> (Option<ArrayWriter<'d, 'c>>, Reference)  where 'a: 'c, 'a: 'd {
         if let Some(existing_ref) = self.cache.get(&cache_key) {
             (None, *existing_ref)
         } else {
@@ -62,6 +62,20 @@ impl<'a> ObjWriter<'a> for Amf0Writer {
                 parent: self
             }), r)
         }
+    }
+
+    fn make_reference(&mut self) -> Reference {
+        let ref_num = Reference(self.ref_num);
+        self.ref_num += 1;
+        ref_num
+    }
+
+    fn cache_get(&mut self, cache_key: &CacheKey) -> Option<Reference> {
+        self.cache.get(cache_key).copied()
+    }
+
+    fn cache_add(&mut self, cache_key: CacheKey, reference: Reference) {
+        self.cache.insert(cache_key, reference);
     }
 }
 
