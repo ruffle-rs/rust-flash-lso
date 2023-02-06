@@ -36,6 +36,13 @@ This project makes use of cargo-fuzz to ensure correct handling of invalid data
 cargo fuzz run --release fuzz_amf3_body
 ```
 
+## Web
+building:
+```
+wasm-pack build --out-name wasm --out-dir ./static --target web --release
+miniserve ./static --index index.html
+```
+
 ## License
 This project is licensed under MIT.
 

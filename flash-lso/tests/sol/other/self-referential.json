@@ -1,0 +1,1 @@
+{"header":{"length":57,"name":"asdf","format_version":"AMF0"},"body":[{"name":"asdfsadf","value":{"String":"Hello"}},{"name":"foo","value":{"Object":[[{"name":"foo","value":{"Reference":1}}],null]}}]}

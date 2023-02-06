@@ -683,6 +683,7 @@ impl Model {
                             if let Some(selection) = &self.current_selection {
                                 let details_content = self.value_details(selection.clone(), ctx);
                                 let value_type = match &selection.value {
+                                    Value::Reference(_) => "Reference".to_string(),
                                     Value::Number(_) => "Number".to_string(),
                                     Value::Bool(_) => "Boolean".to_string(),
                                     Value::String(_) => "String".to_string(),

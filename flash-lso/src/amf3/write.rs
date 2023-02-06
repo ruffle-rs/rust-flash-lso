@@ -22,10 +22,13 @@ use std::rc::Rc;
 pub struct AMF3Encoder {
     /// The table used to cache repeated byte strings
     string_reference_table: ElementCache<Vec<u8>>,
+
     /// The table used to cache repeated trait definitions
     trait_reference_table: RefCell<Vec<ClassDefinition>>,
+
     /// The table used to cache repeated objects
     object_reference_table: ElementCache<Value>,
+
     /// Encoders used for handling externalized types
     pub external_encoders: HashMap<String, Box<dyn CustomEncoder>>,
 }
@@ -639,6 +642,7 @@ impl AMF3Encoder {
             }
             Value::AMF3(e) => self.write_value_element(e)(out),
             Value::Unsupported => self.write_undefined_element()(out),
+            Value::Reference(_) => Err(GenError::NotYetImplemented),
         }
     }
 

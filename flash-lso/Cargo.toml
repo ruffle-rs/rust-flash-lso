@@ -1,6 +1,6 @@
 [package]
 name = "flash-lso"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["CUB3D <callumthom11@gmail.com>"]
 description = "Fast and safe SOL/AMF0/AMF3 parsing. Supports serde, Adobe flex and cyclic references"
 repository = "https://github.com/CUB3D/rust-sol"
@@ -13,16 +13,15 @@ categories = ["data-structures", "encoding", "parser-implementations"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nom = "7.1.1"
+nom = "7.1.3"
 cookie-factory = "0.3.2"
-derive-try-from-primitive = "1.0.0"
-enumset = { version = "1.0.11", features = ["serde"] }
-thiserror = "1.0.31"
-serde = { version = "1.0.137", optional = true, features = ["derive", "rc"] }
+enumset = "1.0.12"
+thiserror = "1.0.38"
+serde = { version = "1.0.152", optional = true, features = ["derive", "rc"] }
 
 [dev-dependencies]
 pretty_assertions = "1.2.1"
-serde_json = "1.0.81"
+serde_json = "1.0.91"
 criterion = "0.4.0"
 
 [[bench]]
@@ -32,4 +31,5 @@ harness = false
 [features]
 default = []
 flex = []
+serde = ["dep:serde", "enumset/serde"]
 all = ["serde", "flex"]

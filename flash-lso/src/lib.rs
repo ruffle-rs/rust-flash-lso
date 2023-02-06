@@ -6,7 +6,8 @@
     rust_2018_idioms,
     trivial_casts,
     trivial_numeric_casts,
-    unreachable_pub,
+    // Temporarily removed, this has a false-positive on `Reference`
+    //unreachable_pub,
     unused_extern_crates,
     unused_qualifications,
     variant_size_differences,
@@ -26,16 +27,22 @@ extern crate serde;
 
 /// Reading and Writing of the AMF0 file format
 pub mod amf0;
+
 /// Reading and Writing of the AMF3 file format
 pub mod amf3;
 
 /// Decoding error type
 pub mod errors;
+
+/// Private internal utils for reading
 mod nom_utils;
+
 /// Reading of the Lso container format
 pub mod read;
+
 /// Types used for representing Lso contents
 pub mod types;
+
 /// Writing of the Lso container format
 pub mod write;
 

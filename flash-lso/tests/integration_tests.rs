@@ -254,6 +254,9 @@ json_test! {
 
     [json_as2_half_life, "AS2-half-life-2-flash"],
 
+    // Self referential data structure
+    [json_self_referential, "other/self-referential"],
+
     // Parse only
     [json_infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
     [json_slot_1, "slot1"],
@@ -337,7 +340,9 @@ auto_test! {
     [string_test, "StringTest"],
     [time_display_config, "timeDisplayConfig"],
     [user_1, "user(1)"],
-    [user, "user"]
+    [user, "user"],
+    [self_referential, "other/self-referential"],
+    [fish_tycoon, "other/fishtycoon"]
 }
 
 // Samples that can be parsed but not written
