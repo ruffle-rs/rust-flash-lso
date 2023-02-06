@@ -1,5 +1,5 @@
+use super::{ClassDefinition, Element, Reference};
 use std::rc::Rc;
-use super::{Element, ClassDefinition, Reference};
 
 //TODO: should amf3 assoc arrays be their own type with a dense and assoc section
 /// A single or compound value

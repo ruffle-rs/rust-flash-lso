@@ -6,7 +6,7 @@ use enumset::EnumSetType;
 pub enum Attribute {
     /// If a trait is dynamic then the object it constructs may have additional properties other than the ones specified in the trait
     Dynamic,
-    
+
     /// If a trait is external then it requires custom serialization and deserialization support
     External,
 }

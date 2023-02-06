@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
-use crate::types::{Element, Reference, Value, Lso, AMFVersion};
+use crate::types::{AMFVersion, Element, Lso, Reference, Value};
 
-use super::{CacheKey, ObjWriter, ObjectWriter, ArrayWriter};
+use super::{ArrayWriter, CacheKey, ObjWriter, ObjectWriter};
 
 /// A writer for Amf0 encoded data
 #[derive(Default)]
@@ -17,7 +17,7 @@ pub struct Amf0Writer {
     pub(crate) cache: BTreeMap<CacheKey, Reference>,
 }
 
-impl<'a, 'b> ObjWriter<'a> for Amf0Writer {
+impl<'a> ObjWriter<'a> for Amf0Writer {
     fn add_element(&mut self, name: &str, s: Value, inc_ref: bool) {
         if inc_ref {
             self.ref_num += 1;
@@ -26,7 +26,14 @@ impl<'a, 'b> ObjWriter<'a> for Amf0Writer {
         self.elements.push(Element::new(name, s))
     }
 
-    fn object<'c: 'a, 'd>(&'d mut self, cache_key: CacheKey) -> (Option<ObjectWriter<'d, 'c>>, Reference)  where 'a: 'c, 'a: 'd {
+    fn object<'c: 'a, 'd>(
+        &'d mut self,
+        cache_key: CacheKey,
+    ) -> (Option<ObjectWriter<'d, 'c>>, Reference)
+    where
+        'a: 'c,
+        'a: 'd,
+    {
         if let Some(existing_ref) = self.cache.get(&cache_key) {
             (None, *existing_ref)
         } else {
@@ -38,14 +45,24 @@ impl<'a, 'b> ObjWriter<'a> for Amf0Writer {
             self.cache.insert(cache_key, r);
 
             // Return the writer and the reference
-            (Some(ObjectWriter {
-                elements: Vec::new(),
-                parent: self
-            }), r)
+            (
+                Some(ObjectWriter {
+                    elements: Vec::new(),
+                    parent: self,
+                }),
+                r,
+            )
         }
     }
 
-    fn array<'c: 'a, 'd>(&'d mut self, cache_key: CacheKey) -> (Option<ArrayWriter<'d, 'c>>, Reference)  where 'a: 'c, 'a: 'd {
+    fn array<'c: 'a, 'd>(
+        &'d mut self,
+        cache_key: CacheKey,
+    ) -> (Option<ArrayWriter<'d, 'c>>, Reference)
+    where
+        'a: 'c,
+        'a: 'd,
+    {
         if let Some(existing_ref) = self.cache.get(&cache_key) {
             (None, *existing_ref)
         } else {
@@ -57,10 +74,13 @@ impl<'a, 'b> ObjWriter<'a> for Amf0Writer {
             self.cache.insert(cache_key, r);
 
             // Return the writer and the reference
-            (Some(ArrayWriter {
-                elements: Vec::new(),
-                parent: self
-            }), r)
+            (
+                Some(ArrayWriter {
+                    elements: Vec::new(),
+                    parent: self,
+                }),
+                r,
+            )
         }
     }
 

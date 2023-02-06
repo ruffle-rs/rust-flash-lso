@@ -1,5 +1,5 @@
 /// Support for encoding AMF0
-use crate::types::{Element, Value, Reference};
+use crate::types::{Element, Reference, Value};
 use crate::PADDING;
 use cookie_factory::bytes::{be_f64, be_u16, be_u32, be_u8};
 use cookie_factory::{SerializeFn, WriteContext};

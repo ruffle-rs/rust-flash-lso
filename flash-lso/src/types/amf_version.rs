@@ -19,7 +19,7 @@ impl TryFrom<u8> for AMFVersion {
         match value {
             0 => Ok(Self::AMF0),
             3 => Ok(Self::AMF3),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }

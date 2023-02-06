@@ -1,6 +1,6 @@
-use crate::types::{Element, Value, Reference};
+use crate::types::{Element, Reference, Value};
 
-use super::{ObjWriter, CacheKey, ArrayWriter};
+use super::{ArrayWriter, CacheKey, ObjWriter};
 
 /// A writer for encoding the contents of a child object
 pub struct ObjectWriter<'a, 'b> {
@@ -20,7 +20,14 @@ impl<'a, 'b> ObjWriter<'a> for ObjectWriter<'a, 'b> {
         self.elements.push(Element::new(name, s));
     }
 
-    fn object<'c: 'a, 'd>(&'d mut self, cache_key: CacheKey) -> (Option<ObjectWriter<'d, 'c>>, Reference) where 'a: 'c, 'a: 'd {
+    fn object<'c: 'a, 'd>(
+        &'d mut self,
+        cache_key: CacheKey,
+    ) -> (Option<ObjectWriter<'d, 'c>>, Reference)
+    where
+        'a: 'c,
+        'a: 'd,
+    {
         if let Some(existing_ref) = self.cache_get(&cache_key) {
             (None, existing_ref)
         } else {
@@ -30,14 +37,24 @@ impl<'a, 'b> ObjWriter<'a> for ObjectWriter<'a, 'b> {
             self.cache_add(cache_key, r);
 
             // Return the writer and the reference
-            (Some(ObjectWriter {
-                elements: Vec::new(),
-                parent: self,
-            }), r)
+            (
+                Some(ObjectWriter {
+                    elements: Vec::new(),
+                    parent: self,
+                }),
+                r,
+            )
         }
     }
 
-    fn array<'c: 'a, 'd>(&'d mut self, cache_key: CacheKey) -> (Option<ArrayWriter<'d, 'c>>, Reference)  where 'a: 'c, 'a: 'd{
+    fn array<'c: 'a, 'd>(
+        &'d mut self,
+        cache_key: CacheKey,
+    ) -> (Option<ArrayWriter<'d, 'c>>, Reference)
+    where
+        'a: 'c,
+        'a: 'd,
+    {
         if let Some(existing_ref) = self.cache_get(&cache_key) {
             (None, existing_ref)
         } else {
@@ -47,10 +64,13 @@ impl<'a, 'b> ObjWriter<'a> for ObjectWriter<'a, 'b> {
             self.cache_add(cache_key, r);
 
             // Return the writer and the reference
-            (Some(ArrayWriter {
-                elements: Vec::new(),
-                parent: self,
-            }), r)
+            (
+                Some(ArrayWriter {
+                    elements: Vec::new(),
+                    parent: self,
+                }),
+                r,
+            )
         }
     }
 
@@ -72,6 +92,7 @@ impl<'a, 'b> ObjectWriter<'a, 'b> {
     /// If this is not called, the object will not be added
     pub fn commit<T: AsRef<str>>(self, name: T) {
         //TODO: this doent work for multi level nesting
-        self.parent.add_element(name.as_ref(), Value::Object(self.elements, None), false);
+        self.parent
+            .add_element(name.as_ref(), Value::Object(self.elements, None), false);
     }
 }

@@ -1,5 +1,5 @@
-use enumset::EnumSet;
 use super::Attribute;
+use enumset::EnumSet;
 
 /// A class definition (trait) used in AMF3
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

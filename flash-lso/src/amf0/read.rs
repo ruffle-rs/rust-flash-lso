@@ -2,7 +2,7 @@
 use crate::amf0::type_marker::TypeMarker;
 
 use crate::nom_utils::{take_str, AMFResult};
-use crate::types::{ClassDefinition, Element, Value, Reference};
+use crate::types::{ClassDefinition, Element, Reference, Value};
 use crate::{amf3, PADDING};
 use nom::bytes::complete::{tag, take};
 use nom::combinator::{map, map_res};
@@ -98,7 +98,7 @@ impl AMF0Decoder {
             |i| self.parse_array_element(i),
             move |elms: Vec<Element>| {
                 Rc::new(Value::Object(
-                        elms,
+                    elms,
                     Some(ClassDefinition::default_with_name(name.to_string())),
                 ))
             },
@@ -126,10 +126,7 @@ impl AMF0Decoder {
         let (i, elements) =
             many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
 
-        Ok((
-            i,
-            Rc::new(Value::StrictArray(elements)),
-        ))
+        Ok((i, Rc::new(Value::StrictArray(elements))))
     }
 
     fn parse_array_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {
@@ -175,7 +172,7 @@ impl AMF0Decoder {
             TypeMarker::Reference => {
                 let (i, v) = self.parse_element_reference(i)?;
                 Ok((i, v))
-            },
+            }
             TypeMarker::MixedArrayStart => {
                 let (i, v) = self.parse_element_mixed_array(i)?;
                 self.cache[cache_idx] = Rc::clone(&v);
@@ -231,6 +228,9 @@ impl AMF0Decoder {
     /// Convert the given value into a reference, if possible
     /// This reference is only valid for values sourced from this decoder and will only reference values decoded by it
     pub fn as_reference(&self, v: &Value) -> Option<Reference> {
-        self.cache.iter().position(|cv| *cv == Rc::new(v.clone())).map(|r| Reference(r as _))
+        self.cache
+            .iter()
+            .position(|cv| *cv == Rc::new(v.clone()))
+            .map(|r| Reference(r as _))
     }
 }

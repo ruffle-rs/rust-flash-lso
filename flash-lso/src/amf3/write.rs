@@ -642,9 +642,7 @@ impl AMF3Encoder {
             }
             Value::AMF3(e) => self.write_value_element(e)(out),
             Value::Unsupported => self.write_undefined_element()(out),
-            Value::Reference(_) => {
-                Err(GenError::NotYetImplemented)
-            }
+            Value::Reference(_) => Err(GenError::NotYetImplemented),
         }
     }
 

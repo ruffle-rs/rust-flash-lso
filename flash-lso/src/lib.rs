@@ -11,7 +11,7 @@
     unused_extern_crates,
     unused_qualifications,
     variant_size_differences,
-    //missing_docs
+    missing_docs
 )]
 
 const HEADER_VERSION: [u8; 2] = [0x00, 0xbf];

@@ -1,4 +1,4 @@
-use super::{Header, Element, AMFVersion};
+use super::{AMFVersion, Element, Header};
 
 /// A container for lso files
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

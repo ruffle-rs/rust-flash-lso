@@ -1,6 +1,6 @@
+use super::Value;
 use core::ops::Deref;
 use std::rc::Rc;
-use super::Value;
 
 /// Represent a named element
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

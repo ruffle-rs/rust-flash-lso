@@ -1,6 +1,6 @@
-use crate::types::{Value, Reference};
+use crate::types::{Reference, Value};
 
-use super::{CacheKey, ObjectWriter, ArrayWriter};
+use super::{ArrayWriter, CacheKey, ObjectWriter};
 
 /// A trait of common functions between writers
 pub trait ObjWriter<'a> {
@@ -11,13 +11,25 @@ pub trait ObjWriter<'a> {
     ///
     /// If an object with the same `cache_key` has already been written, then this will return `None` for the Writer and the existing reference
     /// If this key is unique, then both a Writer and a Reference will be returned
-    fn object<'c: 'a, 'd>(&'d mut self, cache_key: CacheKey) -> (Option<ObjectWriter<'d, 'c>>, Reference) where 'a: 'c, 'a: 'd;
+    fn object<'c: 'a, 'd>(
+        &'d mut self,
+        cache_key: CacheKey,
+    ) -> (Option<ObjectWriter<'d, 'c>>, Reference)
+    where
+        'a: 'c,
+        'a: 'd;
 
     /// Create a writer that can serialize an array
     ///
     /// If an object with the same `cache_key` has already been written, then this will return `None` for the Writer and the existing reference
     /// If this key is unique, then both a Writer and a Reference will be returned
-    fn array<'c: 'a, 'd>(&'d mut self, cache_key: CacheKey) -> (Option<ArrayWriter<'d, 'c>>, Reference) where 'a: 'c, 'a: 'd;
+    fn array<'c: 'a, 'd>(
+        &'d mut self,
+        cache_key: CacheKey,
+    ) -> (Option<ArrayWriter<'d, 'c>>, Reference)
+    where
+        'a: 'c,
+        'a: 'd;
     //Typed objects can also be sent cached
 
     /// Write a string
@@ -62,6 +74,10 @@ pub trait ObjWriter<'a> {
 
     /// Create a reference in the root
     fn make_reference(&mut self) -> Reference;
+
+    /// Retrieve a reference from the cache
     fn cache_get(&mut self, cache_key: &CacheKey) -> Option<Reference>;
+
+    /// Add a reference to the reference cache
     fn cache_add(&mut self, cache_key: CacheKey, reference: Reference);
 }

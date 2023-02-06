@@ -64,7 +64,7 @@ impl TryFrom<u8> for TypeMarker {
             0x0F => Ok(Self::VectorDouble),
             0x10 => Ok(Self::VectorObject),
             0x11 => Ok(Self::Dictionary),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }

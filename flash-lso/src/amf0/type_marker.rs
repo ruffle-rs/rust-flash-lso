@@ -53,7 +53,7 @@ pub(crate) enum TypeMarker {
 
     /// Typed object start
     TypedObject = 16,
-    
+
     /// Embedded AMF3 element
     AMF3 = 17,
 }
@@ -81,7 +81,7 @@ impl TryFrom<u8> for TypeMarker {
             15 => Ok(Self::Xml),
             16 => Ok(Self::TypedObject),
             17 => Ok(Self::AMF3),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
