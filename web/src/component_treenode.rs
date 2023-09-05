@@ -125,9 +125,9 @@ impl Component for TreeNode {
         };
 
         let classes = if self.selected(ctx) {
-            "text-white bg-primary rounded-pill pl-2 pr-2"
+            "text-white bg-primary rounded-pill pl-2 pr-2 user-select-none"
         } else {
-            "pl-2 pr-2"
+            "pl-2 pr-2 user-select-none"
         };
 
         let callback = ctx.link().callback(Msg::Edited);
