@@ -139,8 +139,8 @@ impl Component for Model {
                 }
             }
             Msg::Selection(val) => {
-                if self.current_selection.as_ref().map(|ev| ev.value.clone())
-                    == Some(val.value.clone())
+                if self.current_selection.as_ref().map(|ev| ev.path.clone())
+                    == Some(val.path.clone())
                 {
                     self.current_selection = None;
                 } else {
