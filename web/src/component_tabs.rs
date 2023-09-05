@@ -48,7 +48,7 @@ impl Component for Tabs {
                       { for ctx.props().children.iter().enumerate().map(|(i, e)| html! {
                          <li class="nav-item" role="tablist">
                             <span class={format!("nav-link {}", if ctx.props().selected == Some(i) {"active"} else {""})} role="tab" onclick={ctx.link().callback(move |_| Msg::Selected(i))}>
-                                <a href="_blank" style="vertical-align: middle;">{&e.props.label}</a>{ self.tab_details(ctx, e, i) }
+                                <a href="#" style="vertical-align: middle;">{&e.props.label}</a>{ self.tab_details(ctx, e, i) }
                              </span>
                          </li>
                       })}
