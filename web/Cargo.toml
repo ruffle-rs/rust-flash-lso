@@ -18,4 +18,4 @@ js-sys = "0.3.58"
 log = "0.4.17"
 wasm-logger = "0.2.0"
 flash-lso = { path = "../flash-lso", features = ["serde", "flex"] }
-gloo-file = "0.2.3"
+gloo-file = "0.3.0"
