@@ -10,7 +10,7 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-yew = "0.19.3"
+yew = "0.21.0"
 yewtil = "0.4.0"
 web-sys = "0.3.59"
 wasm-bindgen = "0.2.81"
