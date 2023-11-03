@@ -19,6 +19,36 @@ impl<'a> fmt::Debug for PrettyArray<'a> {
     }
 }
 
+macro_rules! packet_test {
+    ($([$name: ident, $path: expr, $exact_lengths: expr]),*) => {
+        $(
+        #[test]
+        pub fn $name() -> Result<(), Box<dyn std::error::Error>> {
+            let data = include_bytes!(concat!("packet/", $path, ".dat"));
+            let parse_res = flash_lso::packet::read::parse_incomplete(data);
+
+            if let Ok((unparsed_bytes, mut packet)) =  parse_res {
+                println!("{:#?}", packet);
+
+                let empty: Vec<u8> = vec![];
+                if unparsed_bytes.len() > 0 {
+                    assert_eq!(crate::PrettyArray(&empty), crate::PrettyArray(&unparsed_bytes[..unparsed_bytes.len().min(100)].to_vec()));
+                }
+
+                let bytes = flash_lso::packet::write::write_to_bytes(&mut packet, $exact_lengths)?;
+
+                assert_eq!(crate::PrettyArray(&bytes), crate::PrettyArray(&data.to_vec()), "library output != input");
+            } else {
+                println!("parse failed: {:?}", parse_res);
+                assert_eq!(false, true)
+            }
+
+            Ok(())
+        }
+        )*
+    }
+}
+
 macro_rules! auto_test {
     ($([$name: ident, $path: expr]),*) => {
         $(
@@ -343,6 +373,12 @@ auto_test! {
     [user, "user"],
     [self_referential, "other/self-referential"],
     [fish_tycoon, "other/fishtycoon"]
+}
+
+// Packets
+packet_test! {
+    [armorgames_auth_request, "armorgames_auth_request", true],
+    [armorgames_auth_response, "armorgames_auth_response", false]
 }
 
 // Samples that can be parsed but not written
