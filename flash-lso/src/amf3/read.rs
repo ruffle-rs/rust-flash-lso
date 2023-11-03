@@ -380,7 +380,6 @@ impl AMF3Decoder {
             };
         }
 
-        let mut i = i;
         if class_def.attributes.contains(Attribute::Dynamic) {
             let (j, x) = self.parse_object_static(i, &class_def)?;
             elements.extend(x);

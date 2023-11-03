@@ -93,7 +93,7 @@ pub mod modal {
         type Properties = Props;
 
         fn create(_ctx: &Context<Self>) -> Self {
-            Self::default()
+            Self
         }
 
         fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
