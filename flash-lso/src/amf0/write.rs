@@ -124,7 +124,9 @@ fn write_mixed_array<'a, 'b: 'a, W: Write + 'a>(
     ))
 }
 
-fn write_value<'a, 'b: 'a, W: Write + 'a>(element: &'b Rc<Value>) -> impl SerializeFn<W> + 'a {
+pub(crate) fn write_value<'a, 'b: 'a, W: Write + 'a>(
+    element: &'b Rc<Value>,
+) -> impl SerializeFn<W> + 'a {
     move |out: WriteContext<W>| match element.deref() {
         Value::Number(n) => write_number_element(*n)(out),
         Value::Bool(b) => write_bool_element(*b)(out),
@@ -151,7 +153,10 @@ fn write_value<'a, 'b: 'a, W: Write + 'a>(element: &'b Rc<Value>) -> impl Serial
         Value::ECMAArray(_dense, elems, elems_length) => {
             write_mixed_array(elems, *elems_length)(out)
         }
-        Value::AMF3(e) => AMF3Encoder::default().write_value_element(e)(out),
+        Value::AMF3(e) => tuple((
+            write_type_marker(TypeMarker::AMF3),
+            AMF3Encoder::default().write_value_element(e),
+        ))(out),
         Value::Reference(r) => write_reference_element(r)(out),
         _ => {
             write_unsupported_element()(out) /* Not in amf0, TODO: use the amf3 embedding for every thing else */

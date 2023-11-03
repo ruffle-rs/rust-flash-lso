@@ -17,9 +17,9 @@ use std::io::Write;
 struct ArrayCollection;
 
 impl CustomEncoder for ArrayCollection {
-    fn encode<'a>(
+    fn encode(
         &self,
-        elements: &'a [Element],
+        elements: &[Element],
         _class_def: &Option<ClassDefinition>,
         encoder: &AMF3Encoder,
     ) -> Vec<u8> {
@@ -43,9 +43,9 @@ impl ArrayCollection {
 struct ObjectProxy;
 
 impl CustomEncoder for ObjectProxy {
-    fn encode<'a>(
+    fn encode(
         &self,
-        elements: &'a [Element],
+        elements: &[Element],
         _class_def: &Option<ClassDefinition>,
         encoder: &AMF3Encoder,
     ) -> Vec<u8> {
@@ -79,9 +79,9 @@ fn write_flags<'a, 'b: 'a, W: Write + 'a>(flags: &'a [u8]) -> impl SerializeFn<W
 struct AbstractMessage;
 
 impl CustomEncoder for AbstractMessage {
-    fn encode<'a>(
+    fn encode(
         &self,
-        elements: &'a [Element],
+        elements: &[Element],
         _class_def: &Option<ClassDefinition>,
         encoder: &AMF3Encoder,
     ) -> Vec<u8> {
@@ -245,9 +245,9 @@ fn write_abstract_message<'a, 'b: 'a, W: Write + 'a>(
 struct AsyncMessage;
 
 impl CustomEncoder for AsyncMessage {
-    fn encode<'a>(
+    fn encode(
         &self,
-        elements: &'a [Element],
+        elements: &[Element],
         _class_def: &Option<ClassDefinition>,
         encoder: &AMF3Encoder,
     ) -> Vec<u8> {
@@ -341,9 +341,9 @@ fn write_async_message<'a, 'b: 'a, W: Write + 'a>(
 struct AcknowledgeMessage;
 
 impl CustomEncoder for AcknowledgeMessage {
-    fn encode<'a>(
+    fn encode(
         &self,
-        elements: &'a [Element],
+        elements: &[Element],
         _class_def: &Option<ClassDefinition>,
         encoder: &AMF3Encoder,
     ) -> Vec<u8> {
@@ -403,9 +403,9 @@ fn write_acknowledge_message<'a, 'b: 'a, W: Write + 'a>(
 struct CommandMessage;
 
 impl CustomEncoder for CommandMessage {
-    fn encode<'a>(
+    fn encode(
         &self,
-        elements: &'a [Element],
+        elements: &[Element],
         _class_def: &Option<ClassDefinition>,
         encoder: &AMF3Encoder,
     ) -> Vec<u8> {

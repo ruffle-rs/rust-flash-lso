@@ -13,7 +13,7 @@ pub use object_writer::ObjectWriter;
 #[test]
 fn fff() {
     let mut w = Amf0Writer::default();
-    let (aw, _) = w.object(CacheKey::from_ptr(0 as *const u8));
+    let (aw, _) = w.object(CacheKey::from_ptr(std::ptr::null::<u8>()));
     let mut aw = aw.unwrap();
     {
         aw.string("asdf", "asfd");
