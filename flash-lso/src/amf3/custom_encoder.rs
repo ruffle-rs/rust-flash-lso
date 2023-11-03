@@ -13,9 +13,9 @@ pub trait CustomEncoder {
     /// This should implement the encoding of a given set of external elements for the given class definition
     /// Access to the AMF3Encoder is given to allow access to caches
     /// This implements the encoding side of externalized type support
-    fn encode<'a>(
+    fn encode(
         &self,
-        elements: &'a [Element],
+        elements: &[Element],
         class_def: &Option<ClassDefinition>,
         encoder: &AMF3Encoder,
     ) -> Vec<u8>;

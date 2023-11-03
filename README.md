@@ -39,7 +39,7 @@ cargo fuzz run --release fuzz_amf3_body
 ## Web
 building:
 ```
-wasm-pack build --out-name wasm --out-dir ./static --target web --release
+wasm-pack build --out-name web --out-dir ./static --target web --release
 miniserve ./static --index index.html
 ```
 

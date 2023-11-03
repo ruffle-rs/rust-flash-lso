@@ -27,6 +27,10 @@ pub enum Error<'a> {
     /// A cookie factory internal error
     #[error("Cookie factory internal error")]
     Gen,
+
+    /// Packet is too large (too many headers or messages)
+    #[error("Packet has too many headers or messages")]
+    PacketTooLarge,
 }
 
 impl<'a> ParseError<&'a [u8]> for Error<'a> {

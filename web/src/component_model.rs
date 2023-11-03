@@ -139,8 +139,8 @@ impl Component for Model {
                 }
             }
             Msg::Selection(val) => {
-                if self.current_selection.as_ref().map(|ev| ev.value.clone())
-                    == Some(val.value.clone())
+                if self.current_selection.as_ref().map(|ev| ev.path.clone())
+                    == Some(val.path.clone())
                 {
                     self.current_selection = None;
                 } else {
@@ -656,7 +656,7 @@ impl Model {
     }
 
     fn view_file(&self, ctx: &Context<Self>, _index: usize, data: &Lso) -> Html {
-        let root_class = "text-white bg-primary rounded-pill pl-2 pr-2";
+        let root_class = "text-white bg-primary rounded-pill pl-2 pr-2 user-select-none";
 
         html! {
             <div class="container-fluid">
