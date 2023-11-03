@@ -1,4 +1,4 @@
-///! Handles encoding AMF3
+//! Handles encoding AMF3
 use crate::amf3::custom_encoder::CustomEncoder;
 use crate::amf3::element_cache::ElementCache;
 use crate::amf3::length::Length;
