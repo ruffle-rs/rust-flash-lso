@@ -48,3 +48,6 @@ pub mod write;
 
 /// Extra functionality such as decoders for popular external class formats
 pub mod extra;
+
+/// Reading and Writing of AMF Self Contained Packets
+pub mod packet;

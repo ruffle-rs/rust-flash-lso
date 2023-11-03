@@ -57,7 +57,7 @@ fn parse_element_xml(i: &[u8]) -> AMFResult<'_, Rc<Value>> {
 
 fn parse_element_amf3(i: &[u8]) -> AMFResult<'_, Rc<Value>> {
     // Hopefully amf3 objects wont have references
-    let (i, x) = amf3::read::AMF3Decoder::default().parse_element_object(i)?;
+    let (i, x) = amf3::read::AMF3Decoder::default().parse_single_element(i)?;
     Ok((i, Rc::new(Value::AMF3(x))))
 }
 
