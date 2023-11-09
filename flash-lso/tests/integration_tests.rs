@@ -188,6 +188,47 @@ macro_rules! json_test {
     }
 }
 
+/// Tests reading a single object (the byte format used by ByteArray.readObject and ByteArray.writeObject)
+macro_rules! json_test_bytearray_object_amf3 {
+    ($([$name: ident, $path: expr]),*) => {
+        $(
+        #[cfg(feature = "serde")]
+        #[test]
+        pub fn $name() -> Result<(), Box<dyn std::error::Error>> {
+            use serde_json;
+
+            let data = include_bytes!(concat!("sol/", $path, ".sol"));
+            let parse_res = Reader::default().amf3_decoder.parse_single_element(data)?;
+            let output_json = serde_json::to_string(&parse_res)?;
+
+
+            let json_expected = include_str!(concat!("sol/", $path, ".json"));
+
+            assert_eq!(json_expected.trim(), output_json);
+
+            let mut lso = flash_lso::types::Lso::new(vec![flash_lso::types::Element {
+                name: "".to_string(),
+                value: parse_res.1
+            }], "", flash_lso::types::AMFVersion::AMF3);
+
+            let bytes = flash_lso::write::write_to_bytes(&mut lso)
+            .map_err(|_| "Failed to serialize object")?;
+
+            // This is kind of hacky: We need to strip out the header and any padding so that we only write
+            // the value. In the future, there should be a method to do this in the flash_lso crate.
+            let element_padding = 7;
+
+            let bytes = bytes[flash_lso::write::header_length(&lso.header) + element_padding
+            ..bytes.len() - 1].to_vec();
+
+            assert_eq!(crate::PrettyArray(&bytes), crate::PrettyArray(&data.to_vec()), "library output != input");
+
+            Ok(())
+        }
+        )*
+    }
+}
+
 macro_rules! json_test_flex {
     ($([$name: ident, $path: expr]),*) => {
         $(
@@ -292,6 +333,10 @@ json_test! {
     [json_slot_1, "slot1"],
     [json_party_1, "Party1"],
     [json_metadata_history, "MetadataHistory"]
+}
+
+json_test_bytearray_object_amf3! {
+    [json_learntofly3, "LearnToFly3.profileData.saveString"]
 }
 
 json_test_flex! {
