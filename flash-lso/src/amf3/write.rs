@@ -100,7 +100,7 @@ impl AMF3Encoder {
     }
 
     fn write_byte_string<'a, 'b: 'a, W: Write + 'a>(
-        &self,
+        &'a self,
         s: &'b [u8],
     ) -> impl SerializeFn<W> + 'a {
         let len = if !s.is_empty() {
@@ -111,19 +111,24 @@ impl AMF3Encoder {
         };
 
         let only_length = len.is_reference() && !s.is_empty();
+        let s_vec = s.to_vec();
 
-        if !s.is_empty() {
-            self.string_reference_table.store_slice(s);
-        }
-
-        either(
-            only_length,
-            len.write(self),
-            tuple((len.write(self), slice(s))),
-        )
+        tuple((
+            move |ctx| {
+                if !s_vec.is_empty() {
+                    self.string_reference_table.store(s_vec.clone());
+                }
+                Ok(ctx)
+            },
+            either(
+                only_length,
+                len.write(self),
+                tuple((len.write(self), slice(s))),
+            ),
+        ))
     }
 
-    fn write_string<'a, 'b: 'a, W: Write + 'a>(&self, s: &'b str) -> impl SerializeFn<W> + 'a {
+    fn write_string<'a, 'b: 'a, W: Write + 'a>(&'a self, s: &'b str) -> impl SerializeFn<W> + 'a {
         self.write_byte_string(s.as_bytes())
     }
 
@@ -150,7 +155,7 @@ impl AMF3Encoder {
     }
 
     fn write_string_element<'a, 'b: 'a, W: Write + 'a>(
-        &self,
+        &'a self,
         s: &'b str,
     ) -> impl SerializeFn<W> + 'a {
         tuple((
@@ -168,87 +173,98 @@ impl AMF3Encoder {
     }
 
     fn write_int_vector<'a, 'b: 'a, W: Write + 'a>(
-        &self,
+        &'a self,
         items: &'b [i32],
         fixed_length: bool,
     ) -> impl SerializeFn<W> + 'a {
-        let len = self.object_reference_table.to_length_store(
-            Value::VectorInt(items.to_vec(), fixed_length),
-            items.len() as u32,
-        );
+        move |ctx| {
+            let len = self.object_reference_table.to_length_store(
+                Value::VectorInt(items.to_vec(), fixed_length),
+                items.len() as u32,
+            );
 
-        tuple((
-            self.write_type_marker(TypeMarker::VectorInt),
-            either(
-                len.is_reference(),
-                len.write(self),
-                tuple((
-                    Length::Size(items.len() as u32).write(self),
-                    be_u8(fixed_length as u8),
-                    all(items.iter().copied().map(be_i32)),
-                )),
-            ),
-        ))
+            tuple((
+                self.write_type_marker(TypeMarker::VectorInt),
+                either(
+                    len.is_reference(),
+                    len.write(self),
+                    tuple((
+                        Length::Size(items.len() as u32).write(self),
+                        be_u8(fixed_length as u8),
+                        all(items.iter().copied().map(be_i32)),
+                    )),
+                ),
+            ))(ctx)
+        }
     }
 
     fn write_uint_vector<'a, 'b: 'a, W: Write + 'a>(
-        &self,
+        &'a self,
         items: &'b [u32],
         fixed_length: bool,
     ) -> impl SerializeFn<W> + 'a {
-        let len = self.object_reference_table.to_length_store(
-            Value::VectorUInt(items.to_vec(), fixed_length),
-            items.len() as u32,
-        );
+        move |ctx| {
+            let len = self.object_reference_table.to_length_store(
+                Value::VectorUInt(items.to_vec(), fixed_length),
+                items.len() as u32,
+            );
 
-        tuple((
-            self.write_type_marker(TypeMarker::VectorUInt),
-            either(
-                len.is_reference(),
-                len.write(self),
-                tuple((
-                    Length::Size(items.len() as u32).write(self),
-                    be_u8(fixed_length as u8),
-                    all(items.iter().copied().map(be_u32)),
-                )),
-            ),
-        ))
+            tuple((
+                self.write_type_marker(TypeMarker::VectorUInt),
+                either(
+                    len.is_reference(),
+                    len.write(self),
+                    tuple((
+                        Length::Size(items.len() as u32).write(self),
+                        be_u8(fixed_length as u8),
+                        all(items.iter().copied().map(be_u32)),
+                    )),
+                ),
+            ))(ctx)
+        }
     }
 
     fn write_number_vector<'a, 'b: 'a, W: Write + 'a>(
-        &self,
+        &'a self,
         items: &'b [f64],
         fixed_length: bool,
     ) -> impl SerializeFn<W> + 'a {
-        let len = self.object_reference_table.to_length_store(
-            Value::VectorDouble(items.to_vec(), fixed_length),
-            items.len() as u32,
-        );
+        move |ctx| {
+            let len = self.object_reference_table.to_length_store(
+                Value::VectorDouble(items.to_vec(), fixed_length),
+                items.len() as u32,
+            );
 
-        tuple((
-            self.write_type_marker(TypeMarker::VectorDouble),
-            either(
-                len.is_reference(),
-                len.write(self),
-                tuple((
-                    Length::Size(items.len() as u32).write(self),
-                    be_u8(fixed_length as u8),
-                    all(items.iter().copied().map(be_f64)),
-                )),
-            ),
-        ))
+            tuple((
+                self.write_type_marker(TypeMarker::VectorDouble),
+                either(
+                    len.is_reference(),
+                    len.write(self),
+                    tuple((
+                        Length::Size(items.len() as u32).write(self),
+                        be_u8(fixed_length as u8),
+                        all(items.iter().copied().map(be_f64)),
+                    )),
+                ),
+            ))(ctx)
+        }
     }
 
-    fn write_date_element<'a, 'b: 'a, W: Write + 'a>(&self, time: f64) -> impl SerializeFn<W> + 'a {
-        let len = self
-            .object_reference_table
-            .to_length_store(Value::Date(time, None), 0);
+    fn write_date_element<'a, 'b: 'a, W: Write + 'a>(
+        &'a self,
+        time: f64,
+    ) -> impl SerializeFn<W> + 'a {
+        move |ctx| {
+            let len = self
+                .object_reference_table
+                .to_length_store(Value::Date(time, None), 0);
 
-        tuple((
-            self.write_type_marker(TypeMarker::Date),
-            len.write(self),
-            cond(len.is_size(), be_f64(time)),
-        ))
+            tuple((
+                self.write_type_marker(TypeMarker::Date),
+                len.write(self),
+                cond(len.is_size(), be_f64(time)),
+            ))(ctx)
+        }
     }
 
     fn write_integer_element<'a, 'b: 'a, W: Write + 'a>(&self, i: i32) -> impl SerializeFn<W> + 'a {
@@ -259,18 +275,20 @@ impl AMF3Encoder {
     }
 
     fn write_byte_array_element<'a, 'b: 'a, W: Write + 'a>(
-        &self,
+        &'a self,
         bytes: &'b [u8],
     ) -> impl SerializeFn<W> + 'a {
-        let len = self
-            .object_reference_table
-            .to_length_store(Value::ByteArray(bytes.to_vec()), bytes.len() as u32);
+        move |ctx| {
+            let len = self
+                .object_reference_table
+                .to_length_store(Value::ByteArray(bytes.to_vec()), bytes.len() as u32);
 
-        tuple((
-            self.write_type_marker(TypeMarker::ByteArray),
-            len.write(self),
-            cond(len.is_size(), slice(bytes)),
-        ))
+            tuple((
+                self.write_type_marker(TypeMarker::ByteArray),
+                len.write(self),
+                cond(len.is_size(), slice(bytes)),
+            ))(ctx)
+        }
     }
 
     fn write_xml_element<'a, 'b: 'a, W: Write + 'a>(
@@ -376,8 +394,6 @@ impl AMF3Encoder {
         children: &'b [Element],
         def: &'b ClassDefinition,
     ) -> impl SerializeFn<W> + 'a {
-        self.trait_reference_table.borrow_mut().push(def.clone());
-
         let is_external = def.attributes.contains(Attribute::External);
         let is_dynamic = def.attributes.contains(Attribute::Dynamic);
 
@@ -397,6 +413,10 @@ impl AMF3Encoder {
             | 1u32;
 
         tuple((
+            |ctx| {
+                self.trait_reference_table.borrow_mut().push(def.clone());
+                Ok(ctx)
+            },
             self.write_int(size as i32),
             self.write_class_definition(def),
             cond(def.attributes.contains(Attribute::External), move |out| {
@@ -449,12 +469,12 @@ impl AMF3Encoder {
         custom_props: Option<&'b [Element]>,
         class_def: &'b Option<ClassDefinition>,
     ) -> impl SerializeFn<W> + 'a {
-        let had_object = Length::Size(0);
-
-        self.object_reference_table
-            .store(Value::Object(children.to_vec(), class_def.clone()));
-
         move |out| {
+            let had_object = Length::Size(0);
+
+            self.object_reference_table
+                .store(Value::Object(children.to_vec(), class_def.clone()));
+
             let def = class_def.clone().unwrap_or_default();
             let def2 = def.clone();
 
@@ -549,23 +569,25 @@ impl AMF3Encoder {
         type_name: &'b str,
         fixed_length: bool,
     ) -> impl SerializeFn<W> + 'a {
-        let len = self.object_reference_table.to_length_store(
-            Value::VectorObject(items.to_vec(), type_name.to_string(), fixed_length),
-            items.len() as u32,
-        );
+        move |ctx| {
+            let len = self.object_reference_table.to_length_store(
+                Value::VectorObject(items.to_vec(), type_name.to_string(), fixed_length),
+                items.len() as u32,
+            );
 
-        tuple((
-            self.write_type_marker(TypeMarker::VectorObject),
-            len.write(self),
-            cond(
-                len.is_size(),
-                tuple((
-                    be_u8(fixed_length as u8),
-                    self.write_string(type_name),
-                    all(items.iter().map(move |i| self.write_value_element(i))),
-                )),
-            ),
-        ))
+            tuple((
+                self.write_type_marker(TypeMarker::VectorObject),
+                len.write(self),
+                cond(
+                    len.is_size(),
+                    tuple((
+                        be_u8(fixed_length as u8),
+                        self.write_string(type_name),
+                        all(items.iter().map(move |i| self.write_value_element(i))),
+                    )),
+                ),
+            ))(ctx)
+        }
     }
 
     fn write_dictionary_element<'a, 'b: 'a, W: Write + 'a>(
@@ -573,29 +595,31 @@ impl AMF3Encoder {
         items: &'b [(Rc<Value>, Rc<Value>)],
         weak_keys: bool,
     ) -> impl SerializeFn<W> + 'a {
-        let len = self.object_reference_table.to_length(
-            Value::Dictionary(items.to_vec(), weak_keys),
-            items.len() as u32,
-        );
-        self.object_reference_table
-            .store(Value::Dictionary(items.to_vec(), weak_keys));
+        move |ctx| {
+            let len = self.object_reference_table.to_length(
+                Value::Dictionary(items.to_vec(), weak_keys),
+                items.len() as u32,
+            );
+            self.object_reference_table
+                .store(Value::Dictionary(items.to_vec(), weak_keys));
 
-        tuple((
-            self.write_type_marker(TypeMarker::Dictionary),
-            len.write(self),
-            cond(
-                len.is_size(),
-                tuple((
-                    be_u8(weak_keys as u8),
-                    all(items.iter().map(move |i| {
-                        tuple((
-                            self.write_value_element(&i.0),
-                            self.write_value_element(&i.1),
-                        ))
-                    })),
-                )),
-            ),
-        ))
+            tuple((
+                self.write_type_marker(TypeMarker::Dictionary),
+                len.write(self),
+                cond(
+                    len.is_size(),
+                    tuple((
+                        be_u8(weak_keys as u8),
+                        all(items.iter().map(move |i| {
+                            tuple((
+                                self.write_value_element(&i.0),
+                                self.write_value_element(&i.1),
+                            ))
+                        })),
+                    )),
+                ),
+            ))(ctx)
+        }
     }
 
     pub(crate) fn write_value_element<'a, 'b: 'a, W: Write + 'a>(

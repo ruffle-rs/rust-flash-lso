@@ -66,6 +66,7 @@ impl<T: PartialEq + Clone + Debug> ElementCache<T> {
 impl<T: PartialEq + Clone + Debug> ElementCache<Vec<T>> {
     /// See #store, will convert slices of &\[T\] into Vec<T> before storing
     #[inline]
+    #[allow(unused)]
     pub(crate) fn store_slice(&self, val: &[T]) {
         self.store(val.to_vec());
     }
