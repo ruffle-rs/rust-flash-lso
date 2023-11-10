@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::types::{Element, Reference, Value};
 
 use super::{CacheKey, ObjWriter, ObjectWriter};
@@ -17,7 +19,8 @@ impl<'a, 'b> ObjWriter<'a> for ArrayWriter<'a, 'b> {
             self.make_reference();
         }
 
-        self.elements.push(Element::new(name.to_string(), s));
+        self.elements
+            .push(Element::new(name.to_string(), Rc::new(s)));
     }
 
     fn object<'c: 'a, 'd>(

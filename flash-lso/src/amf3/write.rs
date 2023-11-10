@@ -178,7 +178,7 @@ impl AMF3Encoder {
         fixed_length: bool,
     ) -> impl SerializeFn<W> + 'a {
         move |ctx| {
-            let len = self.object_reference_table.to_length_store(
+            let len = self.object_reference_table.to_length(
                 Value::VectorInt(items.to_vec(), fixed_length),
                 items.len() as u32,
             );
@@ -204,7 +204,7 @@ impl AMF3Encoder {
         fixed_length: bool,
     ) -> impl SerializeFn<W> + 'a {
         move |ctx| {
-            let len = self.object_reference_table.to_length_store(
+            let len = self.object_reference_table.to_length(
                 Value::VectorUInt(items.to_vec(), fixed_length),
                 items.len() as u32,
             );
@@ -230,7 +230,7 @@ impl AMF3Encoder {
         fixed_length: bool,
     ) -> impl SerializeFn<W> + 'a {
         move |ctx| {
-            let len = self.object_reference_table.to_length_store(
+            let len = self.object_reference_table.to_length(
                 Value::VectorDouble(items.to_vec(), fixed_length),
                 items.len() as u32,
             );
@@ -257,7 +257,7 @@ impl AMF3Encoder {
         move |ctx| {
             let len = self
                 .object_reference_table
-                .to_length_store(Value::Date(time, None), 0);
+                .to_length(Value::Date(time, None), 0);
 
             tuple((
                 self.write_type_marker(TypeMarker::Date),
@@ -281,7 +281,7 @@ impl AMF3Encoder {
         move |ctx| {
             let len = self
                 .object_reference_table
-                .to_length_store(Value::ByteArray(bytes.to_vec()), bytes.len() as u32);
+                .to_length(Value::ByteArray(bytes.to_vec()), bytes.len() as u32);
 
             tuple((
                 self.write_type_marker(TypeMarker::ByteArray),
@@ -570,7 +570,7 @@ impl AMF3Encoder {
         fixed_length: bool,
     ) -> impl SerializeFn<W> + 'a {
         move |ctx| {
-            let len = self.object_reference_table.to_length_store(
+            let len = self.object_reference_table.to_length(
                 Value::VectorObject(items.to_vec(), type_name.to_string(), fixed_length),
                 items.len() as u32,
             );

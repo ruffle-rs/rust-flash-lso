@@ -56,6 +56,9 @@ impl<T: PartialEq + Clone + Debug> ElementCache<T> {
     }
 
     /// See #to_length, except will store the given value via #add after retrieving the index (if it does not already exist)
+    /// FIXME - this is currently unused, since our implementation is incorrect (we need to compare 'Rc's by pointer,
+    /// to avoid combining two distinct objects into the same reference).
+    #[allow(unused)]
     pub(crate) fn to_length_store(&self, val: T, length: u32) -> Length {
         let len = self.to_length(val.clone(), length);
         self.store(val);

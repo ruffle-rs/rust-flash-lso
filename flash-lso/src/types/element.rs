@@ -16,10 +16,10 @@ pub struct Element {
 impl Element {
     /// Create a new Element
     #[inline]
-    pub fn new(name: impl Into<String>, value: impl Into<Value>) -> Self {
+    pub fn new(name: impl Into<String>, value: Rc<Value>) -> Self {
         Self {
             name: name.into(),
-            value: Rc::new(value.into()),
+            value,
         }
     }
 
