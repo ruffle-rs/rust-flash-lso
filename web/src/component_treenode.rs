@@ -58,7 +58,7 @@ impl Component for TreeNode {
             Msg::Edited(v) => {
                 self.value = v.clone();
                 if let Some(x) = &ctx.props().element_callback {
-                    x.emit(Element::new(ctx.props().name.clone(), v));
+                    x.emit(Element::new(ctx.props().name.clone(), Rc::new(v)));
                 }
                 true
             }
