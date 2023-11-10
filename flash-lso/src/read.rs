@@ -53,8 +53,6 @@ impl Reader {
         let (i, _) = tag(PADDING)(i)?;
         let (i, _) = tag(PADDING)(i)?;
 
-        eprintln!("Parsing at: {i:?}");
-
         let (i, version) = alt((tag(&[FORMAT_VERSION_AMF0]), tag(&[FORMAT_VERSION_AMF3])))(i)
             .map_err(|e| {
                 eprintln!("Err: {e:?}");
