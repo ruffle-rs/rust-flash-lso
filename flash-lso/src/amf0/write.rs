@@ -108,7 +108,22 @@ fn write_typed_object_element<'a, 'b: 'a, W: Write + 'a>(
     ))
 }
 
+fn write_dense_element<'a, 'b: 'a, W: Write + 'a>(
+    index: usize,
+    element: &'b Rc<Value>,
+) -> impl SerializeFn<W> + 'a {
+    move |ctx| {
+        let index_str = index.to_string();
+        tuple((
+            be_u16(index_str.len() as u16),
+            string(index_str),
+            write_value(element),
+        ))(ctx)
+    }
+}
+
 fn write_mixed_array<'a, 'b: 'a, W: Write + 'a>(
+    dense: &'b [Rc<Value>],
     elements: &'b [Element],
     length: u32,
 ) -> impl SerializeFn<W> + 'a {
@@ -118,6 +133,10 @@ fn write_mixed_array<'a, 'b: 'a, W: Write + 'a>(
     tuple((
         write_type_marker(TypeMarker::MixedArrayStart),
         be_u32(length),
+        all(dense
+            .iter()
+            .enumerate()
+            .map(|(idx, value)| write_dense_element(idx, value))),
         all(elements.iter().map(write_element)),
         be_u16(0),
         write_type_marker(TypeMarker::ObjectEnd),
@@ -150,8 +169,8 @@ pub(crate) fn write_value<'a, 'b: 'a, W: Write + 'a>(
         Value::Date(d, tz) => write_date_element(*d, *tz)(out),
         Value::Unsupported => write_unsupported_element()(out),
         Value::XML(x, _string) => write_xml_element(x)(out),
-        Value::ECMAArray(_dense, elems, elems_length) => {
-            write_mixed_array(elems, *elems_length)(out)
+        Value::ECMAArray(dense, elems, elems_length) => {
+            write_mixed_array(dense, elems, *elems_length)(out)
         }
         Value::AMF3(e) => tuple((
             write_type_marker(TypeMarker::AMF3),
