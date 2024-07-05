@@ -33,36 +33,6 @@ pub struct AMF3Encoder {
     pub external_encoders: HashMap<String, Box<dyn CustomEncoder>>,
 }
 
-#[cfg(test)]
-mod write_number_tests {
-    use crate::amf3::write::AMF3Encoder;
-    use cookie_factory::gen;
-
-    #[test]
-    fn test_write_1byte_number() {
-        let e = AMF3Encoder::default();
-        let v = vec![];
-        let (b1, _) = gen(e.write_int(0b00101011), v).unwrap();
-        assert_eq!(b1, &[0b00101011]);
-    }
-
-    #[test]
-    fn test_write_4byte_number() {
-        let e = AMF3Encoder::default();
-        let v = vec![];
-        let (b1, _) = gen(e.write_int(2097280), v).unwrap();
-        assert_eq!(b1, &[0b10000000, 0b11000000, 0b10000000, 0b10000000]);
-    }
-
-    #[test]
-    fn write_neg_number() {
-        let e = AMF3Encoder::default();
-        let v = vec![];
-        let (b1, _) = gen(e.write_int(-268435455), v).unwrap();
-        assert_eq!(b1, &[192, 128, 128, 1]);
-    }
-}
-
 impl AMF3Encoder {
     #[allow(clippy::unusual_byte_groupings)]
     pub(crate) fn write_int<'a, 'b: 'a, W: Write + 'a>(&self, i: i32) -> impl SerializeFn<W> + 'a {
@@ -694,5 +664,35 @@ impl AMF3Encoder {
         all(elements
             .iter()
             .map(move |e| self.write_element_and_padding(e)))
+    }
+}
+
+#[cfg(test)]
+mod write_number_tests {
+    use crate::amf3::write::AMF3Encoder;
+    use cookie_factory::gen;
+
+    #[test]
+    fn test_write_1byte_number() {
+        let e = AMF3Encoder::default();
+        let v = vec![];
+        let (b1, _) = gen(e.write_int(0b00101011), v).unwrap();
+        assert_eq!(b1, &[0b00101011]);
+    }
+
+    #[test]
+    fn test_write_4byte_number() {
+        let e = AMF3Encoder::default();
+        let v = vec![];
+        let (b1, _) = gen(e.write_int(2097280), v).unwrap();
+        assert_eq!(b1, &[0b10000000, 0b11000000, 0b10000000, 0b10000000]);
+    }
+
+    #[test]
+    fn write_neg_number() {
+        let e = AMF3Encoder::default();
+        let v = vec![];
+        let (b1, _) = gen(e.write_int(-268435455), v).unwrap();
+        assert_eq!(b1, &[192, 128, 128, 1]);
     }
 }
