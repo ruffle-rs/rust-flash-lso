@@ -1,200 +1,224 @@
 /// Support for encoding AMF0
 use crate::types::{Element, Reference, Value};
 use crate::PADDING;
-use cookie_factory::bytes::{be_f64, be_u16, be_u32, be_u8};
-use cookie_factory::{SerializeFn, WriteContext};
 use std::io::Write;
 
 use crate::amf0::type_marker::TypeMarker;
 use crate::amf3::write::AMF3Encoder;
 use crate::nom_utils::write_string;
-use cookie_factory::combinator::slice;
-use cookie_factory::combinator::string;
-use cookie_factory::multi::all;
-use cookie_factory::sequence::tuple;
+use byteorder::{BigEndian, WriteBytesExt};
+use cookie_factory::gen;
+use std::io::Result;
 use std::ops::Deref;
 use std::rc::Rc;
 
-fn write_type_marker<'a, 'b: 'a, W: Write + 'a>(type_: TypeMarker) -> impl SerializeFn<W> + 'a {
-    be_u8(type_ as u8)
+fn write_type_marker<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, type_: TypeMarker) -> Result<()> {
+    writer.write_u8(type_ as u8)
 }
 
-fn write_reference_element<'a, 'b: 'a, W: Write + 'a>(r: &Reference) -> impl SerializeFn<W> + 'a {
-    tuple((write_type_marker(TypeMarker::Reference), be_u16(r.0)))
+fn write_reference_element<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, r: &Reference) -> Result<()> {
+    write_type_marker(writer, TypeMarker::Reference)?;
+    writer.write_u16::<BigEndian>(r.0)?;
+    Ok(())
 }
 
-fn write_number_element<'a, 'b: 'a, W: Write + 'a>(s: f64) -> impl SerializeFn<W> + 'a {
-    tuple((write_type_marker(TypeMarker::Number), be_f64(s)))
+fn write_number_element<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, s: f64) -> Result<()> {
+    write_type_marker(writer, TypeMarker::Number)?;
+    writer.write_f64::<BigEndian>(s)?;
+    Ok(())
 }
 
-fn write_bool_element<'a, 'b: 'a, W: Write + 'a>(s: bool) -> impl SerializeFn<W> + 'a {
-    tuple((write_type_marker(TypeMarker::Boolean), be_u8(u8::from(s))))
+fn write_bool_element<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, s: bool) -> Result<()> {
+    write_type_marker(writer, TypeMarker::Boolean)?;
+    writer.write_u8(u8::from(s))?;
+    Ok(())
 }
 
-fn write_long_string_content<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
-    tuple((be_u32(s.len() as u32), string(s)))
+fn write_long_string_content<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, s: &'b str) -> Result<()> {
+    writer.write_u32::<BigEndian>(s.len() as u32)?;
+    writer.write_all(s.as_bytes())?;
+    Ok(())
 }
 
-fn write_long_string_element<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
-    tuple((
-        write_type_marker(TypeMarker::LongString),
-        write_long_string_content(s),
-    ))
+fn write_long_string_element<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, s: &'b str) -> Result<()> {
+    write_type_marker(writer, TypeMarker::LongString)?;
+    write_long_string_content(writer, s)?;
+    Ok(())
 }
 
-fn write_string_element<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
-    tuple((write_type_marker(TypeMarker::String), write_string(s)))
+fn write_string_element<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, s: &'b str) -> Result<()> {
+    write_type_marker(writer, TypeMarker::String)?;
+    write_string(writer, s)?;
+    Ok(())
 }
 
-fn write_object_element<'a, 'b: 'a, W: Write + 'a>(o: &'b [Element]) -> impl SerializeFn<W> + 'a {
-    tuple((
-        write_type_marker(TypeMarker::Object),
-        all(o.iter().map(write_element)),
-        be_u16(0),
-        write_type_marker(TypeMarker::ObjectEnd),
-    ))
+fn write_object_element<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, o: &'b [Element]) -> Result<()> {
+    write_type_marker(writer, TypeMarker::Object)?;
+    for element in o {
+        write_element(writer, element)?;
+    }
+    writer.write_u16::<BigEndian>(0)?;
+    write_type_marker(writer, TypeMarker::ObjectEnd)?;
+    Ok(())
 }
 
-fn write_null_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W> + 'a {
-    write_type_marker(TypeMarker::Null)
+fn write_null_element<'a, 'b: 'a, W: Write + 'a>(writer: &mut W) -> Result<()> {
+    write_type_marker(writer, TypeMarker::Null)
 }
 
-fn write_undefined_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W> + 'a {
-    write_type_marker(TypeMarker::Undefined)
+fn write_undefined_element<'a, 'b: 'a, W: Write + 'a>(writer: &mut W) -> Result<()> {
+    write_type_marker(writer, TypeMarker::Undefined)
 }
 
 fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(
+    writer: &mut W,
     elements: &'b [Rc<Value>],
-) -> impl SerializeFn<W> + 'a {
-    tuple((
-        write_type_marker(TypeMarker::Array),
-        be_u32(elements.len() as u32),
-        all(elements.iter().map(write_value)),
-    ))
+) -> Result<()> {
+    write_type_marker(writer, TypeMarker::Array)?;
+    writer.write_u32::<BigEndian>(elements.len() as u32)?;
+    for element in elements {
+        write_value(writer, element)?;
+    }
+    Ok(())
 }
 
 fn write_date_element<'a, 'b: 'a, W: Write + 'a>(
+    writer: &mut W,
     date: f64,
     tz: Option<u16>,
-) -> impl SerializeFn<W> + 'a {
-    tuple((
-        write_type_marker(TypeMarker::Date),
-        be_f64(date),
-        be_u16(tz.unwrap_or(0)),
-    ))
+) -> Result<()> {
+    write_type_marker(writer, TypeMarker::Date)?;
+    writer.write_f64::<BigEndian>(date)?;
+    writer.write_u16::<BigEndian>(tz.unwrap_or(0))?;
+    Ok(())
 }
 
-fn write_unsupported_element<'a, 'b: 'a, W: Write + 'a>() -> impl SerializeFn<W> + 'a {
-    write_type_marker(TypeMarker::Unsupported)
+fn write_unsupported_element<'a, 'b: 'a, W: Write + 'a>(writer: &mut W) -> Result<()> {
+    write_type_marker(writer, TypeMarker::Unsupported)
 }
 
-fn write_xml_element<'a, 'b: 'a, W: Write + 'a>(content: &'b str) -> impl SerializeFn<W> + 'a {
-    tuple((
-        write_type_marker(TypeMarker::Xml),
-        write_long_string_content(content),
-    ))
+fn write_xml_element<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, content: &'b str) -> Result<()> {
+    write_type_marker(writer, TypeMarker::Xml)?;
+    write_long_string_content(writer, content)?;
+    Ok(())
 }
 
 fn write_typed_object_element<'a, 'b: 'a, W: Write + 'a>(
+    writer: &mut W,
     name: &'b str,
     elements: &'b [Element],
-) -> impl SerializeFn<W> + 'a {
-    tuple((
-        write_type_marker(TypeMarker::TypedObject),
-        write_string(name),
-        all(elements.iter().map(write_element)),
-        be_u16(0),
-        write_type_marker(TypeMarker::ObjectEnd),
-    ))
+) -> Result<()> {
+    write_type_marker(writer, TypeMarker::TypedObject)?;
+    write_string(writer, name)?;
+    for element in elements {
+        write_element(writer, element)?;
+    }
+    writer.write_u16::<BigEndian>(0)?;
+    write_type_marker(writer, TypeMarker::ObjectEnd)?;
+    Ok(())
 }
 
 fn write_dense_element<'a, 'b: 'a, W: Write + 'a>(
+    writer: &mut W,
     index: usize,
     element: &'b Rc<Value>,
-) -> impl SerializeFn<W> + 'a {
-    move |ctx| {
-        let index_str = index.to_string();
-        tuple((
-            be_u16(index_str.len() as u16),
-            string(index_str),
-            write_value(element),
-        ))(ctx)
-    }
+) -> Result<()> {
+    let index_str = index.to_string();
+
+    writer.write_u16::<BigEndian>(index_str.len() as u16)?;
+    writer.write_all(index_str.as_bytes())?;
+    write_value(writer, element)?;
+
+    Ok(())
 }
 
 fn write_mixed_array<'a, 'b: 'a, W: Write + 'a>(
+    writer: &mut W,
     dense: &'b [Rc<Value>],
     elements: &'b [Element],
     length: u32,
-) -> impl SerializeFn<W> + 'a {
+) -> Result<()> {
     //TODO: what is the u16 padding
     //TODO: sometimes array length is ignored (u32) sometimes its: elements.len() as u32
 
-    tuple((
-        write_type_marker(TypeMarker::MixedArrayStart),
-        be_u32(length),
-        all(dense
-            .iter()
-            .enumerate()
-            .map(|(idx, value)| write_dense_element(idx, value))),
-        all(elements.iter().map(write_element)),
-        be_u16(0),
-        write_type_marker(TypeMarker::ObjectEnd),
-    ))
+    write_type_marker(writer, TypeMarker::MixedArrayStart)?;
+    writer.write_u32::<BigEndian>(length)?;
+    for (idx, value) in dense.iter().enumerate() {
+        write_dense_element(writer, idx, value)?
+    }
+    for element in elements {
+        write_element(writer, element)?
+    }
+    writer.write_u16::<BigEndian>(0)?;
+    write_type_marker(writer, TypeMarker::ObjectEnd)?;
+    Ok(())
 }
 
 pub(crate) fn write_value<'a, 'b: 'a, W: Write + 'a>(
+    writer: &mut W,
     element: &'b Rc<Value>,
-) -> impl SerializeFn<W> + 'a {
-    move |out: WriteContext<W>| match element.deref() {
-        Value::Number(n) => write_number_element(*n)(out),
-        Value::Bool(b) => write_bool_element(*b)(out),
+) -> Result<()> {
+    match element.deref() {
+        Value::Number(n) => write_number_element(writer, *n),
+        Value::Bool(b) => write_bool_element(writer, *b),
         Value::String(s) => {
             if s.len() > 65535 {
-                write_long_string_element(s)(out)
+                write_long_string_element(writer, s)
             } else {
-                write_string_element(s)(out)
+                write_string_element(writer, s)
             }
         }
         Value::Object(elements, class_def) => {
             if let Some(class_def) = class_def {
-                write_typed_object_element(&class_def.name, elements)(out)
+                write_typed_object_element(writer, &class_def.name, elements)
             } else {
-                write_object_element(elements)(out)
+                write_object_element(writer, elements)
             }
         }
-        Value::Null => write_null_element()(out),
-        Value::Undefined => write_undefined_element()(out),
-        Value::StrictArray(a) => write_strict_array_element(a.as_slice())(out),
-        Value::Date(d, tz) => write_date_element(*d, *tz)(out),
-        Value::Unsupported => write_unsupported_element()(out),
-        Value::XML(x, _string) => write_xml_element(x)(out),
+        Value::Null => write_null_element(writer),
+        Value::Undefined => write_undefined_element(writer),
+        Value::StrictArray(a) => write_strict_array_element(writer, a.as_slice()),
+        Value::Date(d, tz) => write_date_element(writer, *d, *tz),
+        Value::Unsupported => write_unsupported_element(writer),
+        Value::XML(x, _string) => write_xml_element(writer, x),
         Value::ECMAArray(dense, elems, elems_length) => {
-            write_mixed_array(dense, elems, *elems_length)(out)
+            write_mixed_array(writer, dense, elems, *elems_length)
         }
-        Value::AMF3(e) => tuple((
-            write_type_marker(TypeMarker::AMF3),
-            AMF3Encoder::default().write_value_element(e),
-        ))(out),
-        Value::Reference(r) => write_reference_element(r)(out),
+        Value::AMF3(e) => {
+            write_type_marker(writer, TypeMarker::AMF3)?;
+            let encoder = AMF3Encoder::default();
+            let amf3 = encoder.write_value_element(e);
+            gen(amf3, writer).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            Ok(())
+        }
+        Value::Reference(r) => write_reference_element(writer, r),
         _ => {
-            write_unsupported_element()(out) /* Not in amf0, TODO: use the amf3 embedding for every thing else */
+            write_unsupported_element(writer) /* Not in amf0, TODO: use the amf3 embedding for every thing else */
         }
     }
 }
 
-fn write_element<'a, 'b: 'a, W: Write + 'a>(element: &'b Element) -> impl SerializeFn<W> + 'a {
-    tuple((write_string(&element.name), write_value(&element.value)))
+fn write_element<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, element: &'b Element) -> Result<()> {
+    write_string(writer, &element.name)?;
+    write_value(writer, &element.value)?;
+    Ok(())
 }
 
 fn write_element_and_padding<'a, 'b: 'a, W: Write + 'a>(
+    writer: &mut W,
     element: &'b Element,
-) -> impl SerializeFn<W> + 'a {
-    tuple((write_element(element), slice(PADDING)))
+) -> Result<()> {
+    write_element(writer, element)?;
+    writer.write_all(&PADDING)?;
+    Ok(())
 }
 
 pub(crate) fn write_body<'a, 'b: 'a, W: Write + 'a>(
+    writer: &mut W,
     elements: &'b [Element],
-) -> impl SerializeFn<W> + 'a {
-    all(elements.iter().map(write_element_and_padding))
+) -> Result<()> {
+    for element in elements {
+        write_element_and_padding(writer, element)?;
+    }
+    Ok(())
 }

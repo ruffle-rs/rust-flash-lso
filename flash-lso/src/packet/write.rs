@@ -23,7 +23,9 @@ fn write_header(
     }
 
     // Value
-    let mut value = amf0::write::write_value(&header.value)(vec![].into())?.write;
+    let mut value = vec![];
+    amf0::write::write_value(&mut value, &header.value)
+        .map_err(|e| Error::IoError(e.to_string(), e.kind()))?;
     if exact_lengths {
         let value_length = u32::try_from(value.len()).map_err(|_| Error::PacketTooLarge)?;
         out.extend(value_length.to_be_bytes());
@@ -53,7 +55,9 @@ fn write_message(
     out.extend(message.response_uri.as_bytes());
 
     // Contents
-    let mut contents = amf0::write::write_value(&message.contents)(vec![].into())?.write;
+    let mut contents = vec![];
+    amf0::write::write_value(&mut contents, &message.contents)
+        .map_err(|e| Error::IoError(e.to_string(), e.kind()))?;
     if exact_lengths {
         let contents_length = u32::try_from(contents.len()).map_err(|_| Error::PacketTooLarge)?;
         out.extend(contents_length.to_be_bytes());

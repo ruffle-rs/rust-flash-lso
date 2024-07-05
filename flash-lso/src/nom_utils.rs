@@ -1,11 +1,9 @@
 use crate::errors::Error;
-use cookie_factory::bytes::be_u16;
-use cookie_factory::combinator::string;
-use cookie_factory::sequence::tuple;
 use cookie_factory::SerializeFn;
 use nom::bytes::complete::take;
 use nom::combinator::map_res;
 
+use byteorder::{BigEndian, WriteBytesExt};
 use nom::IResult;
 use std::io::Write;
 
@@ -25,8 +23,13 @@ where
     }
 }
 
-pub(crate) fn write_string<'a, 'b: 'a, W: Write + 'a>(s: &'b str) -> impl SerializeFn<W> + 'a {
-    tuple((be_u16(s.len() as u16), string(s)))
+pub(crate) fn write_string<'a, 'b: 'a, W: Write + 'a>(
+    writer: &mut W,
+    s: &'b str,
+) -> std::io::Result<()> {
+    writer.write_u16::<BigEndian>(s.len() as u16)?;
+    writer.write_all(s.as_bytes())?;
+    Ok(())
 }
 
 pub(crate) fn take_str(i: &[u8], length: u16) -> AMFResult<'_, &str> {
