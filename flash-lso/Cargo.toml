@@ -34,3 +34,6 @@ flex = []
 serde = ["dep:serde", "enumset/serde"]
 all = ["serde", "flex"]
 amf3 = []
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
