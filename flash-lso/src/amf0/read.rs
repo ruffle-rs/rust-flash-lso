@@ -119,6 +119,13 @@ impl AMF0Decoder {
         Ok((i, Rc::new(Value::Object(v, None))))
     }
 
+    #[cfg(fuzzing)]
+    /// For fuzzing
+    pub fn fuzz_parse_element_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
+        self.parse_element_array(i)
+    }
+
+    /// Parse an array of elements
     fn parse_element_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         let (i, length) = be_u32(i)?;
 
