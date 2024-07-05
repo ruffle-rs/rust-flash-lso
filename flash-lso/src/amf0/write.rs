@@ -7,7 +7,6 @@ use crate::amf0::type_marker::TypeMarker;
 use crate::amf3::write::AMF3Encoder;
 use crate::nom_utils::write_string;
 use byteorder::{BigEndian, WriteBytesExt};
-use cookie_factory::gen;
 use std::io::Result;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -187,9 +186,7 @@ pub(crate) fn write_value<'a, 'b: 'a, W: Write + 'a>(
         Value::AMF3(e) => {
             write_type_marker(writer, TypeMarker::AMF3)?;
             let encoder = AMF3Encoder::default();
-            let amf3 = encoder.write_value_element(e);
-            gen(amf3, writer).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-            Ok(())
+            encoder.write_value_element(writer, e)
         }
         Value::Reference(r) => write_reference_element(writer, r),
         _ => {
