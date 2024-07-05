@@ -3,16 +3,12 @@ use crate::amf3::custom_encoder::CustomEncoder;
 use crate::amf3::element_cache::ElementCache;
 use crate::amf3::length::Length;
 use crate::amf3::type_marker::TypeMarker;
-use crate::nom_utils::either;
 use crate::types::{Attribute, ClassDefinition, Element, Value};
 use crate::PADDING;
-use cookie_factory::bytes::{be_f64, be_i32, be_u32, be_u8};
-use cookie_factory::combinator::{cond, slice};
-use cookie_factory::multi::all;
-use cookie_factory::sequence::tuple;
-use cookie_factory::{GenError, SerializeFn, WriteContext};
+use byteorder::{BigEndian, WriteBytesExt};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::io::Result;
 use std::io::Write;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -35,44 +31,41 @@ pub struct AMF3Encoder {
 
 impl AMF3Encoder {
     #[allow(clippy::unusual_byte_groupings)]
-    pub(crate) fn write_int<'a, 'b: 'a, W: Write + 'a>(&self, i: i32) -> impl SerializeFn<W> + 'a {
+    pub(crate) fn write_int<'a, 'b: 'a, W: Write + 'a>(
+        &self,
+        writer: &mut W,
+        i: i32,
+    ) -> Result<()> {
         let n = if i < 0 {
             i + 0b001_0000000_0000000_0000000_00000000
         } else {
             i
         };
 
-        either(
-            n > 0x1fffff,
-            tuple((
-                be_u8(((n >> (7 * 3 + 1)) | 0b10000000) as u8),
-                be_u8(((n >> (7 * 2 + 1)) | 0b10000000) as u8),
-                be_u8(((n >> (7 + 1)) | 0b10000000) as u8),
-                be_u8((n & 0b11111111) as u8),
-            )),
-            either(
-                n > 0x3fff,
-                tuple((
-                    be_u8(((n >> (7 * 2)) | 0b10000000) as u8),
-                    be_u8(((n >> 7) | 0b10000000) as u8),
-                    be_u8((n & 0b01111111) as u8),
-                )),
-                either(
-                    n > 0x7f,
-                    tuple((
-                        be_u8(((n >> 7) | 0b10000000) as u8),
-                        be_u8((n & 0b01111111) as u8),
-                    )),
-                    be_u8((n & 0b01111111) as u8),
-                ),
-            ),
-        )
+        if n > 0x1fffff {
+            writer.write_u8(((n >> (7 * 3 + 1)) | 0b10000000) as u8)?;
+            writer.write_u8(((n >> (7 * 2 + 1)) | 0b10000000) as u8)?;
+            writer.write_u8(((n >> (7 + 1)) | 0b10000000) as u8)?;
+            writer.write_u8((n & 0b11111111) as u8)?;
+        } else if n > 0x3fff {
+            writer.write_u8(((n >> (7 * 2)) | 0b10000000) as u8)?;
+            writer.write_u8(((n >> 7) | 0b10000000) as u8)?;
+            writer.write_u8((n & 0b01111111) as u8)?;
+        } else if n > 0x7f {
+            writer.write_u8(((n >> 7) | 0b10000000) as u8)?;
+            writer.write_u8((n & 0b01111111) as u8)?;
+        } else {
+            writer.write_u8((n & 0b01111111) as u8)?;
+        }
+
+        Ok(())
     }
 
     fn write_byte_string<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         s: &'b [u8],
-    ) -> impl SerializeFn<W> + 'a {
+    ) -> Result<()> {
         let len = if !s.is_empty() {
             self.string_reference_table
                 .to_length(s.to_vec(), s.len() as u32)
@@ -83,287 +76,290 @@ impl AMF3Encoder {
         let only_length = len.is_reference() && !s.is_empty();
         let s_vec = s.to_vec();
 
-        tuple((
-            move |ctx| {
-                if !s_vec.is_empty() {
-                    self.string_reference_table.store(s_vec.clone());
-                }
-                Ok(ctx)
-            },
-            either(
-                only_length,
-                len.write(self),
-                tuple((len.write(self), slice(s))),
-            ),
-        ))
+        if !s_vec.is_empty() {
+            self.string_reference_table.store(s_vec.clone());
+        }
+
+        len.write(writer, self)?;
+        if !only_length {
+            writer.write_all(s)?;
+        }
+
+        Ok(())
     }
 
-    fn write_string<'a, 'b: 'a, W: Write + 'a>(&'a self, s: &'b str) -> impl SerializeFn<W> + 'a {
-        self.write_byte_string(s.as_bytes())
+    fn write_string<'a, 'b: 'a, W: Write + 'a>(&'a self, writer: &mut W, s: &'b str) -> Result<()> {
+        self.write_byte_string(writer, s.as_bytes())
     }
 
     fn write_type_marker<'a, 'b: 'a, W: Write + 'a>(
         &self,
+        writer: &mut W,
         s: TypeMarker,
-    ) -> impl SerializeFn<W> + 'a {
-        be_u8(s as u8)
+    ) -> Result<()> {
+        writer.write_u8(s as u8)
     }
 
-    fn write_number_element<'a, 'b: 'a, W: Write + 'a>(&self, i: f64) -> impl SerializeFn<W> + 'a {
-        tuple((self.write_type_marker(TypeMarker::Number), be_f64(i)))
+    fn write_number_element<'a, 'b: 'a, W: Write + 'a>(
+        &self,
+        writer: &mut W,
+        i: f64,
+    ) -> Result<()> {
+        self.write_type_marker(writer, TypeMarker::Number)?;
+        writer.write_f64::<BigEndian>(i)?;
+        Ok(())
     }
 
     fn write_boolean_element<'a, 'b: 'a, W: Write + 'a>(
         &self,
+        writer: &mut W,
         b: bool,
-    ) -> impl SerializeFn<W> + 'a {
-        either(
-            b,
-            self.write_type_marker(TypeMarker::True),
-            self.write_type_marker(TypeMarker::False),
-        )
+    ) -> Result<()> {
+        if b {
+            self.write_type_marker(writer, TypeMarker::True)
+        } else {
+            self.write_type_marker(writer, TypeMarker::False)
+        }
     }
 
     fn write_string_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         s: &'b str,
-    ) -> impl SerializeFn<W> + 'a {
-        tuple((
-            self.write_type_marker(TypeMarker::String),
-            self.write_byte_string(s.as_bytes()),
-        ))
+    ) -> Result<()> {
+        self.write_type_marker(writer, TypeMarker::String)?;
+        self.write_byte_string(writer, s.as_bytes())?;
+        Ok(())
     }
 
-    fn write_null_element<'a, 'b: 'a, W: Write + 'a>(&self) -> impl SerializeFn<W> + 'a {
-        self.write_type_marker(TypeMarker::Null)
+    fn write_null_element<'a, 'b: 'a, W: Write + 'a>(&self, writer: &mut W) -> Result<()> {
+        self.write_type_marker(writer, TypeMarker::Null)
     }
 
-    fn write_undefined_element<'a, 'b: 'a, W: Write + 'a>(&self) -> impl SerializeFn<W> + 'a {
-        self.write_type_marker(TypeMarker::Undefined)
+    fn write_undefined_element<'a, 'b: 'a, W: Write + 'a>(&self, writer: &mut W) -> Result<()> {
+        self.write_type_marker(writer, TypeMarker::Undefined)
     }
 
     fn write_int_vector<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         items: &'b [i32],
         fixed_length: bool,
-    ) -> impl SerializeFn<W> + 'a {
-        move |ctx| {
-            let len = self.object_reference_table.to_length(
-                Value::VectorInt(items.to_vec(), fixed_length),
-                items.len() as u32,
-            );
+    ) -> Result<()> {
+        let len = self.object_reference_table.to_length(
+            Value::VectorInt(items.to_vec(), fixed_length),
+            items.len() as u32,
+        );
 
-            tuple((
-                self.write_type_marker(TypeMarker::VectorInt),
-                either(
-                    len.is_reference(),
-                    len.write(self),
-                    tuple((
-                        Length::Size(items.len() as u32).write(self),
-                        be_u8(fixed_length as u8),
-                        all(items.iter().copied().map(be_i32)),
-                    )),
-                ),
-            ))(ctx)
+        self.write_type_marker(writer, TypeMarker::VectorInt)?;
+        if len.is_reference() {
+            len.write(writer, self)?;
+        } else {
+            Length::Size(items.len() as u32).write(writer, self)?;
+            writer.write_u8(fixed_length as u8)?;
+            for item in items {
+                writer.write_i32::<BigEndian>(*item)?;
+            }
         }
+        Ok(())
     }
 
     fn write_uint_vector<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         items: &'b [u32],
         fixed_length: bool,
-    ) -> impl SerializeFn<W> + 'a {
-        move |ctx| {
-            let len = self.object_reference_table.to_length(
-                Value::VectorUInt(items.to_vec(), fixed_length),
-                items.len() as u32,
-            );
+    ) -> Result<()> {
+        let len = self.object_reference_table.to_length(
+            Value::VectorUInt(items.to_vec(), fixed_length),
+            items.len() as u32,
+        );
 
-            tuple((
-                self.write_type_marker(TypeMarker::VectorUInt),
-                either(
-                    len.is_reference(),
-                    len.write(self),
-                    tuple((
-                        Length::Size(items.len() as u32).write(self),
-                        be_u8(fixed_length as u8),
-                        all(items.iter().copied().map(be_u32)),
-                    )),
-                ),
-            ))(ctx)
+        self.write_type_marker(writer, TypeMarker::VectorUInt)?;
+        if len.is_reference() {
+            len.write(writer, self)?;
+        } else {
+            Length::Size(items.len() as u32).write(writer, self)?;
+            writer.write_u8(fixed_length as u8)?;
+            for item in items {
+                writer.write_u32::<BigEndian>(*item)?;
+            }
         }
+        Ok(())
     }
 
     fn write_number_vector<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         items: &'b [f64],
         fixed_length: bool,
-    ) -> impl SerializeFn<W> + 'a {
-        move |ctx| {
-            let len = self.object_reference_table.to_length(
-                Value::VectorDouble(items.to_vec(), fixed_length),
-                items.len() as u32,
-            );
+    ) -> Result<()> {
+        let len = self.object_reference_table.to_length(
+            Value::VectorDouble(items.to_vec(), fixed_length),
+            items.len() as u32,
+        );
 
-            tuple((
-                self.write_type_marker(TypeMarker::VectorDouble),
-                either(
-                    len.is_reference(),
-                    len.write(self),
-                    tuple((
-                        Length::Size(items.len() as u32).write(self),
-                        be_u8(fixed_length as u8),
-                        all(items.iter().copied().map(be_f64)),
-                    )),
-                ),
-            ))(ctx)
+        self.write_type_marker(writer, TypeMarker::VectorDouble)?;
+        if len.is_reference() {
+            len.write(writer, self)?;
+        } else {
+            Length::Size(items.len() as u32).write(writer, self)?;
+            writer.write_u8(fixed_length as u8)?;
+            for item in items {
+                writer.write_f64::<BigEndian>(*item)?;
+            }
         }
+        Ok(())
     }
 
     fn write_date_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         time: f64,
-    ) -> impl SerializeFn<W> + 'a {
-        move |ctx| {
-            let len = self
-                .object_reference_table
-                .to_length(Value::Date(time, None), 0);
+    ) -> Result<()> {
+        let len = self
+            .object_reference_table
+            .to_length(Value::Date(time, None), 0);
 
-            tuple((
-                self.write_type_marker(TypeMarker::Date),
-                len.write(self),
-                cond(len.is_size(), be_f64(time)),
-            ))(ctx)
+        self.write_type_marker(writer, TypeMarker::Date)?;
+        len.write(writer, self)?;
+        if len.is_size() {
+            writer.write_f64::<BigEndian>(time)?;
         }
+        Ok(())
     }
 
-    fn write_integer_element<'a, 'b: 'a, W: Write + 'a>(&self, i: i32) -> impl SerializeFn<W> + 'a {
-        tuple((
-            self.write_type_marker(TypeMarker::Integer),
-            self.write_int(i),
-        ))
+    fn write_integer_element<'a, 'b: 'a, W: Write + 'a>(
+        &self,
+        writer: &mut W,
+        i: i32,
+    ) -> Result<()> {
+        self.write_type_marker(writer, TypeMarker::Integer)?;
+        self.write_int(writer, i)?;
+        Ok(())
     }
 
     fn write_byte_array_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         bytes: &'b [u8],
-    ) -> impl SerializeFn<W> + 'a {
-        move |ctx| {
-            let len = self
-                .object_reference_table
-                .to_length(Value::ByteArray(bytes.to_vec()), bytes.len() as u32);
+    ) -> Result<()> {
+        let len = self
+            .object_reference_table
+            .to_length(Value::ByteArray(bytes.to_vec()), bytes.len() as u32);
 
-            tuple((
-                self.write_type_marker(TypeMarker::ByteArray),
-                len.write(self),
-                cond(len.is_size(), slice(bytes)),
-            ))(ctx)
+        self.write_type_marker(writer, TypeMarker::ByteArray)?;
+        len.write(writer, self)?;
+        if len.is_size() {
+            writer.write_all(bytes)?;
         }
+        Ok(())
     }
 
     fn write_xml_element<'a, 'b: 'a, W: Write + 'a>(
         &self,
+        writer: &mut W,
         bytes: &'b str,
         string: bool,
-    ) -> impl SerializeFn<W> + 'a {
+    ) -> Result<()> {
         let len = Length::Size(bytes.len() as u32);
 
-        tuple((
-            either(
-                string,
-                self.write_type_marker(TypeMarker::XmlString),
-                self.write_type_marker(TypeMarker::Xml),
-            ),
-            len.write(self),
-            cond(len.is_size(), slice(bytes.as_bytes())),
-        ))
+        if string {
+            self.write_type_marker(writer, TypeMarker::XmlString)?;
+        } else {
+            self.write_type_marker(writer, TypeMarker::Xml)?;
+        }
+
+        len.write(writer, self)?;
+        if len.is_size() {
+            writer.write_all(bytes.as_bytes())?;
+        }
+        Ok(())
     }
 
     fn write_class_definition<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         class_def: &'b ClassDefinition,
-    ) -> impl SerializeFn<W> + 'a {
-        tuple((
-            self.write_byte_string(class_def.name.as_bytes()),
-            all(class_def
-                .static_properties
-                .iter()
-                .map(move |p| self.write_string(p))),
-        ))
+    ) -> Result<()> {
+        self.write_byte_string(writer, class_def.name.as_bytes())?;
+        for p in &class_def.static_properties {
+            self.write_string(writer, p)?;
+        }
+        Ok(())
     }
 
     //TODO: conds should be common somehwere
     fn write_trait_reference<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         index: u32,
         children: &'b [Element],
         custom_props: Option<&'b [Element]>,
         def: &'b ClassDefinition,
-    ) -> impl SerializeFn<W> + 'a {
+    ) -> Result<()> {
         #[allow(clippy::identity_op)]
         let size = (((index << 1) | 0u32) << 1) | 1u32;
 
-        tuple((
-            self.write_int(size as i32),
-            cond(def.attributes.contains(Attribute::External), move |out| {
-                if let Some(encoder) = self.external_encoders.get(&def.name) {
-                    slice(encoder.encode(custom_props.unwrap(), &Some(def.clone()), self))(out)
-                } else {
-                    Err(GenError::NotYetImplemented)
+        self.write_int(writer, size as i32)?;
+        if def.attributes.contains(Attribute::External) {
+            if let Some(encoder) = self.external_encoders.get(&def.name) {
+                writer.write_all(&encoder.encode(
+                    custom_props.unwrap(),
+                    &Some(def.clone()),
+                    self,
+                ))?;
+            } else {
+                unimplemented!();
+            }
+        }
+
+        if !def.attributes.contains(Attribute::External) {
+            if def.attributes.is_empty() {
+                for c in children {
+                    if def.static_properties.contains(&c.name) {
+                        self.write_value_element(writer, &c.value)?;
+                    }
                 }
-            }),
-            cond(
-                !def.attributes.contains(Attribute::External),
-                tuple((
-                    cond(
-                        def.attributes.is_empty(),
-                        all(children
-                            .iter()
-                            .filter(move |c| def.static_properties.contains(&c.name))
-                            .map(move |e| &e.value)
-                            .map(move |e| self.write_value_element(e))),
-                    ),
-                    cond(
-                        def.attributes.contains(Attribute::Dynamic),
-                        tuple((
-                            all(children
-                                .iter()
-                                .filter(move |c| def.static_properties.contains(&c.name))
-                                .map(move |e| &e.value)
-                                .map(move |e| self.write_value_element(e))),
-                            all(children
-                                .iter()
-                                .filter(move |c| !def.static_properties.contains(&c.name))
-                                // .map(move |e| &e.value)
-                                .map(move |e| {
-                                    tuple((
-                                        self.write_byte_string(e.name.as_bytes()),
-                                        self.write_value_element(&e.value),
-                                    ))
-                                })),
-                            self.write_byte_string(&[]),
-                        )),
-                    ),
-                )),
-            ),
-        ))
+            }
+
+            if def.attributes.contains(Attribute::Dynamic) {
+                for c in children {
+                    if def.static_properties.contains(&c.name) {
+                        self.write_value_element(writer, &c.value)?;
+                    }
+                }
+
+                for c in children {
+                    if !def.static_properties.contains(&c.name) {
+                        self.write_byte_string(writer, c.name.as_bytes())?;
+                        self.write_value_element(writer, &c.value)?;
+                    }
+                }
+
+                self.write_byte_string(writer, &[])?;
+            }
+        }
+        Ok(())
     }
 
     fn write_object_reference<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         index: u32,
-    ) -> impl SerializeFn<W> + 'a {
+    ) -> Result<()> {
         #[allow(clippy::identity_op)]
         let size = (index << 1) | 0u32;
-        tuple((self.write_int(size as i32),))
+        self.write_int(writer, size as i32)
     }
 
     fn write_object_full<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         custom_props: Option<&'b [Element]>,
         children: &'b [Element],
         def: &'b ClassDefinition,
-    ) -> impl SerializeFn<W> + 'a {
+    ) -> Result<()> {
         let is_external = def.attributes.contains(Attribute::External);
         let is_dynamic = def.attributes.contains(Attribute::Dynamic);
 
@@ -382,317 +378,302 @@ impl AMF3Encoder {
             << 1)
             | 1u32;
 
-        tuple((
-            |ctx| {
-                self.trait_reference_table.borrow_mut().push(def.clone());
-                Ok(ctx)
-            },
-            self.write_int(size as i32),
-            self.write_class_definition(def),
-            cond(def.attributes.contains(Attribute::External), move |out| {
-                if let Some(encoder) = self.external_encoders.get(&def.name) {
-                    slice(encoder.encode(custom_props.unwrap(), &Some(def.clone()), self))(out)
-                } else {
-                    Err(GenError::NotYetImplemented)
+        self.trait_reference_table.borrow_mut().push(def.clone());
+        self.write_int(writer, size as i32)?;
+        self.write_class_definition(writer, def)?;
+        if def.attributes.contains(Attribute::External) {
+            if let Some(encoder) = self.external_encoders.get(&def.name) {
+                writer.write_all(&encoder.encode(
+                    custom_props.unwrap(),
+                    &Some(def.clone()),
+                    self,
+                ))?;
+            } else {
+                unimplemented!();
+            }
+        }
+        if !def.attributes.contains(Attribute::External) {
+            if def.attributes.is_empty() {
+                for c in children {
+                    if def.static_properties.contains(&c.name) {
+                        self.write_value_element(writer, &c.value)?;
+                    }
                 }
-            }),
-            cond(
-                !def.attributes.contains(Attribute::External),
-                tuple((
-                    cond(
-                        def.attributes.is_empty(),
-                        all(children
-                            .iter()
-                            .filter(move |c| def.static_properties.contains(&c.name))
-                            .map(move |e| &e.value)
-                            .map(move |e| self.write_value_element(e))),
-                    ),
-                    cond(
-                        def.attributes.contains(Attribute::Dynamic),
-                        tuple((
-                            all(children
-                                .iter()
-                                .filter(move |c| def.static_properties.contains(&c.name))
-                                .map(move |e| &e.value)
-                                .map(move |e| self.write_value_element(e))),
-                            all(children
-                                .iter()
-                                .filter(move |c| !def.static_properties.contains(&c.name))
-                                // .map(move |e| &e.value)
-                                .map(move |e| {
-                                    tuple((
-                                        self.write_byte_string(e.name.as_bytes()),
-                                        self.write_value_element(&e.value),
-                                    ))
-                                })),
-                            self.write_byte_string(&[]),
-                        )),
-                    ),
-                )),
-            ),
-        ))
+            }
+
+            if def.attributes.contains(Attribute::Dynamic) {
+                for c in children {
+                    if def.static_properties.contains(&c.name) {
+                        self.write_value_element(writer, &c.value)?;
+                    }
+                }
+                for c in children {
+                    if !def.static_properties.contains(&c.name) {
+                        self.write_byte_string(writer, c.name.as_bytes())?;
+                        self.write_value_element(writer, &c.value)?;
+                    }
+                }
+                self.write_byte_string(writer, &[])?;
+            }
+        }
+        Ok(())
     }
 
     fn write_object_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         children: &'b [Element],
         custom_props: Option<&'b [Element]>,
         class_def: &'b Option<ClassDefinition>,
-    ) -> impl SerializeFn<W> + 'a {
-        move |out| {
-            let had_object = Length::Size(0);
+    ) -> Result<()> {
+        let had_object = Length::Size(0);
 
-            self.object_reference_table
-                .store(Value::Object(children.to_vec(), class_def.clone()));
+        self.object_reference_table
+            .store(Value::Object(children.to_vec(), class_def.clone()));
 
-            let def = class_def.clone().unwrap_or_default();
-            let def2 = def.clone();
+        let def = class_def.clone().unwrap_or_default();
+        let def2 = def.clone();
 
-            let has_trait = self
-                .trait_reference_table
-                .borrow()
-                .iter()
-                .position(|cd| *cd == def);
+        let has_trait = self
+            .trait_reference_table
+            .borrow()
+            .iter()
+            .position(|cd| *cd == def);
 
-            let x = tuple((
-                self.write_type_marker(TypeMarker::Object),
-                cond(had_object.is_reference(), move |out| {
-                    self.write_object_reference(had_object.as_position().unwrap() as u32)(out)
-                }),
-                cond(
-                    !had_object.is_reference(),
-                    tuple((
-                        cond(has_trait.is_some(), move |out| {
-                            self.write_trait_reference(
-                                has_trait.unwrap() as u32,
-                                children,
-                                custom_props,
-                                &def2,
-                            )(out)
-                        }),
-                        cond(
-                            has_trait.is_none(),
-                            self.write_object_full(custom_props, children, &def),
-                        ),
-                    )),
-                ),
-            ))(out);
-
-            x
+        self.write_type_marker(writer, TypeMarker::Object)?;
+        if had_object.is_reference() {
+            self.write_object_reference(writer, had_object.as_position().unwrap() as u32)?;
         }
+        if !had_object.is_reference() {
+            if has_trait.is_some() {
+                self.write_trait_reference(
+                    writer,
+                    has_trait.unwrap() as u32,
+                    children,
+                    custom_props,
+                    &def2,
+                )?;
+            }
+            if has_trait.is_none() {
+                self.write_object_full(writer, custom_props, children, &def)?;
+            }
+        }
+
+        Ok(())
     }
 
     fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         children: &'b [Rc<Value>],
-    ) -> impl SerializeFn<W> + 'a {
+    ) -> Result<()> {
         //TODO: why is this not a reference
         let len = Length::Size(children.len() as u32);
 
         //TODO: why does this not offset the cache if StrictArray([]) is saved but always written as Size(0) instead of Ref(n)
-        either(
-            children.is_empty(),
-            tuple((
-                self.write_type_marker(TypeMarker::Array),
-                Length::Size(0).write(self),
-                self.write_byte_string(&[]), // Empty key
-            )),
-            tuple((
-                self.write_type_marker(TypeMarker::Array),
-                len.write(self),
-                cond(
-                    len.is_size(),
-                    tuple((
-                        self.write_byte_string(&[]), // Empty key
-                        all(children.iter().map(move |v| self.write_value_element(v))),
-                    )),
-                ),
-            )),
-        )
+        if children.is_empty() {
+            self.write_type_marker(writer, TypeMarker::Array)?;
+            Length::Size(0).write(writer, self)?;
+            self.write_byte_string(writer, &[])?; // Empty key
+        } else {
+            self.write_type_marker(writer, TypeMarker::Array)?;
+            len.write(writer, self)?;
+            if len.is_size() {
+                self.write_byte_string(writer, &[])?; // Empty key
+                for v in children {
+                    self.write_value_element(writer, v)?;
+                }
+            }
+        }
+
+        Ok(())
     }
 
     fn write_ecma_array_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         dense: &'b [Rc<Value>],
         assoc: &'b [Element],
-    ) -> impl SerializeFn<W> + 'a {
+    ) -> Result<()> {
         let len = Length::Size(dense.len() as u32);
 
         //TODO: would this also work for strict arrays if they have [] for assoc part?
-        tuple((
-            self.write_type_marker(TypeMarker::Array),
-            len.write(self),
-            cond(
-                len.is_size(),
-                tuple((
-                    all(assoc.iter().map(move |out| self.write_element(out))),
-                    self.write_byte_string(&[]),
-                    all(dense.iter().map(move |out| self.write_value_element(out))),
-                )),
-            ),
-        ))
+
+        self.write_type_marker(writer, TypeMarker::Array)?;
+        len.write(writer, self)?;
+        if len.is_size() {
+            for out in assoc {
+                self.write_element(writer, out)?;
+            }
+            self.write_byte_string(writer, &[])?;
+            for out in dense {
+                self.write_value_element(writer, out)?;
+            }
+        }
+        Ok(())
     }
 
     fn write_object_vector_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         items: &'b [Rc<Value>],
         type_name: &'b str,
         fixed_length: bool,
-    ) -> impl SerializeFn<W> + 'a {
-        move |ctx| {
-            let len = self.object_reference_table.to_length(
-                Value::VectorObject(items.to_vec(), type_name.to_string(), fixed_length),
-                items.len() as u32,
-            );
+    ) -> Result<()> {
+        let len = self.object_reference_table.to_length(
+            Value::VectorObject(items.to_vec(), type_name.to_string(), fixed_length),
+            items.len() as u32,
+        );
 
-            tuple((
-                self.write_type_marker(TypeMarker::VectorObject),
-                len.write(self),
-                cond(
-                    len.is_size(),
-                    tuple((
-                        be_u8(fixed_length as u8),
-                        self.write_string(type_name),
-                        all(items.iter().map(move |i| self.write_value_element(i))),
-                    )),
-                ),
-            ))(ctx)
+        self.write_type_marker(writer, TypeMarker::VectorObject)?;
+        len.write(writer, self)?;
+        if len.is_size() {
+            writer.write_u8(fixed_length as u8)?;
+            self.write_string(writer, type_name)?;
+            for i in items {
+                self.write_value_element(writer, i)?;
+            }
         }
+        Ok(())
     }
 
     fn write_dictionary_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
+        writer: &mut W,
         items: &'b [(Rc<Value>, Rc<Value>)],
         weak_keys: bool,
-    ) -> impl SerializeFn<W> + 'a {
-        move |ctx| {
-            let len = self.object_reference_table.to_length(
-                Value::Dictionary(items.to_vec(), weak_keys),
-                items.len() as u32,
-            );
-            self.object_reference_table
-                .store(Value::Dictionary(items.to_vec(), weak_keys));
+    ) -> Result<()> {
+        let len = self.object_reference_table.to_length(
+            Value::Dictionary(items.to_vec(), weak_keys),
+            items.len() as u32,
+        );
+        self.object_reference_table
+            .store(Value::Dictionary(items.to_vec(), weak_keys));
 
-            tuple((
-                self.write_type_marker(TypeMarker::Dictionary),
-                len.write(self),
-                cond(
-                    len.is_size(),
-                    tuple((
-                        be_u8(weak_keys as u8),
-                        all(items.iter().map(move |i| {
-                            tuple((
-                                self.write_value_element(&i.0),
-                                self.write_value_element(&i.1),
-                            ))
-                        })),
-                    )),
-                ),
-            ))(ctx)
+        self.write_type_marker(writer, TypeMarker::Dictionary)?;
+        len.write(writer, self)?;
+        if len.is_size() {
+            writer.write_u8(weak_keys as u8)?;
+            for i in items {
+                self.write_value_element(writer, &i.0)?;
+                self.write_value_element(writer, &i.1)?;
+            }
         }
+        Ok(())
     }
 
     pub(crate) fn write_value_element<'a, 'b: 'a, W: Write + 'a>(
         &'b self,
+        writer: &mut W,
         s: &'b Rc<Value>,
-    ) -> impl SerializeFn<W> + 'a {
-        move |out| self.write_value(s.deref())(out)
+    ) -> Result<()> {
+        self.write_value(writer, s.deref())
     }
 
-    fn write_value<'a, 'b: 'a, W: Write + 'a>(&'b self, s: &'b Value) -> impl SerializeFn<W> + 'a {
-        move |out: WriteContext<W>| match s {
-            Value::Number(x) => self.write_number_element(*x)(out),
-            Value::Bool(b) => self.write_boolean_element(*b)(out),
-            Value::String(s) => self.write_string_element(s)(out),
+    fn write_value<'a, 'b: 'a, W: Write + 'a>(
+        &'b self,
+        writer: &mut W,
+        s: &'b Value,
+    ) -> Result<()> {
+        match s {
+            Value::Number(x) => self.write_number_element(writer, *x),
+            Value::Bool(b) => self.write_boolean_element(writer, *b),
+            Value::String(s) => self.write_string_element(writer, s),
             Value::Object(children, class_def) => {
-                self.write_object_element(children, None, class_def)(out)
+                self.write_object_element(writer, children, None, class_def)
             }
-            Value::Null => self.write_null_element()(out),
-            Value::Undefined => self.write_undefined_element()(out),
+            Value::Null => self.write_null_element(writer),
+            Value::Undefined => self.write_undefined_element(writer),
             Value::ECMAArray(dense, elements, _) => {
-                self.write_ecma_array_element(dense, elements)(out)
+                self.write_ecma_array_element(writer, dense, elements)
             }
-            Value::StrictArray(children) => self.write_strict_array_element(children)(out),
-            Value::Date(time, _tz) => self.write_date_element(*time)(out),
-            Value::XML(content, string) => self.write_xml_element(content, *string)(out),
-            Value::Integer(i) => self.write_integer_element(*i)(out),
-            Value::ByteArray(bytes) => self.write_byte_array_element(bytes)(out),
+            Value::StrictArray(children) => self.write_strict_array_element(writer, children),
+            Value::Date(time, _tz) => self.write_date_element(writer, *time),
+            Value::XML(content, string) => self.write_xml_element(writer, content, *string),
+            Value::Integer(i) => self.write_integer_element(writer, *i),
+            Value::ByteArray(bytes) => self.write_byte_array_element(writer, bytes),
             Value::VectorInt(items, fixed_length) => {
-                self.write_int_vector(items, *fixed_length)(out)
+                self.write_int_vector(writer, items, *fixed_length)
             }
             Value::VectorUInt(items, fixed_length) => {
-                self.write_uint_vector(items, *fixed_length)(out)
+                self.write_uint_vector(writer, items, *fixed_length)
             }
             Value::VectorDouble(items, fixed_length) => {
-                self.write_number_vector(items, *fixed_length)(out)
+                self.write_number_vector(writer, items, *fixed_length)
             }
             Value::VectorObject(items, type_name, fixed_length) => {
-                self.write_object_vector_element(items, type_name, *fixed_length)(out)
+                self.write_object_vector_element(writer, items, type_name, *fixed_length)
             }
-            Value::Dictionary(kv, weak_keys) => self.write_dictionary_element(kv, *weak_keys)(out),
+            Value::Dictionary(kv, weak_keys) => {
+                self.write_dictionary_element(writer, kv, *weak_keys)
+            }
 
             Value::Custom(elements, dynamic_elements, def) => {
-                self.write_object_element(dynamic_elements, Some(elements), def)(out)
+                self.write_object_element(writer, dynamic_elements, Some(elements), def)
             }
-            Value::AMF3(e) => self.write_value_element(e)(out),
-            Value::Unsupported => self.write_undefined_element()(out),
-            Value::Reference(_) => Err(GenError::NotYetImplemented),
+            Value::AMF3(e) => self.write_value_element(writer, e),
+            Value::Unsupported => self.write_undefined_element(writer),
+            Value::Reference(_) => unimplemented!(),
         }
     }
 
     fn write_element<'a, 'b: 'a, W: Write + 'a>(
         &'b self,
+        writer: &mut W,
         element: &'b Element,
-    ) -> impl SerializeFn<W> + 'a {
-        tuple((
-            self.write_string(&element.name),
-            self.write_value_element(&element.value),
-        ))
+    ) -> Result<()> {
+        self.write_string(writer, &element.name)?;
+        self.write_value_element(writer, &element.value)?;
+        Ok(())
     }
 
     fn write_element_and_padding<'a, 'b: 'a, W: Write + 'a>(
         &'b self,
+        writer: &mut W,
         element: &'b Element,
-    ) -> impl SerializeFn<W> + 'a {
-        tuple((self.write_element(element), slice(PADDING)))
+    ) -> Result<()> {
+        self.write_element(writer, element)?;
+        writer.write_all(&PADDING)?;
+        Ok(())
     }
 
     pub(crate) fn write_body<'a, 'b: 'a, W: Write + 'a>(
         &'b self,
+        writer: &mut W,
         elements: &'b [Element],
-    ) -> impl SerializeFn<W> + 'a {
-        all(elements
-            .iter()
-            .map(move |e| self.write_element_and_padding(e)))
+    ) -> Result<()> {
+        for e in elements {
+            self.write_element_and_padding(writer, e)?;
+        }
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod write_number_tests {
     use crate::amf3::write::AMF3Encoder;
-    use cookie_factory::gen;
 
     #[test]
     fn test_write_1byte_number() {
         let e = AMF3Encoder::default();
-        let v = vec![];
-        let (b1, _) = gen(e.write_int(0b00101011), v).unwrap();
-        assert_eq!(b1, &[0b00101011]);
+        let mut v = vec![];
+        e.write_int(&mut v, 0b00101011).unwrap();
+        assert_eq!(v, &[0b00101011]);
     }
 
     #[test]
     fn test_write_4byte_number() {
         let e = AMF3Encoder::default();
-        let v = vec![];
-        let (b1, _) = gen(e.write_int(2097280), v).unwrap();
-        assert_eq!(b1, &[0b10000000, 0b11000000, 0b10000000, 0b10000000]);
+        let mut v = vec![];
+        e.write_int(&mut v, 2097280).unwrap();
+        assert_eq!(v, &[0b10000000, 0b11000000, 0b10000000, 0b10000000]);
     }
 
     #[test]
     fn write_neg_number() {
         let e = AMF3Encoder::default();
-        let v = vec![];
-        let (b1, _) = gen(e.write_int(-268435455), v).unwrap();
-        assert_eq!(b1, &[192, 128, 128, 1]);
+        let mut v = vec![];
+        e.write_int(&mut v, -268435455).unwrap();
+        assert_eq!(v, &[192, 128, 128, 1]);
     }
 }

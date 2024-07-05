@@ -1,6 +1,5 @@
 //! Handles writing of LSO files
 use byteorder::{BigEndian, WriteBytesExt};
-use cookie_factory::gen;
 use std::io::Write;
 
 use crate::amf3::write::AMF3Encoder;
@@ -23,19 +22,14 @@ impl Writer {
         writer: &mut W,
         lso: &'b mut Lso,
     ) -> std::io::Result<()> {
-        let (buffer, size) = if lso.header.format_version == AMFVersion::AMF0 {
-            let mut buffer = vec![];
-            crate::amf0::write::write_body(&mut buffer, &lso.body).unwrap();
-            let length = buffer.len() as u64;
-            (buffer, length)
+        let mut buffer = vec![];
+        if lso.header.format_version == AMFVersion::AMF0 {
+            crate::amf0::write::write_body(&mut buffer, &lso.body)?;
         } else {
-            let amf3 = self.amf3_encoder.write_body(&lso.body);
+            self.amf3_encoder.write_body(&mut buffer, &lso.body)?;
+        }
 
-            let v = Vec::new();
-            gen(amf3, v).unwrap()
-        };
-
-        lso.header.length = size as u32 + header_length(&lso.header) as u32;
+        lso.header.length = buffer.len() as u32 + header_length(&lso.header) as u32;
 
         write_header(writer, &lso.header)?;
         writer.write_all(&buffer)?;

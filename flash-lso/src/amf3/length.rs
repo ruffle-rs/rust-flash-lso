@@ -1,5 +1,4 @@
 use crate::amf3::write::AMF3Encoder;
-use cookie_factory::SerializeFn;
 use std::io::Write;
 
 #[derive(Copy, Clone, Debug, Eq, Ord, PartialOrd, PartialEq)]
@@ -26,21 +25,23 @@ impl Length {
 
     pub(crate) fn write<'a, 'b: 'a, W: Write + 'a>(
         &self,
+        writer: &mut W,
         amf3: &AMF3Encoder,
-    ) -> impl SerializeFn<W> + 'a {
-        write_length(amf3, self)
+    ) -> std::io::Result<()> {
+        write_length(writer, amf3, self)
     }
 }
 
 fn write_length<'a, 'b: 'a, W: Write + 'a>(
+    writer: &mut W,
     amf3: &AMF3Encoder,
     s: &Length,
-) -> impl SerializeFn<W> + 'a {
+) -> std::io::Result<()> {
     match s {
         Length::Size(x) => {
             // With the last bit set
-            amf3.write_int(((x << 1) | 0b1) as i32)
+            amf3.write_int(writer, ((x << 1) | 0b1) as i32)
         }
-        Length::Reference(x) => amf3.write_int((x << 1) as i32),
+        Length::Reference(x) => amf3.write_int(writer, (x << 1) as i32),
     }
 }
