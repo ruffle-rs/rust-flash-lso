@@ -2,7 +2,7 @@ use crate::errors::Error;
 use nom::bytes::complete::take;
 use nom::combinator::map_res;
 
-use byteorder::{BigEndian, WriteBytesExt};
+use crate::write::WriteExt;
 use nom::IResult;
 use std::io::Write;
 
@@ -12,7 +12,7 @@ pub(crate) fn write_string<'a, 'b: 'a, W: Write + 'a>(
     writer: &mut W,
     s: &'b str,
 ) -> std::io::Result<()> {
-    writer.write_u16::<BigEndian>(s.len() as u16)?;
+    writer.write_u16(s.len() as u16)?;
     writer.write_all(s.as_bytes())?;
     Ok(())
 }

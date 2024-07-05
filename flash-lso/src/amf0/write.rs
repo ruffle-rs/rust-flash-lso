@@ -5,7 +5,7 @@ use std::io::Write;
 
 use crate::amf0::type_marker::TypeMarker;
 use crate::nom_utils::write_string;
-use byteorder::{BigEndian, WriteBytesExt};
+use crate::write::WriteExt;
 use std::io::Result;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -19,13 +19,13 @@ fn write_type_marker<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, type_: TypeMarke
 
 fn write_reference_element<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, r: &Reference) -> Result<()> {
     write_type_marker(writer, TypeMarker::Reference)?;
-    writer.write_u16::<BigEndian>(r.0)?;
+    writer.write_u16(r.0)?;
     Ok(())
 }
 
 fn write_number_element<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, s: f64) -> Result<()> {
     write_type_marker(writer, TypeMarker::Number)?;
-    writer.write_f64::<BigEndian>(s)?;
+    writer.write_f64(s)?;
     Ok(())
 }
 
@@ -36,7 +36,7 @@ fn write_bool_element<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, s: bool) -> Res
 }
 
 fn write_long_string_content<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, s: &'b str) -> Result<()> {
-    writer.write_u32::<BigEndian>(s.len() as u32)?;
+    writer.write_u32(s.len() as u32)?;
     writer.write_all(s.as_bytes())?;
     Ok(())
 }
@@ -58,7 +58,7 @@ fn write_object_element<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, o: &'b [Eleme
     for element in o {
         write_element(writer, element)?;
     }
-    writer.write_u16::<BigEndian>(0)?;
+    writer.write_u16(0)?;
     write_type_marker(writer, TypeMarker::ObjectEnd)?;
     Ok(())
 }
@@ -76,7 +76,7 @@ fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(
     elements: &'b [Rc<Value>],
 ) -> Result<()> {
     write_type_marker(writer, TypeMarker::Array)?;
-    writer.write_u32::<BigEndian>(elements.len() as u32)?;
+    writer.write_u32(elements.len() as u32)?;
     for element in elements {
         write_value(writer, element)?;
     }
@@ -89,8 +89,8 @@ fn write_date_element<'a, 'b: 'a, W: Write + 'a>(
     tz: Option<u16>,
 ) -> Result<()> {
     write_type_marker(writer, TypeMarker::Date)?;
-    writer.write_f64::<BigEndian>(date)?;
-    writer.write_u16::<BigEndian>(tz.unwrap_or(0))?;
+    writer.write_f64(date)?;
+    writer.write_u16(tz.unwrap_or(0))?;
     Ok(())
 }
 
@@ -114,7 +114,7 @@ fn write_typed_object_element<'a, 'b: 'a, W: Write + 'a>(
     for element in elements {
         write_element(writer, element)?;
     }
-    writer.write_u16::<BigEndian>(0)?;
+    writer.write_u16(0)?;
     write_type_marker(writer, TypeMarker::ObjectEnd)?;
     Ok(())
 }
@@ -126,7 +126,7 @@ fn write_dense_element<'a, 'b: 'a, W: Write + 'a>(
 ) -> Result<()> {
     let index_str = index.to_string();
 
-    writer.write_u16::<BigEndian>(index_str.len() as u16)?;
+    writer.write_u16(index_str.len() as u16)?;
     writer.write_all(index_str.as_bytes())?;
     write_value(writer, element)?;
 
@@ -143,14 +143,14 @@ fn write_mixed_array<'a, 'b: 'a, W: Write + 'a>(
     //TODO: sometimes array length is ignored (u32) sometimes its: elements.len() as u32
 
     write_type_marker(writer, TypeMarker::MixedArrayStart)?;
-    writer.write_u32::<BigEndian>(length)?;
+    writer.write_u32(length)?;
     for (idx, value) in dense.iter().enumerate() {
         write_dense_element(writer, idx, value)?
     }
     for element in elements {
         write_element(writer, element)?
     }
-    writer.write_u16::<BigEndian>(0)?;
+    writer.write_u16(0)?;
     write_type_marker(writer, TypeMarker::ObjectEnd)?;
     Ok(())
 }

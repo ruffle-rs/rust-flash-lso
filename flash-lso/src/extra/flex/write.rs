@@ -8,7 +8,7 @@ use crate::extra::flex::{
     NEXT_FLAG, OPERATION_FLAG, TIMESTAMP_FLAG, TTL_FLAG,
 };
 use crate::types::{ClassDefinition, Element};
-use byteorder::WriteBytesExt;
+use crate::write::WriteExt;
 use std::io::Write;
 
 struct ArrayCollection;
