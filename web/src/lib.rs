@@ -56,7 +56,7 @@ impl TreeNodePath {
 #[wasm_bindgen(start)]
 pub fn run_app() {
     wasm_logger::init(wasm_logger::Config::default());
-    yew::start_app::<Model>();
+    yew::Renderer::<Model>::new().render();
 }
 
 //TODO fix saving
