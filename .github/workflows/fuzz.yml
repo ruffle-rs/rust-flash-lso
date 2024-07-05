@@ -23,3 +23,9 @@ jobs:
       - name: Run Fuzzing
         run: |
           cargo fuzz run fuzz_amf0_body -- -max_total_time=180
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-failures
+          path: fuzz/artifacts/
