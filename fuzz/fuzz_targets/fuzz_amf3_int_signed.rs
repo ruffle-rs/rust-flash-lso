@@ -1,8 +1,8 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 
-use amf::amf3;
+use flash_lso::amf3::read::fuzz_read_int_signed;
 
 fuzz_target!(|data: &[u8]| {
-    amf3::read_int_signed(data);
+    let _ = fuzz_read_int_signed(data);
 });

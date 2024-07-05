@@ -21,6 +21,12 @@ use std::rc::Rc;
 
 const REFERENCE_FLAG: u32 = 0x01;
 
+#[cfg(fuzzing)]
+/// For fuzzing
+pub fn fuzz_read_int_signed(i: &[u8]) -> AMFResult<'_, i32> {
+    read_int_signed(i)
+}
+
 #[allow(clippy::unusual_byte_groupings)]
 fn read_int_signed(i: &[u8]) -> AMFResult<'_, i32> {
     // Read the first byte of the number
@@ -49,6 +55,12 @@ fn read_int_signed(i: &[u8]) -> AMFResult<'_, i32> {
     }
 
     Ok((i, value))
+}
+
+#[cfg(fuzzing)]
+/// For fuzzing
+pub fn fuzz_read_int(i: &[u8]) -> AMFResult<'_, u32> {
+    read_int(i)
 }
 
 #[allow(clippy::unusual_byte_groupings)]
@@ -156,6 +168,12 @@ impl AMF3Decoder {
     fn parse_element_string<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         let (i, s) = map(|i| self.parse_string(i), Value::String)(i)?;
         Ok((i, Rc::new(s)))
+    }
+
+    #[cfg(fuzzing)]
+    /// For fuzzing
+    pub fn fuzz_parse_string<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, String> {
+        self.parse_string(i)
     }
 
     fn parse_string<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, String> {
