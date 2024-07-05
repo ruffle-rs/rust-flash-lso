@@ -1,4 +1,3 @@
-use cookie_factory::GenError;
 use nom::error::{ErrorKind, FromExternalError, ParseError};
 use thiserror::Error;
 
@@ -24,10 +23,6 @@ pub enum Error<'a> {
     #[error("Nom internal error")]
     Nom(&'a [u8], ErrorKind),
 
-    /// A cookie factory internal error
-    #[error("Cookie factory internal error")]
-    Gen,
-
     /// Packet is too large (too many headers or messages)
     #[error("Packet has too many headers or messages")]
     PacketTooLarge,
@@ -50,11 +45,5 @@ impl<'a> ParseError<&'a [u8]> for Error<'a> {
 impl<'a, E> FromExternalError<&'a [u8], E> for Error<'a> {
     fn from_external_error(input: &'a [u8], kind: ErrorKind, _e: E) -> Self {
         Error::Nom(input, kind)
-    }
-}
-
-impl<'a> From<GenError> for Error<'a> {
-    fn from(_g: GenError) -> Self {
-        Self::Gen
     }
 }
