@@ -9,6 +9,16 @@ on:
 jobs:
   fuzzing:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - fuzz_amf0_body
+          - fuzz_amf0_element_array
+          - fuzz_amf0_header
+          - fuzz_amf3_body
+          - fuzz_amf3_int_signed
+          - fuzz_amf3_int_unsigned
+          - fuzz_amf3_string
     steps:
       - uses: actions/checkout@v4
 
@@ -22,10 +32,10 @@ jobs:
 
       - name: Run Fuzzing
         run: |
-          cargo fuzz run fuzz_amf0_body -- -max_total_time=180
+          cargo fuzz run ${{ matrix.target }} ${{ contains(matrix.target, 'amf3') && '--features amf3' || ''}} --  -max_total_time=180
 
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: fuzz-failures
+          name: ${{ matrix.target }}
           path: fuzz/artifacts/
