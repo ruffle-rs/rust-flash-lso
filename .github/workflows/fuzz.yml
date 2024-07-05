@@ -10,6 +10,7 @@ jobs:
   fuzzing:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         target:
           - fuzz_amf0_body
