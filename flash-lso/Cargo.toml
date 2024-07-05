@@ -18,6 +18,7 @@ cookie-factory = "0.3.2"
 enumset = "1.0.12"
 thiserror = "1.0.38"
 serde = { version = "1.0.152", optional = true, features = ["derive", "rc"] }
+byteorder = "1.5.0"
 
 [dev-dependencies]
 pretty_assertions = "1.2.1"

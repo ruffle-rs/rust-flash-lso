@@ -6,7 +6,7 @@ use thiserror::Error;
 #[allow(variant_size_differences)]
 
 /// Enum for representing decoding errors
-#[derive(Error, Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Error, Debug, Clone, Eq, PartialEq)]
 pub enum Error<'a> {
     /// Out of bounds decoding
     #[error("Out of bounds")]
@@ -31,6 +31,10 @@ pub enum Error<'a> {
     /// Packet is too large (too many headers or messages)
     #[error("Packet has too many headers or messages")]
     PacketTooLarge,
+
+    /// An unknown IO error occured
+    #[error("IO error: {0}")]
+    IoError(String, std::io::ErrorKind),
 }
 
 impl<'a> ParseError<&'a [u8]> for Error<'a> {

@@ -1,12 +1,7 @@
 //! Handles writing of LSO files
-use std::io::Write;
-
-use cookie_factory::bytes::be_u32;
-use cookie_factory::combinator::cond;
-use cookie_factory::combinator::slice;
+use byteorder::{BigEndian, WriteBytesExt};
 use cookie_factory::gen;
-use cookie_factory::sequence::tuple;
-use cookie_factory::SerializeFn;
+use std::io::Write;
 
 use crate::amf3::write::AMF3Encoder;
 use crate::errors::Error;
@@ -25,45 +20,45 @@ impl Writer {
     /// Write a given LSO
     pub fn write_full<'a, 'b: 'a, W: Write + 'a>(
         &'a mut self,
+        writer: &mut W,
         lso: &'b mut Lso,
-    ) -> impl SerializeFn<W> + 'a {
-        let amf0 = cond(
-            lso.header.format_version == AMFVersion::AMF0,
-            crate::amf0::write::write_body(&lso.body),
-        );
-        let amf3 = cond(
-            lso.header.format_version == AMFVersion::AMF3,
-            self.amf3_encoder.write_body(&lso.body),
-        );
+    ) -> std::io::Result<()> {
+        let (buffer, size) = if lso.header.format_version == AMFVersion::AMF0 {
+            let mut buffer = vec![];
+            crate::amf0::write::write_body(&mut buffer, &lso.body).unwrap();
+            let length = buffer.len() as u64;
+            (buffer, length)
+        } else {
+            let amf3 = self.amf3_encoder.write_body(&lso.body);
 
-        let v = Vec::new();
-        let serialise = tuple((amf0, amf3));
-        let (buffer, size) = gen(serialise, v).unwrap();
+            let v = Vec::new();
+            gen(amf3, v).unwrap()
+        };
 
         lso.header.length = size as u32 + header_length(&lso.header) as u32;
 
-        tuple((write_header(&lso.header), slice(buffer)))
+        write_header(writer, &lso.header)?;
+        writer.write_all(&buffer)?;
+        Ok(())
     }
 }
 
-fn write_header<'a, 'b: 'a, W: Write + 'a>(header: &'b Header) -> impl SerializeFn<W> + 'a {
-    tuple((
-        slice(HEADER_VERSION),
-        be_u32(header.length),
-        slice(HEADER_SIGNATURE),
-        write_string(&header.name),
-        slice(PADDING),
-        slice(PADDING),
-        slice(PADDING),
-        cond(
-            header.format_version == AMFVersion::AMF0,
-            slice(&[FORMAT_VERSION_AMF0]),
-        ),
-        cond(
-            header.format_version == AMFVersion::AMF3,
-            slice(&[FORMAT_VERSION_AMF3]),
-        ),
-    ))
+fn write_header<'a, 'b: 'a, W: Write + 'a>(
+    writer: &mut W,
+    header: &'b Header,
+) -> std::io::Result<()> {
+    writer.write_all(&HEADER_VERSION)?;
+    writer.write_u32::<BigEndian>(header.length)?;
+    writer.write_all(&HEADER_SIGNATURE)?;
+    write_string(writer, &header.name)?;
+    writer.write_all(&PADDING)?;
+    writer.write_all(&PADDING)?;
+    writer.write_all(&PADDING)?;
+    match header.format_version {
+        AMFVersion::AMF0 => writer.write_all(&[FORMAT_VERSION_AMF0])?,
+        AMFVersion::AMF3 => writer.write_all(&[FORMAT_VERSION_AMF3])?,
+    };
+    Ok(())
 }
 
 /// Get the serialized length of the header in bytes, this does not include the size of the header length field or the lso version marker
@@ -74,10 +69,10 @@ pub fn header_length(header: &Header) -> usize {
 
 /// Write a LSO to a vec of bytes
 pub fn write_to_bytes<'a>(lso: &mut Lso) -> Result<Vec<u8>, Error<'a>> {
-    let v = vec![];
+    let mut v = vec![];
 
     let mut s = Writer::default();
-    let serialise = s.write_full(lso);
-    let (buffer, _) = gen(serialise, v)?;
-    Ok(buffer)
+    s.write_full(&mut v, lso)
+        .map_err(|e| Error::IoError(e.to_string(), e.kind()))?;
+    Ok(v)
 }

@@ -109,7 +109,6 @@ macro_rules! auto_test_flex {
         #[test]
         pub fn $name() -> Result<(), Box<dyn std::error::Error>> {
             use flash_lso::extra::flex;
-            use cookie_factory::gen;
             use flash_lso::write::Writer;
 
             let data = include_bytes!(concat!("sol/", $path, ".sol"));
@@ -123,11 +122,10 @@ macro_rules! auto_test_flex {
                     assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
                 }
 
-                let v = vec![];
+                let mut buffer = vec![];
                 let mut s = Writer::default();
                 flex::write::register_encoders(&mut s.amf3_encoder);
-                let serialise = s.write_full(&mut sol);
-                let (buffer, _size) = gen(serialise, v)?;
+                s.write_full(&mut buffer, &mut sol)?;
 
                 let mut des2 = Reader::default();
                 flex::read::register_decoders(&mut des2.amf3_decoder);
