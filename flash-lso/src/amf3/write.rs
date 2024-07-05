@@ -4,8 +4,8 @@ use crate::amf3::element_cache::ElementCache;
 use crate::amf3::length::Length;
 use crate::amf3::type_marker::TypeMarker;
 use crate::types::{Attribute, ClassDefinition, Element, Value};
+use crate::write::WriteExt;
 use crate::PADDING;
-use byteorder::{BigEndian, WriteBytesExt};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::Result;
@@ -106,7 +106,7 @@ impl AMF3Encoder {
         i: f64,
     ) -> Result<()> {
         self.write_type_marker(writer, TypeMarker::Number)?;
-        writer.write_f64::<BigEndian>(i)?;
+        writer.write_f64(i)?;
         Ok(())
     }
 
@@ -158,7 +158,7 @@ impl AMF3Encoder {
             Length::Size(items.len() as u32).write(writer, self)?;
             writer.write_u8(fixed_length as u8)?;
             for item in items {
-                writer.write_i32::<BigEndian>(*item)?;
+                writer.write_i32(*item)?;
             }
         }
         Ok(())
@@ -182,7 +182,7 @@ impl AMF3Encoder {
             Length::Size(items.len() as u32).write(writer, self)?;
             writer.write_u8(fixed_length as u8)?;
             for item in items {
-                writer.write_u32::<BigEndian>(*item)?;
+                writer.write_u32(*item)?;
             }
         }
         Ok(())
@@ -206,7 +206,7 @@ impl AMF3Encoder {
             Length::Size(items.len() as u32).write(writer, self)?;
             writer.write_u8(fixed_length as u8)?;
             for item in items {
-                writer.write_f64::<BigEndian>(*item)?;
+                writer.write_f64(*item)?;
             }
         }
         Ok(())
@@ -224,7 +224,7 @@ impl AMF3Encoder {
         self.write_type_marker(writer, TypeMarker::Date)?;
         len.write(writer, self)?;
         if len.is_size() {
-            writer.write_f64::<BigEndian>(time)?;
+            writer.write_f64(time)?;
         }
         Ok(())
     }
