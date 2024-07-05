@@ -35,7 +35,7 @@ impl ArrayCollection {
         elements: &'b [Element],
         encoder: &'a AMF3Encoder,
     ) -> impl SerializeFn<W> + 'a {
-        let data = elements.get(0).unwrap();
+        let data = elements.first().unwrap();
         encoder.write_value_element(&data.value)
     }
 }
@@ -61,7 +61,7 @@ impl ObjectProxy {
         elements: &'b [Element],
         encoder: &'a AMF3Encoder,
     ) -> impl SerializeFn<W> + 'a {
-        let data = elements.get(0).unwrap();
+        let data = elements.first().unwrap();
         encoder.write_value_element(&data.value)
     }
 }
