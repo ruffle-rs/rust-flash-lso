@@ -1,9 +1,11 @@
 //! Support for decoding AMF0 data
 use crate::amf0::type_marker::TypeMarker;
 
+#[cfg(feature = "amf3")]
+use crate::amf3;
 use crate::nom_utils::{take_str, AMFResult};
 use crate::types::{ClassDefinition, Element, Reference, Value};
-use crate::{amf3, PADDING};
+use crate::PADDING;
 use nom::bytes::complete::{tag, take};
 use nom::combinator::{map, map_res};
 use nom::error::{make_error, ErrorKind};
@@ -56,9 +58,16 @@ fn parse_element_xml(i: &[u8]) -> AMFResult<'_, Rc<Value>> {
 }
 
 fn parse_element_amf3(i: &[u8]) -> AMFResult<'_, Rc<Value>> {
-    // Hopefully amf3 objects wont have references
-    let (i, x) = amf3::read::AMF3Decoder::default().parse_single_element(i)?;
-    Ok((i, Rc::new(Value::AMF3(x))))
+    #[cfg(feature = "amf3")]
+    {
+        // Hopefully amf3 objects won't have references
+        let (i, x) = amf3::read::AMF3Decoder::default().parse_single_element(i)?;
+        Ok((i, Rc::new(Value::AMF3(x))))
+    }
+    #[cfg(not(feature = "amf3"))]
+    {
+        Ok((i, Rc::new(Value::Unsupported)))
+    }
 }
 
 fn read_type_marker(i: &[u8]) -> AMFResult<'_, TypeMarker> {
