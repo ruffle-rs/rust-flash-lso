@@ -4,12 +4,14 @@ use crate::PADDING;
 use std::io::Write;
 
 use crate::amf0::type_marker::TypeMarker;
-use crate::amf3::write::AMF3Encoder;
 use crate::nom_utils::write_string;
 use byteorder::{BigEndian, WriteBytesExt};
 use std::io::Result;
 use std::ops::Deref;
 use std::rc::Rc;
+
+#[cfg(feature = "amf3")]
+use crate::amf3::write::AMF3Encoder;
 
 fn write_type_marker<'a, 'b: 'a, W: Write + 'a>(writer: &mut W, type_: TypeMarker) -> Result<()> {
     writer.write_u8(type_ as u8)
@@ -183,6 +185,7 @@ pub(crate) fn write_value<'a, 'b: 'a, W: Write + 'a>(
         Value::ECMAArray(dense, elems, elems_length) => {
             write_mixed_array(writer, dense, elems, *elems_length)
         }
+        #[cfg(feature = "amf3")]
         Value::AMF3(e) => {
             write_type_marker(writer, TypeMarker::AMF3)?;
             let encoder = AMF3Encoder::default();

@@ -10,10 +10,8 @@ edition = "2021"
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.4.3"
-
-[dependencies.flash-lso]
-path = "../flash-lso"
+libfuzzer-sys = "0.4.7"
+flash-lso = { path = "../flash-lso", default-features = false}
 
 # Prevent this from interfering with workspaces
 [workspace]

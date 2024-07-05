@@ -40,6 +40,7 @@ pub enum Value {
     /// Represent the XML type, (value, is_string)
     XML(String, bool),
 
+    #[cfg(feature = "amf3")]
     /// Represent an amf3 element embedded in an AMF0 file
     AMF3(Rc<Value>),
 

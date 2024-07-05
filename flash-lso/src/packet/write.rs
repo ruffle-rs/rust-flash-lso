@@ -77,6 +77,7 @@ pub fn write_to_bytes(packet: &Packet, exact_lengths: bool) -> Result<Vec<u8>, E
     buffer.push(0);
     match packet.version {
         AMFVersion::AMF0 => buffer.push(0),
+        #[cfg(feature = "amf3")]
         AMFVersion::AMF3 => buffer.push(3),
     }
 

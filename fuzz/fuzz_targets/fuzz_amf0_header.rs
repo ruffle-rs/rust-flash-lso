@@ -1,8 +1,8 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 
-use amf::amf0;
+use flash_lso::read::Reader;
 
 fuzz_target!(|data: &[u8]| {
-    amf0::parse_header(data);
+    Reader::default().parse_header(data);
 });

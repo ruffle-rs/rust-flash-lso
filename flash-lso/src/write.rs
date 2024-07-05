@@ -2,16 +2,20 @@
 use byteorder::{BigEndian, WriteBytesExt};
 use std::io::Write;
 
+#[cfg(feature = "amf3")]
 use crate::amf3::write::AMF3Encoder;
 use crate::errors::Error;
 use crate::nom_utils::write_string;
 use crate::types::{AMFVersion, Header, Lso};
-use crate::{FORMAT_VERSION_AMF0, FORMAT_VERSION_AMF3, HEADER_SIGNATURE, HEADER_VERSION, PADDING};
+#[cfg(feature = "amf3")]
+use crate::FORMAT_VERSION_AMF3;
+use crate::{FORMAT_VERSION_AMF0, HEADER_SIGNATURE, HEADER_VERSION, PADDING};
 
 /// Handles writing a given LSO
 #[derive(Default)]
 pub struct Writer {
     /// The encoder used for writing Value::AMF3() wrapped types
+    #[cfg(feature = "amf3")]
     pub amf3_encoder: AMF3Encoder,
 }
 
@@ -26,6 +30,7 @@ impl Writer {
         if lso.header.format_version == AMFVersion::AMF0 {
             crate::amf0::write::write_body(&mut buffer, &lso.body)?;
         } else {
+            #[cfg(feature = "amf3")]
             self.amf3_encoder.write_body(&mut buffer, &lso.body)?;
         }
 
@@ -50,6 +55,7 @@ fn write_header<'a, 'b: 'a, W: Write + 'a>(
     writer.write_all(&PADDING)?;
     match header.format_version {
         AMFVersion::AMF0 => writer.write_all(&[FORMAT_VERSION_AMF0])?,
+        #[cfg(feature = "amf3")]
         AMFVersion::AMF3 => writer.write_all(&[FORMAT_VERSION_AMF3])?,
     };
     Ok(())

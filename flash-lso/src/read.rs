@@ -6,6 +6,7 @@ use nom::number::complete::be_u32;
 
 use crate::amf0;
 use crate::amf0::read::AMF0Decoder;
+#[cfg(feature = "amf3")]
 use crate::amf3::read::AMF3Decoder;
 use crate::errors::Error;
 use crate::nom_utils::AMFResult;
@@ -17,9 +18,11 @@ const HEADER_SIGNATURE: [u8; 10] = [0x54, 0x43, 0x53, 0x4f, 0x00, 0x04, 0x00, 0x
 const PADDING: [u8; 1] = [0x00];
 
 const FORMAT_VERSION_AMF0: u8 = 0x0;
+
+#[cfg(feature = "amf3")]
 const FORMAT_VERSION_AMF3: u8 = 0x3;
 
-/// The main entry point of decoding a LSO file
+/// The main entry point of decoding an LSO file
 /// Example of use
 /// ```
 /// use std::fs::File;
@@ -34,6 +37,7 @@ const FORMAT_VERSION_AMF3: u8 = 0x3;
 /// }
 #[derive(Default)]
 pub struct Reader {
+    #[cfg(feature = "amf3")]
     /// Handles reading Amf3 data
     pub amf3_decoder: AMF3Decoder,
 
@@ -42,7 +46,8 @@ pub struct Reader {
 }
 
 impl Reader {
-    fn parse_header<'a>(&self, i: &'a [u8]) -> AMFResult<'a, Header> {
+    /// Read a Lso header from the given slice
+    pub fn parse_header<'a>(&self, i: &'a [u8]) -> AMFResult<'a, Header> {
         let (i, _) = tag(HEADER_VERSION)(i)?;
         let (i, l) = be_u32(i)?;
         let (i, _) = tag(HEADER_SIGNATURE)(i)?;
@@ -53,11 +58,11 @@ impl Reader {
         let (i, _) = tag(PADDING)(i)?;
         let (i, _) = tag(PADDING)(i)?;
 
-        let (i, version) = alt((tag(&[FORMAT_VERSION_AMF0]), tag(&[FORMAT_VERSION_AMF3])))(i)
-            .map_err(|e| {
-                eprintln!("Err: {e:?}");
-                e
-            })?;
+        let (i, version) = alt((
+            tag(&[FORMAT_VERSION_AMF0]),
+            #[cfg(feature = "amf3")]
+            tag(&[FORMAT_VERSION_AMF3]),
+        ))(i)?;
 
         // This unwrap can't fail because of the alt above
         let format_version: AMFVersion = version[0].try_into().unwrap();
@@ -84,6 +89,7 @@ impl Reader {
                 Ok((i, Lso { header, body }))
             }
 
+            #[cfg(feature = "amf3")]
             AMFVersion::AMF3 => {
                 let (i, body) = self.amf3_decoder.parse_body(i)?;
                 Ok((i, Lso { header, body }))
