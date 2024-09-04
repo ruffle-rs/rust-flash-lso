@@ -57,19 +57,6 @@ fn parse_element_xml(i: &[u8]) -> AMFResult<'_, Rc<Value>> {
     Ok((i, Rc::new(Value::XML(content.to_string(), true))))
 }
 
-fn parse_element_amf3(i: &[u8]) -> AMFResult<'_, Rc<Value>> {
-    #[cfg(feature = "amf3")]
-    {
-        // Hopefully amf3 objects won't have references
-        let (i, x) = amf3::read::AMF3Decoder::default().parse_single_element(i)?;
-        Ok((i, Rc::new(Value::AMF3(x))))
-    }
-    #[cfg(not(feature = "amf3"))]
-    {
-        Ok((i, Rc::new(Value::Unsupported)))
-    }
-}
-
 fn read_type_marker(i: &[u8]) -> AMFResult<'_, TypeMarker> {
     let (i, type_) = be_u8(i)?;
     Ok((
@@ -79,10 +66,13 @@ fn read_type_marker(i: &[u8]) -> AMFResult<'_, TypeMarker> {
 }
 
 /// Handles decoding AMF0
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct AMF0Decoder {
     /// Cache of previously read values, that can be referenced later
     cache: Vec<Rc<Value>>,
+
+    #[cfg(feature = "amf3")]
+    amf3_decoder: amf3::read::AMF3Decoder,
 }
 
 impl AMF0Decoder {
@@ -166,6 +156,18 @@ impl AMF0Decoder {
         Ok((i, out))
     }
 
+    fn parse_element_amf3<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
+        #[cfg(feature = "amf3")]
+        {
+            let (i, x) = self.amf3_decoder.parse_single_element(i)?;
+            Ok((i, Rc::new(Value::AMF3(x))))
+        }
+        #[cfg(not(feature = "amf3"))]
+        {
+            Ok((i, Rc::new(Value::Unsupported)))
+        }
+    }
+
     /// Parse a single AMF0 element
     pub fn parse_single_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         // Get the type of the next element
@@ -208,7 +210,7 @@ impl AMF0Decoder {
                 self.cache[cache_idx] = Rc::clone(&v);
                 Ok((i, v))
             }
-            TypeMarker::AMF3 => parse_element_amf3(i),
+            TypeMarker::AMF3 => self.parse_element_amf3(i),
             TypeMarker::MovieClip | TypeMarker::RecordSet | TypeMarker::ObjectEnd => Err(
                 Err::Error(crate::errors::Error::UnsupportedType(type_ as u8)),
             ),
