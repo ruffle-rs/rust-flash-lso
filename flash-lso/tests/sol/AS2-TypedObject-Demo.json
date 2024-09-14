@@ -1,1 +1,1 @@
-{"header":{"length":93,"name":"AS2-TypedObject-Demo","format_version":"AMF0"},"body":[{"name":"myTypedObject","value":{"Object":[[{"name":"foo","value":{"String":"changed prop"}}],{"name":"AS2SolTestClass","attributes":0,"static_properties":[]}]}}]}
+{"header":{"length":93,"name":"AS2-TypedObject-Demo","format_version":"AMF0"},"body":[{"name":"myTypedObject","value":{"Object":[-1,[{"name":"foo","value":{"String":"changed prop"}}],{"name":"AS2SolTestClass","attributes":0,"static_properties":[]}]}}]}

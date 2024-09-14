@@ -169,7 +169,7 @@ pub(crate) fn write_value<'a, 'b: 'a, W: Write + 'a>(
                 write_string_element(writer, s)
             }
         }
-        Value::Object(elements, class_def) => {
+        Value::Object(_, elements, class_def) => {
             if let Some(class_def) = class_def {
                 write_typed_object_element(writer, &class_def.name, elements)
             } else {

@@ -1,7 +1,11 @@
 use core::fmt;
 use flash_lso::errors::Error;
 use flash_lso::read::Reader;
+use flash_lso::types::Value;
 use nom::error::ErrorKind;
+use std::borrow::Borrow;
+use std::ops::Deref;
+
 // #[cfg(test)]
 // use pretty_assertions::assert_eq;
 
@@ -195,18 +199,19 @@ macro_rules! json_test_bytearray_object_amf3 {
         pub fn $name() -> Result<(), Box<dyn std::error::Error>> {
             use serde_json;
 
-            let data = include_bytes!(concat!("sol/", $path, ".sol"));
-            let parse_res = Reader::default().amf3_decoder.parse_single_element(data)?;
+            let data = include_bytes!(concat!("amf/", $path, ".amf"));
+            let (remaining, parse_res) = Reader::default().amf3_decoder.parse_single_element(data)?;
             let output_json = serde_json::to_string(&parse_res)?;
+            assert_eq!(remaining.len(), 0, "Unparsed data");
 
 
-            let json_expected = include_str!(concat!("sol/", $path, ".json"));
+            let json_expected = include_str!(concat!("amf/", $path, ".json"));
 
             assert_eq!(json_expected.trim(), output_json);
 
             let mut lso = flash_lso::types::Lso::new(vec![flash_lso::types::Element {
                 name: "".to_string(),
-                value: parse_res.1
+                value: parse_res,
             }], "", flash_lso::types::AMFVersion::AMF3);
 
             let bytes = flash_lso::write::write_to_bytes(&mut lso)
@@ -333,10 +338,6 @@ json_test! {
     [json_metadata_history, "MetadataHistory"]
 }
 
-json_test_bytearray_object_amf3! {
-    [json_learntofly3, "LearnToFly3.profileData.saveString"]
-}
-
 json_test_flex! {
     [json_opp_detail_prefs, "oppDetailPrefs"]
 }
@@ -424,6 +425,11 @@ packet_test! {
     [armorgames_auth_response, "armorgames_auth_response", false]
 }
 
+json_test_bytearray_object_amf3! {
+    [json_learntofly3, "LearnToFly3.profileData.saveString"],
+    [self_referential_object, "self-referential-object"]
+}
+
 // Samples that can be parsed but not written
 test_parse_only! {
     [infectonator_survivors_76561198009932603, "InfectonatorSurvivors76561198009932603"],
@@ -448,4 +454,17 @@ should_fail! {
     [two, "2",  nom::Err::Error(Error::Nom(vec![17, 112, 99, 95, 112, 97, 114, 116, 121, 10, 130, 51, 21, 80, 97, 114, 116, 121, 65, 108, 105, 97, 115, 0, 13, 98, 97, 116, 116, 108, 101, 2, 0].as_slice(), ErrorKind::Tag))],
     // OOB read
     [zero_four, "00000004", nom::Err::Error(Error::Nom(vec![0, 255, 0, 0, 0, 86, 0, 84, 47, 117, 112, 108, 111, 97, 100, 115, 46, 117, 110, 103, 114, 111, 117, 110, 100, 101, 100, 46, 110, 101, 116, 47, 53, 57, 50, 48, 48, 48, 47, 53, 57, 50, 52, 55, 51, 95, 77, 97, 100, 110, 101, 115, 115, 71, 97, 109, 101, 95, 85, 76, 84, 73, 77, 65, 84, 69, 46, 115, 119, 102, 47, 97, 114, 101, 110, 97, 77, 97, 100, 110, 101, 115, 115, 71, 97, 109, 101, 50, 46, 115, 111, 108].as_slice(), ErrorKind::Eof))]
+}
+
+#[test]
+pub fn test_recursive_object() {
+    let data = include_bytes!("./amf/self-referential-object.amf");
+    let (_, obj) = flash_lso::amf3::read::AMF3Decoder::default()
+        .parse_single_element(data)
+        .expect("Failed to parse object");
+    if let Value::Object(id, elem, _) = obj.borrow() {
+        assert_eq!(elem[0].value.deref(), &Value::Amf3ObjectReference(*id));
+    } else {
+        panic!("Expected object");
+    }
 }

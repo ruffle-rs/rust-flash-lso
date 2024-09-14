@@ -232,7 +232,7 @@ impl Model {
 
     fn value_details(&self, val: EditableValue, ctx: &Context<Self>) -> Html {
         match val.value {
-            Value::Object(children, Some(def)) => {
+            Value::Object(id, children, Some(def)) => {
                 let def_clone = def.clone();
                 let dynamic_icon = if def.attributes.contains(Attribute::Dynamic) {
                     "icon/check.svg"
@@ -278,7 +278,7 @@ impl Model {
                             input.map(|input| {
                                 let mut new_def = def.clone();
                                 new_def.name = input.value();
-                                Msg::Edited(Value::Object(children.clone(), Some(new_def)))
+                                Msg::Edited(Value::Object(id, children.clone(), Some(new_def)))
                             })
                         })}  value={def.name.clone()} class="form-control" type="text"/>
                       </div>
@@ -687,7 +687,7 @@ impl Model {
                                     Value::Number(_) => "Number".to_string(),
                                     Value::Bool(_) => "Boolean".to_string(),
                                     Value::String(_) => "String".to_string(),
-                                    Value::Object(_, _) => "Object".to_string(),
+                                    Value::Object(_, _, _) => "Object".to_string(),
                                     Value::Null => "Null".to_string(),
                                     Value::Undefined => "Undefined".to_string(),
                                     Value::ECMAArray(_, _, _) => "ECMAArray".to_string(),
@@ -702,6 +702,7 @@ impl Model {
                                     Value::VectorUInt(_, _) => "Vector<UInt>".to_string(),
                                     Value::VectorDouble(_, _) => "Vector<Double>".to_string(),
                                     Value::VectorObject(_, _, _) => "Vector<Object>".to_string(),
+                                    Value::Amf3ObjectReference(_) => "Reference".to_string(),
                                     Value::Dictionary(_, _) => "Dictionary".to_string(),
                                     Value::Custom(_, _, cd) => {
                                         if let Some(cd) = cd {

@@ -1,1 +1,1 @@
-{"header":{"length":72,"name":"AS2-Object-Demo","format_version":"AMF0"},"body":[{"name":"myObject2","value":{"Object":[[{"name":"p4","value":{"Number":8.0}},{"name":"p3","value":{"String":"hallo"}}],null]}}]}
+{"header":{"length":72,"name":"AS2-Object-Demo","format_version":"AMF0"},"body":[{"name":"myObject2","value":{"Object":[-1,[{"name":"p4","value":{"Number":8.0}},{"name":"p3","value":{"String":"hallo"}}],null]}}]}
