@@ -1,4 +1,4 @@
-use super::{ClassDefinition, Element, Reference};
+use super::{ClassDefinition, Element, ObjectId, Reference};
 use std::rc::Rc;
 
 //TODO: should amf3 assoc arrays be their own type with a dense and assoc section
@@ -16,7 +16,7 @@ pub enum Value {
     String(String),
 
     /// Represents the object type in both amf0 and amf3, class definition are only available with amf3
-    Object(Vec<Element>, Option<ClassDefinition>),
+    Object(ObjectId, Vec<Element>, Option<ClassDefinition>),
 
     /// Represent the null type
     Null,
@@ -77,6 +77,15 @@ pub enum Value {
 
     /// Represent an existing value, stored by reference, the value here should be considered opaque
     Reference(Reference),
+
+    /// A reference to a previously parsed element
+    ///
+    /// While traversing `Value`s you should maintain a mapping of `ObjectId` to your internal
+    /// representation of a value and consider this a reference to the exact same value.
+    ///
+    /// As `Value` graphs can contain cycles which are best handled by garbage collected structures
+    /// we leave the handling of this to the user, sorry
+    Amf3ObjectReference(ObjectId),
 }
 
 impl FromIterator<Value> for Vec<Rc<Value>> {

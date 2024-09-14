@@ -1,0 +1,21 @@
+This file was generated with the following:
+
+let mut v = vec![];
+let  r = Rc::new(Value::Object(0, Vec::new().into(), Some(ClassDefinition {
+    name: "".to_string(),
+    attributes: Default::default(),
+    static_properties: vec![],
+})));
+
+let o = Value::Object(0, vec![
+    Element::new("AAAA", Rc::clone(&r))
+].into(), Some(ClassDefinition {
+    name: "".to_string(),
+    attributes: Default::default(),
+    static_properties: vec!["AAAA".to_string()],
+}));
+let oo = Rc::new(o);
+
+AMF3Encoder::default().write_value(&mut v, oo.as_ref()).unwrap();
+v[9] = 0;
+v.pop();

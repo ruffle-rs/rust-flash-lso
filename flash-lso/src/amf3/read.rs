@@ -16,7 +16,7 @@ use nom::number::complete::{be_f64, be_i32, be_u32, be_u8};
 use nom::Err;
 
 use std::convert::{TryFrom, TryInto};
-use std::ops::DerefMut;
+use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
 const REFERENCE_FLAG: u32 = 0x01;
@@ -151,12 +151,17 @@ fn parse_element_int(i: &[u8]) -> AMFResult<'_, Rc<Value>> {
 pub struct AMF3Decoder {
     /// The table used to cache repeated byte strings
     pub string_reference_table: Vec<Vec<u8>>,
+
     /// The table used to cache repeated trait definitions
     pub trait_reference_table: Vec<ClassDefinition>,
+
     /// The table used to cache repeated objects
     pub object_reference_table: Vec<Rc<Value>>,
+
     /// Encoders used for handling externalized types
     pub external_decoders: HashMap<String, ExternalDecoderFn>,
+
+    object_id: i64,
 }
 
 fn parse_element_number(i: &[u8]) -> AMFResult<'_, Rc<Value>> {
@@ -345,17 +350,25 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            let obj = Rc::clone(
-                self.object_reference_table
-                    .get(len_usize)
-                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
-            );
+            let o = self
+                .object_reference_table
+                .get(len_usize)
+                .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?;
+            let id = if let Value::Object(id, _, _) = o.deref() {
+                *id
+            } else {
+                unreachable!("object_reference_table should only have objects")
+            };
+
+            let obj = Rc::new(Value::Amf3ObjectReference(id));
 
             return Ok((i, obj));
         }
         length >>= 1;
 
-        let obj = Rc::new(Value::Object(Vec::new(), None));
+        self.object_id += 1;
+        let obj = Rc::new(Value::Object(ObjectId(self.object_id), Vec::new(), None));
+
         let index = self.object_reference_table.len();
         self.object_reference_table.push(obj);
 
@@ -369,7 +382,7 @@ impl AMF3Decoder {
                     .expect("Index invalid"),
             )
             .expect("Unable to get Object");
-            if let Value::Object(_, ref mut def) = mut_obj {
+            if let Value::Object(_, _, ref mut def) = mut_obj {
                 *def = Some(class_def.clone());
             }
         }
@@ -433,7 +446,7 @@ impl AMF3Decoder {
                     .expect("Index invalid"),
             )
             .expect("Unable to get Object");
-            if let Value::Object(ref mut elements_inner, _) = mut_obj {
+            if let Value::Object(_, ref mut elements_inner, _) = mut_obj {
                 *elements_inner = elements;
             }
         }

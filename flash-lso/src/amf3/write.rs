@@ -3,11 +3,11 @@ use crate::amf3::custom_encoder::CustomEncoder;
 use crate::amf3::element_cache::ElementCache;
 use crate::amf3::length::Length;
 use crate::amf3::type_marker::TypeMarker;
-use crate::types::{Attribute, ClassDefinition, Element, Value};
+use crate::types::{Attribute, ClassDefinition, Element, ObjectId, Value};
 use crate::write::WriteExt;
 use crate::PADDING;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io::Result;
 use std::io::Write;
 use std::ops::Deref;
@@ -27,6 +27,8 @@ pub struct AMF3Encoder {
 
     /// Encoders used for handling externalized types
     pub external_encoders: HashMap<String, Box<dyn CustomEncoder>>,
+
+    object_id_to_reference: RefCell<BTreeMap<ObjectId, usize>>,
 }
 
 impl AMF3Encoder {
@@ -422,14 +424,18 @@ impl AMF3Encoder {
     fn write_object_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
         writer: &mut W,
+        id: ObjectId,
         children: &'b [Element],
         custom_props: Option<&'b [Element]>,
         class_def: &'b Option<ClassDefinition>,
     ) -> Result<()> {
         let had_object = Length::Size(0);
 
-        self.object_reference_table
-            .store(Value::Object(children.to_vec(), class_def.clone()));
+        let obj = Value::Object(id, children.to_vec(), class_def.clone());
+        self.object_reference_table.store(obj.clone());
+        if let Length::Reference(r) = self.object_reference_table.to_length(obj, 0) {
+            self.object_id_to_reference.borrow_mut().insert(id, r);
+        }
 
         let def = class_def.clone().unwrap_or_default();
         let def2 = def.clone();
@@ -579,8 +585,8 @@ impl AMF3Encoder {
             Value::Number(x) => self.write_number_element(writer, *x),
             Value::Bool(b) => self.write_boolean_element(writer, *b),
             Value::String(s) => self.write_string_element(writer, s),
-            Value::Object(children, class_def) => {
-                self.write_object_element(writer, children, None, class_def)
+            Value::Object(id, children, class_def) => {
+                self.write_object_element(writer, *id, children, None, class_def)
             }
             Value::Null => self.write_null_element(writer),
             Value::Undefined => self.write_undefined_element(writer),
@@ -608,12 +614,25 @@ impl AMF3Encoder {
                 self.write_dictionary_element(writer, kv, *weak_keys)
             }
 
-            Value::Custom(elements, dynamic_elements, def) => {
-                self.write_object_element(writer, dynamic_elements, Some(elements), def)
-            }
+            Value::Custom(elements, dynamic_elements, def) => self.write_object_element(
+                writer,
+                ObjectId::INVALID,
+                dynamic_elements,
+                Some(elements),
+                def,
+            ),
             Value::AMF3(e) => self.write_value_element(writer, e),
             Value::Unsupported => self.write_undefined_element(writer),
             Value::Reference(_) => unimplemented!(),
+            Value::Amf3ObjectReference(id) => {
+                let r = *self
+                    .object_id_to_reference
+                    .borrow()
+                    .get(id)
+                    .expect("Invalid reference");
+                self.write_type_marker(writer, TypeMarker::Object)?;
+                self.write_object_reference(writer, r as u32)
+            }
         }
     }
 

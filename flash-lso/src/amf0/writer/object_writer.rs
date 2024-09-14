@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::types::{Element, Reference, Value};
+use crate::types::{Element, ObjectId, Reference, Value};
 
 use super::{ArrayWriter, CacheKey, ObjWriter};
 
@@ -94,7 +94,10 @@ impl<'a, 'b> ObjectWriter<'a, 'b> {
     /// If this is not called, the object will not be added
     pub fn commit<T: AsRef<str>>(self, name: T) {
         //TODO: this doent work for multi level nesting
-        self.parent
-            .add_element(name.as_ref(), Value::Object(self.elements, None), false);
+        self.parent.add_element(
+            name.as_ref(),
+            Value::Object(ObjectId::INVALID, self.elements, None),
+            false,
+        );
     }
 }
