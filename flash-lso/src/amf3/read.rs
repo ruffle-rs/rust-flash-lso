@@ -161,6 +161,8 @@ pub struct AMF3Decoder {
     /// Encoders used for handling externalized types
     pub external_decoders: HashMap<String, ExternalDecoderFn>,
 
+    /// Tracks the id of the last object we have read, used to generate `ObjectId`s for `Amf3Reference`
+    /// Not an `ObjectId` itself as they don't impl `Default`
     object_id: i64,
 }
 

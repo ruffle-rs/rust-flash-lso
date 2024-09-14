@@ -1,4 +1,5 @@
 /// A locally unique identifier for an Amf3 object
+///
 /// See the comment on `Value::Amf3ObjectReference` for details
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
