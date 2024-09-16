@@ -11,7 +11,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4.7"
-flash-lso = { path = "../flash-lso", default-features = false}
+flash-lso = { path = "../flash-lso", default-features = false, features = ["amf3"]}
 
 # Prevent this from interfering with workspaces
 [workspace]
@@ -45,3 +45,7 @@ path = "fuzz_targets/fuzz_amf3_string.rs"
 [[bin]]
 name = "fuzz_amf3_body"
 path = "fuzz_targets/fuzz_amf3_body.rs"
+
+[[bin]]
+name = "fuzz_amf3_single_element"
+path = "fuzz_targets/fuzz_amf3_single_element.rs"
