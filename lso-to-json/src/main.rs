@@ -56,7 +56,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Ok(lso) => {
                             let json =
                                 serde_json::to_string(&lso).expect("Unable to encode lso as json");
-                            std::fs::write(out, json).expect("Unable to write file");
+                            std::fs::write(out, format!("{}\n", json))
+                                .expect("Unable to write file");
                         }
                         Err(e) => {
                             eprintln!("Couldn't read lso file, maybe open a issue on github at https://github.com/CUB3D/rust-flash-lso");
