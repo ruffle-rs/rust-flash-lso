@@ -553,7 +553,6 @@ impl AMF3Decoder {
 
                 let (i, elems) = many_m_n(len, len, |i| this.parse_single_element(i))(i)?;
 
-
                 let id = if let Value::VectorObject(id, _, _, _) =
                     this.object_reference_table.get(ofi).unwrap().as_ref()
                 {
