@@ -16,7 +16,7 @@ use nom::number::complete::{be_f64, be_i32, be_u32, be_u8};
 use nom::Err;
 
 use std::convert::{TryFrom, TryInto};
-use std::ops::{Deref, DerefMut};
+use std::ops::DerefMut;
 use std::rc::Rc;
 
 const REFERENCE_FLAG: u32 = 0x01;
@@ -251,30 +251,40 @@ impl AMF3Decoder {
     fn parse_reference_or_val<'a>(
         &mut self,
         i: &'a [u8],
-        parser: impl FnOnce(&mut Self, &'a [u8], usize) -> AMFResult<'a, Value>,
+        mk_initial: impl FnOnce(&mut Self) -> Value,
+        parser: impl FnOnce(&mut Self, &'a [u8], usize, usize) -> AMFResult<'a, Value>,
     ) -> AMFResult<'a, Rc<Value>> {
         let (i, len) = read_length(i)?;
 
         match len {
             Length::Reference(index) => {
-                let ref_result = Rc::clone(
-                    self.object_reference_table
-                        .get(index)
-                        .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?,
-                );
-
-                Ok((i, ref_result))
+                let ref_result = self
+                    .object_reference_table
+                    .get(index)
+                    .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?;
+                match ref_result.as_ref() {
+                    Value::VectorObject(id, _, _, _) => {
+                        Ok((i, Value::Amf3ObjectReference(*id).into()))
+                    }
+                    Value::Dictionary(id, _, _) => Ok((i, Value::Amf3ObjectReference(*id).into())),
+                    Value::ECMAArray(id, _, _, _) => {
+                        Ok((i, Value::Amf3ObjectReference(*id).into()))
+                    }
+                    Value::Object(id, _, _) => Ok((i, Value::Amf3ObjectReference(*id).into())),
+                    _ => Ok((i, Rc::clone(ref_result))),
+                }
             }
             Length::Size(len) => {
                 let len_usize: usize = len
                     .try_into()
                     .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-                let initial = Rc::new(Value::Null);
+                let inital = mk_initial(self);
+                let initial = Rc::new(inital);
                 let index = self.object_reference_table.len();
                 self.object_reference_table.push(initial);
 
-                let (i, res) = parser(self, i, len_usize)?;
+                let (i, res) = parser(self, i, len_usize, index)?;
 
                 //TODO: this should be an error case and also never happen
                 let mut initial_inner = Rc::get_mut(
@@ -352,19 +362,18 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-            let o = self
+            let ref_result = self
                 .object_reference_table
                 .get(len_usize)
                 .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?;
-            let id = if let Value::Object(id, _, _) = o.deref() {
-                *id
-            } else {
-                unreachable!("object_reference_table should only have objects")
+            return match ref_result.as_ref() {
+                Value::VectorObject(id, _, _, _) => Ok((i, Value::Amf3ObjectReference(*id).into())),
+                Value::Dictionary(id, _, _) => Ok((i, Value::Amf3ObjectReference(*id).into())),
+                Value::ECMAArray(id, _, _, _) => Ok((i, Value::Amf3ObjectReference(*id).into())),
+                Value::Object(id, _, _) => Ok((i, Value::Amf3ObjectReference(*id).into())),
+
+                _ => Ok((i, Rc::clone(ref_result))),
             };
-
-            let obj = Rc::new(Value::Amf3ObjectReference(id));
-
-            return Ok((i, obj));
         }
         length >>= 1;
 
@@ -464,145 +473,225 @@ impl AMF3Decoder {
     }
 
     fn parse_element_byte_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
-        self.parse_reference_or_val(i, |_this, i, len| {
-            let (i, bytes) = take(len)(i)?;
-            Ok((i, Value::ByteArray(bytes.to_vec())))
-        })
+        self.parse_reference_or_val(
+            i,
+            |_| Value::ByteArray(Vec::new()),
+            |_this, i, len, _| {
+                let (i, bytes) = take(len)(i)?;
+                Ok((i, Value::ByteArray(bytes.to_vec())))
+            },
+        )
     }
 
     fn parse_element_vector_int<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
-        self.parse_reference_or_val(i, |_this, i, len| {
-            // There must be at least `len * 4` (i32 = 4 bytes) bytes to read this, this prevents OOM errors with v.large vecs
-            if i.len() < len * 4 {
-                return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
-            }
+        self.parse_reference_or_val(
+            i,
+            |_| Value::VectorInt(Vec::new(), false),
+            |_this, i, len, _| {
+                // There must be at least `len * 4` (i32 = 4 bytes) bytes to read this, this prevents OOM errors with v.large vecs
+                if i.len() < len * 4 {
+                    return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+                }
 
-            let (i, fixed_length) = be_u8(i)?;
+                let (i, fixed_length) = be_u8(i)?;
 
-            let (i, ints) = many_m_n(len, len, be_i32)(i)?;
+                let (i, ints) = many_m_n(len, len, be_i32)(i)?;
 
-            Ok((i, Value::VectorInt(ints, fixed_length == 1)))
-        })
+                Ok((i, Value::VectorInt(ints, fixed_length == 1)))
+            },
+        )
     }
 
     fn parse_element_vector_uint<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
-        self.parse_reference_or_val(i, |_this, i, len| {
-            // There must be at least `len * 4` (u32 = 4 bytes) bytes to read this, this prevents OOM errors with v.large vecs
-            if i.len() < len * 4 {
-                return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
-            }
-            let (i, fixed_length) = be_u8(i)?;
+        self.parse_reference_or_val(
+            i,
+            |_| Value::VectorUInt(Vec::new(), false),
+            |_this, i, len, _| {
+                // There must be at least `len * 4` (u32 = 4 bytes) bytes to read this, this prevents OOM errors with v.large vecs
+                if i.len() < len * 4 {
+                    return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+                }
+                let (i, fixed_length) = be_u8(i)?;
 
-            let (i, ints) = many_m_n(len, len, be_u32)(i)?;
+                let (i, ints) = many_m_n(len, len, be_u32)(i)?;
 
-            Ok((i, Value::VectorUInt(ints, fixed_length == 1)))
-        })
+                Ok((i, Value::VectorUInt(ints, fixed_length == 1)))
+            },
+        )
     }
 
     fn parse_element_vector_double<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
-        self.parse_reference_or_val(i, |_this, i, len| {
-            // There must be at least `len * 8` (f64 = 8 bytes) bytes to read this, this prevents OOM errors with v.large dicts
-            if i.len() < len * 8 {
-                return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
-            }
-            let (i, fixed_length) = be_u8(i)?;
+        self.parse_reference_or_val(
+            i,
+            |_| Value::VectorDouble(Vec::new(), false),
+            |_this, i, len, _| {
+                // There must be at least `len * 8` (f64 = 8 bytes) bytes to read this, this prevents OOM errors with v.large dicts
+                if i.len() < len * 8 {
+                    return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+                }
+                let (i, fixed_length) = be_u8(i)?;
 
-            let (i, numbers) = many_m_n(len, len, be_f64)(i)?;
+                let (i, numbers) = many_m_n(len, len, be_f64)(i)?;
 
-            Ok((i, Value::VectorDouble(numbers, fixed_length == 1)))
-        })
+                Ok((i, Value::VectorDouble(numbers, fixed_length == 1)))
+            },
+        )
     }
 
     fn parse_element_object_vector<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
-        self.parse_reference_or_val(i, |this, i, len| {
-            let (i, fixed_length) = be_u8(i)?;
+        self.parse_reference_or_val(
+            i,
+            |this| {
+                this.object_id += 1;
 
-            let (i, object_type_name) = this.parse_string(i)?;
+                Value::VectorObject(ObjectId(this.object_id), Vec::new(), "".to_string(), false)
+            },
+            |this, i, len, ofi| {
+                let (i, fixed_length) = be_u8(i)?;
 
-            let (i, elems) = many_m_n(len, len, |i| this.parse_single_element(i))(i)?;
+                let (i, object_type_name) = this.parse_string(i)?;
 
-            Ok((
-                i,
-                Value::VectorObject(elems, object_type_name, fixed_length == 1),
-            ))
-        })
+                let (i, elems) = many_m_n(len, len, |i| this.parse_single_element(i))(i)?;
+
+
+                let id = if let Value::VectorObject(id, _, _, _) =
+                    this.object_reference_table.get(ofi).unwrap().as_ref()
+                {
+                    id
+                } else {
+                    unreachable!()
+                };
+
+                Ok((
+                    i,
+                    Value::VectorObject(*id, elems, object_type_name, fixed_length == 1),
+                ))
+            },
+        )
     }
 
     fn parse_element_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
-        self.parse_reference_or_val(i, |this, i, length_usize| {
-            // There must be at least `length_usize` bytes to read this, this prevents OOM errors with v.large dicts
-            if i.len() < length_usize {
-                return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
-            }
+        self.parse_reference_or_val(
+            i,
+            |this| {
+                this.object_id += 1;
+                Value::ECMAArray(ObjectId(this.object_id), vec![], vec![], 0)
+            },
+            |this, i, length_usize, ofi| {
+                // There must be at least `length_usize` bytes to read this, this prevents OOM errors with v.large dicts
+                if i.len() < length_usize {
+                    return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+                }
 
-            let (i, mut key) = this.parse_byte_stream(i)?;
+                let (i, mut key) = this.parse_byte_stream(i)?;
 
-            if key.is_empty() {
-                let (i, elements) =
+                if key.is_empty() {
+                    let (i, elements) =
+                        many_m_n(length_usize, length_usize, |i| this.parse_single_element(i))(i)?;
+
+                    let id = if let Value::ECMAArray(id, _, _, _) =
+                        this.object_reference_table.get(ofi).unwrap().as_ref()
+                    {
+                        id
+                    } else {
+                        unreachable!("{:?}", this.object_reference_table.get(ofi))
+                    };
+
+                    return Ok((i, Value::StrictArray(*id, elements)));
+                }
+
+                let mut elements = Vec::with_capacity(length_usize);
+
+                let mut i = i;
+                while !key.is_empty() {
+                    let (j, e) = this.parse_single_element(i)?;
+                    let key_str = String::from_utf8(key)
+                        .map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?;
+
+                    elements.push(Element {
+                        name: key_str,
+                        value: e,
+                    });
+                    let (j, k) = this.parse_byte_stream(j)?;
+                    i = j;
+                    key = k;
+                }
+
+                // Must parse `length` elements
+                let (i, el) =
                     many_m_n(length_usize, length_usize, |i| this.parse_single_element(i))(i)?;
 
-                return Ok((i, Value::StrictArray(elements)));
-            }
+                let elements_len = elements.len() as u32;
 
-            let mut elements = Vec::with_capacity(length_usize);
+                let id = if let Value::ECMAArray(id, _, _, _) =
+                    this.object_reference_table.get(ofi).unwrap().as_ref()
+                {
+                    id
+                } else {
+                    unreachable!("{:?}", this.object_reference_table.get(ofi))
+                };
 
-            let mut i = i;
-            while !key.is_empty() {
-                let (j, e) = this.parse_single_element(i)?;
-                let key_str = String::from_utf8(key)
-                    .map_err(|_| Err::Error(make_error(i, ErrorKind::Alpha)))?;
-
-                elements.push(Element {
-                    name: key_str,
-                    value: e,
-                });
-                let (j, k) = this.parse_byte_stream(j)?;
-                i = j;
-                key = k;
-            }
-
-            // Must parse `length` elements
-            let (i, el) =
-                many_m_n(length_usize, length_usize, |i| this.parse_single_element(i))(i)?;
-
-            let elements_len = elements.len() as u32;
-            Ok((i, Value::ECMAArray(el, elements, elements_len)))
-        })
+                Ok((i, Value::ECMAArray(*id, el, elements, elements_len)))
+            },
+        )
     }
 
     fn parse_element_dict<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
-        self.parse_reference_or_val(i, |this, i, len| {
-            //TODO: implications of this
-            let (i, weak_keys) = be_u8(i)?;
+        self.parse_reference_or_val(
+            i,
+            |this| {
+                this.object_id += 1;
+                Value::Dictionary(ObjectId(this.object_id), Vec::new(), false)
+            },
+            |this, i, len, ofi| {
+                //TODO: implications of this
+                let (i, weak_keys) = be_u8(i)?;
 
-            // There must be at least `len * 2` bytes (due to (key,val) pairs) to read this, this prevents OOM errors with v.large dicts
-            if i.len() < len * 2 {
-                return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
-            }
+                // There must be at least `len * 2` bytes (due to (key,val) pairs) to read this, this prevents OOM errors with v.large dicts
+                if i.len() < len * 2 {
+                    return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
+                }
 
-            let (i, pairs) = many_m_n(len * 2, len * 2, |i| this.parse_single_element(i))(i)?;
+                let (i, pairs) = many_m_n(len * 2, len * 2, |i| this.parse_single_element(i))(i)?;
 
-            let pairs = pairs
-                .chunks_exact(2)
-                .map(|chunk| (chunk[0].clone(), chunk[1].clone()))
-                .collect::<Vec<_>>();
+                let pairs = pairs
+                    .chunks_exact(2)
+                    .map(|chunk| (chunk[0].clone(), chunk[1].clone()))
+                    .collect::<Vec<_>>();
 
-            Ok((i, Value::Dictionary(pairs, weak_keys == 1)))
-        })
+                let id = if let Value::Dictionary(id, _, _) =
+                    this.object_reference_table.get(ofi).unwrap().as_ref()
+                {
+                    id
+                } else {
+                    unreachable!()
+                };
+
+                Ok((i, Value::Dictionary(*id, pairs, weak_keys == 1)))
+            },
+        )
     }
 
     fn parse_element_date<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
-        self.parse_reference_or_val(i, |_this, i, _len| {
-            let (i, ms) = be_f64(i)?;
-            Ok((i, Value::Date(ms, None)))
-        })
+        self.parse_reference_or_val(
+            i,
+            |_| Value::Date(0., None),
+            |_this, i, _len, _| {
+                let (i, ms) = be_f64(i)?;
+                Ok((i, Value::Date(ms, None)))
+            },
+        )
     }
 
     fn parse_element_xml<'a>(&mut self, i: &'a [u8], string: bool) -> AMFResult<'a, Rc<Value>> {
-        self.parse_reference_or_val(i, |_this, i, len| {
-            let (i, data) = map_res(take(len as u32), std::str::from_utf8)(i)?;
-            Ok((i, Value::XML(data.into(), string)))
-        })
+        self.parse_reference_or_val(
+            i,
+            |_| Value::XML("".to_string(), false),
+            |_this, i, len, _| {
+                let (i, data) = map_res(take(len as u32), std::str::from_utf8)(i)?;
+                Ok((i, Value::XML(data.into(), string)))
+            },
+        )
     }
 
     fn read_type_marker<'a>(&self, i: &'a [u8]) -> AMFResult<'a, TypeMarker> {

@@ -1,1 +1,1 @@
-{"header":{"length":51,"name":"AS3-Array-Demo","format_version":"AMF3"},"body":[{"name":"myIntArray","value":{"StrictArray":[{"Integer":1},{"Integer":2},{"Integer":3}]}}]}
+{"header":{"length":51,"name":"AS3-Array-Demo","format_version":"AMF3"},"body":[{"name":"myIntArray","value":{"StrictArray":[1,[{"Integer":1},{"Integer":2},{"Integer":3}]]}}]}

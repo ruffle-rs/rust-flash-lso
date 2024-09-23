@@ -86,7 +86,14 @@ impl AMF0Decoder {
         let (i, array_length) = be_u32(i)?;
         map(
             |i| self.parse_array_element(i),
-            move |elms: Vec<Element>| Rc::new(Value::ECMAArray(Vec::new(), elms, array_length)),
+            move |elms: Vec<Element>| {
+                Rc::new(Value::ECMAArray(
+                    ObjectId::INVALID,
+                    Vec::new(),
+                    elms,
+                    array_length,
+                ))
+            },
         )(i)
     }
 
@@ -133,7 +140,7 @@ impl AMF0Decoder {
         let (i, elements) =
             many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
 
-        Ok((i, Rc::new(Value::StrictArray(elements))))
+        Ok((i, Rc::new(Value::StrictArray(ObjectId::INVALID, elements))))
     }
 
     fn parse_array_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {

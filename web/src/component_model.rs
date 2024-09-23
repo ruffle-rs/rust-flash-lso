@@ -291,14 +291,14 @@ impl Model {
                     </>
                 }
             }
-            Value::VectorObject(elements, name, fixed_length) => {
+            Value::VectorObject(id, elements, name, fixed_length) => {
                 let elements_clone_2 = elements.clone();
                 html! {
                     <>
-                    <StringInput onchange={ctx.link().callback(move |new_name| Msg::Edited(Value::VectorObject(elements.clone(), new_name, fixed_length)))} value={name.clone()}/>
+                    <StringInput onchange={ctx.link().callback(move |new_name| Msg::Edited(Value::VectorObject(id, elements.clone(), new_name, fixed_length)))} value={name.clone()}/>
                     <div class="custom-control custom-switch">
                       <input type={"checkbox"} class={"custom-control-input"} id={"customSwitch1"} checked={fixed_length} onclick={ctx.link().callback(move |_| {
-                        Msg::Edited(Value::VectorObject(elements_clone_2.clone(), name.clone(), !fixed_length))
+                        Msg::Edited(Value::VectorObject(id, elements_clone_2.clone(), name.clone(), !fixed_length))
                       })}/>
                       <label class={"custom-control-label"} for={"customSwitch1"}>{"Fixed Length"}</label>
                     </div>
@@ -690,8 +690,8 @@ impl Model {
                                     Value::Object(_, _, _) => "Object".to_string(),
                                     Value::Null => "Null".to_string(),
                                     Value::Undefined => "Undefined".to_string(),
-                                    Value::ECMAArray(_, _, _) => "ECMAArray".to_string(),
-                                    Value::StrictArray(_) => "StrictArray".to_string(),
+                                    Value::ECMAArray(_, _, _, _) => "ECMAArray".to_string(),
+                                    Value::StrictArray(_, _) => "StrictArray".to_string(),
                                     Value::Date(_, _) => "Date".to_string(),
                                     Value::Unsupported => "Unsupported".to_string(),
                                     Value::XML(_, _) => "XML".to_string(),
@@ -701,9 +701,9 @@ impl Model {
                                     Value::VectorInt(_, _) => "Vector<Int>".to_string(),
                                     Value::VectorUInt(_, _) => "Vector<UInt>".to_string(),
                                     Value::VectorDouble(_, _) => "Vector<Double>".to_string(),
-                                    Value::VectorObject(_, _, _) => "Vector<Object>".to_string(),
+                                    Value::VectorObject(_, _, _, _) => "Vector<Object>".to_string(),
                                     Value::Amf3ObjectReference(_) => "Reference".to_string(),
-                                    Value::Dictionary(_, _) => "Dictionary".to_string(),
+                                    Value::Dictionary(_, _, _) => "Dictionary".to_string(),
                                     Value::Custom(_, _, cd) => {
                                         if let Some(cd) = cd {
                                             format!("Custom<{}>", cd.name)

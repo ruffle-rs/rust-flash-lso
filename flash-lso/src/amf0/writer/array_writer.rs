@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::types::{Element, Reference, Value};
+use crate::types::{Element, ObjectId, Reference, Value};
 
 use super::{CacheKey, ObjWriter, ObjectWriter};
 
@@ -96,7 +96,7 @@ impl<'a, 'b> ArrayWriter<'a, 'b> {
     pub fn commit<T: AsRef<str>>(self, name: T, length: u32) {
         self.parent.add_element(
             name.as_ref(),
-            Value::ECMAArray(Vec::new(), self.elements, length),
+            Value::ECMAArray(ObjectId::INVALID, Vec::new(), self.elements, length),
             false,
         );
     }

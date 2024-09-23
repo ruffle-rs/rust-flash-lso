@@ -1,1 +1,1 @@
-{"header":{"length":56,"name":"Minimal","format_version":"AMF3"},"body":[{"name":"dictItem","value":{"Dictionary":[[],true]}},{"name":"exists","value":{"Bool":true}},{"name":"version","value":{"Integer":1}}]}
+{"header":{"length":56,"name":"Minimal","format_version":"AMF3"},"body":[{"name":"dictItem","value":{"Dictionary":[1,[],true]}},{"name":"exists","value":{"Bool":true}},{"name":"version","value":{"Integer":1}}]}

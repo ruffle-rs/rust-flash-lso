@@ -427,7 +427,11 @@ packet_test! {
 
 json_test_bytearray_object_amf3! {
     [json_learntofly3, "LearnToFly3.profileData.saveString"],
-    [self_referential_object, "self-referential-object"]
+    [self_referential_object, "self-referential-object"],
+    [self_referential_vec_object, "self-referential-vec-object"],
+    [self_referential_dict, "self-referential-dict"],
+    [self_referential_array, "self-referential-array"],
+    [object_with_vec_obj_child_referencing_parent, "object-with-vec-obj-child-referencing-parent"]
 }
 
 // Samples that can be parsed but not written
