@@ -178,11 +178,11 @@ pub(crate) fn write_value<'a, 'b: 'a, W: Write + 'a>(
         }
         Value::Null => write_null_element(writer),
         Value::Undefined => write_undefined_element(writer),
-        Value::StrictArray(a) => write_strict_array_element(writer, a.as_slice()),
+        Value::StrictArray(_id, a) => write_strict_array_element(writer, a.as_slice()),
         Value::Date(d, tz) => write_date_element(writer, *d, *tz),
         Value::Unsupported => write_unsupported_element(writer),
         Value::XML(x, _string) => write_xml_element(writer, x),
-        Value::ECMAArray(dense, elems, elems_length) => {
+        Value::ECMAArray(_id, dense, elems, elems_length) => {
             write_mixed_array(writer, dense, elems, *elems_length)
         }
         #[cfg(feature = "amf3")]

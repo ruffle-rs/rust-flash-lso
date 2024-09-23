@@ -43,7 +43,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "regen" => {
             for f in std::fs::read_dir(file_name)? {
                 let f = f?;
-                if f.file_type()?.is_file() && f.file_name().to_string_lossy().ends_with(".sol") {
+
+                if !f.file_type()?.is_file() {
+                    continue;
+                }
+                let name = f.file_name().to_string_lossy().to_string();
+
+                if name.ends_with(".sol") {
                     let data = std::fs::read(f.path())?;
 
                     let out = f
@@ -61,6 +67,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                         Err(e) => {
                             eprintln!("Couldn't read lso file, maybe open a issue on github at https://github.com/CUB3D/rust-flash-lso");
+                            eprintln!("Error = {:?}", e);
+                        }
+                    };
+                } else if name.ends_with(".amf") {
+                    let data = std::fs::read(f.path())?;
+
+                    let out = f
+                        .path()
+                        .parent()
+                        .unwrap()
+                        .join(f.file_name().to_string_lossy().replace(".amf", ".json"));
+
+                    match AMF3Decoder::default().parse_single_element(&data) {
+                        Ok((_, amf)) => {
+                            let json =
+                                serde_json::to_string(&amf).expect("Unable to encode amf as json");
+                            std::fs::write(out, json).expect("Unable to write file");
+                        }
+                        Err(e) => {
+                            eprintln!("Couldn't read amf file, maybe open a issue on github at https://github.com/CUB3D/rust-flash-lso");
                             eprintln!("Error = {:?}", e);
                         }
                     };

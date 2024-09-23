@@ -27,6 +27,10 @@ pub enum Error<'a> {
     #[error("Packet has too many headers or messages")]
     PacketTooLarge,
 
+    /// Unable to find an object in the reference table
+    #[error("Object not in reference table")]
+    ObjectMissingFromReferenceTable(u64),
+
     /// An unknown IO error occured
     #[error("IO error: {0}")]
     IoError(String, std::io::ErrorKind),

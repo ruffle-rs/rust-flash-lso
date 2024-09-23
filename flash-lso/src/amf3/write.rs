@@ -1,4 +1,5 @@
 //! Handles encoding AMF3
+
 use crate::amf3::custom_encoder::CustomEncoder;
 use crate::amf3::element_cache::ElementCache;
 use crate::amf3::length::Length;
@@ -28,7 +29,7 @@ pub struct AMF3Encoder {
     /// Encoders used for handling externalized types
     pub external_encoders: HashMap<String, Box<dyn CustomEncoder>>,
 
-    object_id_to_reference: RefCell<BTreeMap<ObjectId, usize>>,
+    object_id_to_reference: RefCell<BTreeMap<ObjectId, (TypeMarker, usize)>>,
 }
 
 impl AMF3Encoder {
@@ -434,7 +435,9 @@ impl AMF3Encoder {
         let obj = Value::Object(id, children.to_vec(), class_def.clone());
         self.object_reference_table.store(obj.clone());
         if let Length::Reference(r) = self.object_reference_table.to_length(obj, 0) {
-            self.object_id_to_reference.borrow_mut().insert(id, r);
+            self.object_id_to_reference
+                .borrow_mut()
+                .insert(id, (TypeMarker::Object, r));
         }
 
         let def = class_def.clone().unwrap_or_default();
@@ -522,14 +525,22 @@ impl AMF3Encoder {
     fn write_object_vector_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
         writer: &mut W,
+        id: ObjectId,
         items: &'b [Rc<Value>],
         type_name: &'b str,
         fixed_length: bool,
     ) -> Result<()> {
+        let vo = Value::VectorObject(id, items.to_vec(), type_name.to_string(), fixed_length);
         let len = self.object_reference_table.to_length(
-            Value::VectorObject(items.to_vec(), type_name.to_string(), fixed_length),
+            Value::VectorObject(id, items.to_vec(), type_name.to_string(), fixed_length),
             items.len() as u32,
         );
+        self.object_reference_table.store(vo.clone());
+        if let Length::Reference(r) = self.object_reference_table.to_length(vo, 0) {
+            self.object_id_to_reference
+                .borrow_mut()
+                .insert(id, (TypeMarker::VectorObject, r));
+        }
 
         self.write_type_marker(writer, TypeMarker::VectorObject)?;
         len.write(writer, self)?;
@@ -546,15 +557,21 @@ impl AMF3Encoder {
     fn write_dictionary_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
         writer: &mut W,
+        id: ObjectId,
         items: &'b [(Rc<Value>, Rc<Value>)],
         weak_keys: bool,
     ) -> Result<()> {
-        let len = self.object_reference_table.to_length(
-            Value::Dictionary(items.to_vec(), weak_keys),
-            items.len() as u32,
-        );
-        self.object_reference_table
-            .store(Value::Dictionary(items.to_vec(), weak_keys));
+        let dict = Value::Dictionary(id, items.to_vec(), weak_keys);
+
+        let len = self
+            .object_reference_table
+            .to_length(dict.clone(), items.len() as u32);
+        self.object_reference_table.store(dict.clone());
+        if let Length::Reference(r) = self.object_reference_table.to_length(dict, 0) {
+            self.object_id_to_reference
+                .borrow_mut()
+                .insert(id, (TypeMarker::Dictionary, r));
+        }
 
         self.write_type_marker(writer, TypeMarker::Dictionary)?;
         len.write(writer, self)?;
@@ -590,10 +607,26 @@ impl AMF3Encoder {
             }
             Value::Null => self.write_null_element(writer),
             Value::Undefined => self.write_undefined_element(writer),
-            Value::ECMAArray(dense, elements, _) => {
+            Value::ECMAArray(id, dense, elements, _) => {
+                self.object_reference_table.store(s.clone());
+                if let Length::Reference(r) = self.object_reference_table.to_length(s.clone(), 0) {
+                    self.object_id_to_reference
+                        .borrow_mut()
+                        .insert(*id, (TypeMarker::Array, r));
+                }
+
                 self.write_ecma_array_element(writer, dense, elements)
             }
-            Value::StrictArray(children) => self.write_strict_array_element(writer, children),
+            Value::StrictArray(id, children) => {
+                self.object_reference_table.store(s.clone());
+                if let Length::Reference(r) = self.object_reference_table.to_length(s.clone(), 0) {
+                    self.object_id_to_reference
+                        .borrow_mut()
+                        .insert(*id, (TypeMarker::Array, r));
+                }
+
+                self.write_strict_array_element(writer, children)
+            }
             Value::Date(time, _tz) => self.write_date_element(writer, *time),
             Value::XML(content, string) => self.write_xml_element(writer, content, *string),
             Value::Integer(i) => self.write_integer_element(writer, *i),
@@ -607,11 +640,11 @@ impl AMF3Encoder {
             Value::VectorDouble(items, fixed_length) => {
                 self.write_number_vector(writer, items, *fixed_length)
             }
-            Value::VectorObject(items, type_name, fixed_length) => {
-                self.write_object_vector_element(writer, items, type_name, *fixed_length)
+            Value::VectorObject(id, items, type_name, fixed_length) => {
+                self.write_object_vector_element(writer, *id, items, type_name, *fixed_length)
             }
-            Value::Dictionary(kv, weak_keys) => {
-                self.write_dictionary_element(writer, kv, *weak_keys)
+            Value::Dictionary(id, kv, weak_keys) => {
+                self.write_dictionary_element(writer, *id, kv, *weak_keys)
             }
 
             Value::Custom(elements, dynamic_elements, def) => self.write_object_element(
@@ -625,12 +658,12 @@ impl AMF3Encoder {
             Value::Unsupported => self.write_undefined_element(writer),
             Value::Reference(_) => unimplemented!(),
             Value::Amf3ObjectReference(id) => {
-                let r = *self
+                let (ty, r) = *self
                     .object_id_to_reference
                     .borrow()
                     .get(id)
                     .expect("Invalid reference");
-                self.write_type_marker(writer, TypeMarker::Object)?;
+                self.write_type_marker(writer, ty)?;
                 self.write_object_reference(writer, r as u32)
             }
         }

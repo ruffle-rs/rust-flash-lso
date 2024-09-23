@@ -1,1 +1,1 @@
-{"header":{"length":87,"name":"AS2-Array-Demo","format_version":"AMF0"},"body":[{"name":"myIntArray","value":{"ECMAArray":[[],[{"name":"0","value":{"Number":1.0}},{"name":"1","value":{"Number":2.0}},{"name":"2","value":{"Number":3.0}}],3]}}]}
+{"header":{"length":87,"name":"AS2-Array-Demo","format_version":"AMF0"},"body":[{"name":"myIntArray","value":{"ECMAArray":[-1,[],[{"name":"0","value":{"Number":1.0}},{"name":"1","value":{"Number":2.0}},{"name":"2","value":{"Number":3.0}}],3]}}]}

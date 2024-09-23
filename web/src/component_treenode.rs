@@ -165,18 +165,18 @@ impl TreeNode {
         // Visible if no filter or if we are included in filter, also we must be visible if we have visible children
         let has_visible_children = match &ctx.props().value {
             Value::Object(_, ele, _) => ele.iter().any(|e| e.name.contains(&ctx.props().filter)),
-            Value::ECMAArray(e1, e2, _) => {
+            Value::ECMAArray(_id, e1, e2, _) => {
                 e2.iter().any(|e| e.name.contains(&ctx.props().filter))
                     || e1
                         .iter()
                         .enumerate()
                         .any(|(i, _e)| format!("{}", i).contains(&ctx.props().filter))
             }
-            Value::StrictArray(e1) => e1
+            Value::StrictArray(_id, e1) => e1
                 .iter()
                 .enumerate()
                 .any(|(i, _e)| format!("{}", i).contains(&ctx.props().filter)),
-            Value::VectorObject(e1, _, _) => e1
+            Value::VectorObject(_, e1, _, _) => e1
                 .iter()
                 .enumerate()
                 .any(|(i, _e)| format!("{}", i).contains(&ctx.props().filter)),
@@ -205,11 +205,11 @@ impl TreeNode {
         matches!(
             data,
             Value::Object(_, _, _)
-                | Value::StrictArray(_)
-                | Value::ECMAArray(_, _, _)
-                | Value::VectorObject(_, _, _)
+                | Value::StrictArray(_, _)
+                | Value::ECMAArray(_, _, _, _)
+                | Value::VectorObject(_, _, _, _)
                 | Value::AMF3(_)
-                | Value::Dictionary(_, _)
+                | Value::Dictionary(_, _, _)
                 | Value::Custom(_, _, _)
         )
     }
@@ -232,12 +232,12 @@ impl TreeNode {
                     })}
                 </ul>
             },
-            Value::StrictArray(x) => html! {
+            Value::StrictArray(_id, x) => html! {
                 <ul>
                     { for x.iter().enumerate().map(|(i, v)| self.view_array_element(ctx, i, v))}
                 </ul>
             },
-            Value::ECMAArray(dense, assoc, _size) => html! {
+            Value::ECMAArray(_id, dense, assoc, _size) => html! {
                     <ul>
                        { for dense.iter().enumerate().map(|(i, v)| self.view_array_element(ctx, i, v))}
                         { for assoc.iter().map(|e| html! {
@@ -245,12 +245,12 @@ impl TreeNode {
                         })}
                     </ul>
             },
-            Value::VectorObject(children, _name, _fixed_len) => html! {
+            Value::VectorObject(_id, children, _name, _fixed_len) => html! {
                 <ul>
                    { for children.iter().enumerate().map(|(i, v)| self.view_array_element(ctx, i, v))}
                 </ul>
             },
-            Value::Dictionary(children, _) => html! {
+            Value::Dictionary(_id, children, _) => html! {
                 <ul>
                     { for children.iter().map(|(k, v)| html! {
                             <>
