@@ -558,7 +558,10 @@ impl AMF3Decoder {
                 {
                     id
                 } else {
-                    unreachable!()
+                    unreachable!(
+                        "Element in reference table has changed type to {:?}",
+                        this.object_reference_table.get(ofi)
+                    )
                 };
 
                 Ok((
@@ -593,7 +596,10 @@ impl AMF3Decoder {
                     {
                         id
                     } else {
-                        unreachable!("{:?}", this.object_reference_table.get(ofi))
+                        unreachable!(
+                            "Element in reference table has changed type to {:?}",
+                            this.object_reference_table.get(ofi)
+                        )
                     };
 
                     return Ok((i, Value::StrictArray(*id, elements)));
@@ -627,7 +633,10 @@ impl AMF3Decoder {
                 {
                     id
                 } else {
-                    unreachable!("{:?}", this.object_reference_table.get(ofi))
+                    unreachable!(
+                        "Element in reference table has changed type to {:?}",
+                        this.object_reference_table.get(ofi)
+                    )
                 };
 
                 Ok((i, Value::ECMAArray(*id, el, elements, elements_len)))
@@ -663,7 +672,10 @@ impl AMF3Decoder {
                 {
                     id
                 } else {
-                    unreachable!()
+                    unreachable!(
+                        "Element in reference table has changed type to {:?}",
+                        this.object_reference_table.get(ofi)
+                    )
                 };
 
                 Ok((i, Value::Dictionary(*id, pairs, weak_keys == 1)))
