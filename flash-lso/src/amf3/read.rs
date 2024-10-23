@@ -2,6 +2,7 @@ use crate::amf3::custom_encoder::ExternalDecoderFn;
 use crate::amf3::type_marker::TypeMarker;
 
 use crate::amf3::length::Length;
+use crate::errors::Error as AmfError;
 use crate::nom_utils::AMFResult;
 use crate::types::*;
 use crate::types::{Element, Value};
@@ -418,7 +419,9 @@ impl AMF3Decoder {
                     )),
                 ))
             } else {
-                Err(Err::Error(make_error(i, ErrorKind::Tag)))
+                Err(Err::Error(AmfError::NoExternalDecoder(
+                    class_def.name.clone(),
+                )))
             };
         }
 

@@ -19,6 +19,11 @@ pub enum Error<'a> {
     #[error("Unsupported tag")]
     UnsupportedType(u8),
 
+    /// An AMF3 object requires an external decoder with the given name, but no such decoder
+    /// was found
+    #[error("Object requires the external decoder for \"{0}\" to be registered")]
+    NoExternalDecoder(String),
+
     /// A nom internal error
     #[error("Nom internal error")]
     Nom(&'a [u8], ErrorKind),

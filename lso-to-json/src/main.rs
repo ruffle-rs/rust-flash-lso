@@ -3,8 +3,9 @@
 
 #![deny(missing_docs, clippy::missing_docs_in_private_items)]
 
-use clap::{Arg, Command};
+use clap::{Arg, ArgAction, Command};
 use flash_lso::amf3::read::AMF3Decoder;
+use flash_lso::errors::Error;
 use flash_lso::extra::*;
 use flash_lso::read::Reader;
 use flash_lso::types::Lso;
@@ -17,7 +18,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .version("1.0")
         .author("CUB3D <callumthom11@gmail.com>")
         .subcommand(Command::new("file").arg(Arg::new("INPUT").help("").required(true)))
-        .subcommand(Command::new("object-amf3").arg(Arg::new("INPUT").help("").required(true)))
+        .subcommand(
+            Command::new("object-amf3")
+                .arg(
+                    Arg::new("single")
+                        .long("single")
+                        .help("Parse a single value")
+                        .required(false)
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(Arg::new("INPUT").help("").required(true)),
+        )
         .subcommand(Command::new("regen").arg(Arg::new("INPUT").help("").required(true)))
         .subcommand_required(true)
         .get_matches();
@@ -94,12 +105,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         "object-amf3" => {
+            let single = args.get_flag("single");
+
             let data = std::fs::read(PathBuf::from(file_name))?;
-            let (_, obj) = AMF3Decoder::default()
-                .parse_single_element(&data)
-                .expect("Failed to parse object");
-            let json = serde_json::to_string(&obj).expect("Unable to encode lso as json");
-            println!("{}", json);
+            let mut dec = AMF3Decoder::default();
+            let mut data = &data[..];
+
+            loop {
+                let (rest, obj) = match dec.parse_single_element(data) {
+                    Ok(x) => x,
+                    Err(nom::Err::Error(e)) => {
+                        match e {
+                            Error::Nom(_, v) => {
+                                panic!("Failed to parse:\n{v:?}");
+                            }
+                            _ => {
+                                panic!("Failed to read element: {e}");
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        panic!("{e:?}");
+                    }
+                };
+                data = rest;
+                let json = serde_json::to_string(&obj).expect("Unable to encode lso as json");
+                println!("{}", json);
+
+                if single {
+                    break;
+                }
+            }
         }
         _ => {
             println!("Unknown command");
