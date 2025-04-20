@@ -4,58 +4,58 @@
 #[repr(u8)]
 pub(crate) enum TypeMarker {
     /// Number
-    Number = 0,
+    Number = 0x00,
 
     /// Boolean
-    Boolean = 1,
+    Boolean = 0x01,
 
     /// String
-    String = 2,
+    String = 0x02,
 
     /// Object start
-    Object = 3,
+    Object = 0x03,
 
     /// MovieClip (unused)
-    MovieClip = 4,
+    MovieClip = 0x04,
 
     /// Null
-    Null = 5,
+    Null = 0x05,
 
     /// Undefined
-    Undefined = 6,
+    Undefined = 0x06,
 
-    /// Reference (unused)
-    Reference = 7,
+    /// Reference
+    Reference = 0x07,
 
-    /// Start of a mixed array
-    MixedArrayStart = 8,
+    /// Start of an ECMA array
+    ECMAArray = 0x08,
 
     /// Object end
-    ObjectEnd = 9,
+    ObjectEnd = 0x09,
 
-    /// Array start
-    Array = 10,
+    /// Strict array start
+    StrictArray = 0x0A,
 
     /// Date with timezone
-    Date = 11,
+    Date = 0x0B,
 
     /// Long string (length > 65535)
-    LongString = 12,
+    LongString = 0x0C,
 
     /// Unsupported
-    Unsupported = 13,
+    Unsupported = 0x0D,
 
-    /// Recordset
-    RecordSet = 14,
+    /// Recordset (unused)
+    RecordSet = 0x0E,
 
     /// XML
-    Xml = 15,
+    Xml = 0x0F,
 
     /// Typed object start
-    TypedObject = 16,
+    TypedObject = 0x10,
 
     /// Embedded AMF3 element
-    AMF3 = 17,
+    AMF3 = 0x11,
 }
 
 impl TryFrom<u8> for TypeMarker {
@@ -71,9 +71,9 @@ impl TryFrom<u8> for TypeMarker {
             5 => Ok(Self::Null),
             6 => Ok(Self::Undefined),
             7 => Ok(Self::Reference),
-            8 => Ok(Self::MixedArrayStart),
+            8 => Ok(Self::ECMAArray),
             9 => Ok(Self::ObjectEnd),
-            10 => Ok(Self::Array),
+            10 => Ok(Self::StrictArray),
             11 => Ok(Self::Date),
             12 => Ok(Self::LongString),
             13 => Ok(Self::Unsupported),

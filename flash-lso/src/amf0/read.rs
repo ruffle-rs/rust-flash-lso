@@ -82,7 +82,7 @@ impl AMF0Decoder {
         Ok((i, Rc::new(Value::Reference(Reference(reference_index)))))
     }
 
-    fn parse_element_mixed_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
+    fn parse_element_ecma_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         let (i, array_length) = be_u32(i)?;
         map(
             |i| self.parse_array_element(i),
@@ -120,11 +120,11 @@ impl AMF0Decoder {
     #[cfg(fuzzing)]
     /// For fuzzing
     pub fn fuzz_parse_element_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
-        self.parse_element_array(i)
+        self.parse_element_strict_array(i)
     }
 
     /// Parse an array of elements
-    fn parse_element_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
+    fn parse_element_strict_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
         let (i, length) = be_u32(i)?;
 
         let length_usize = length
@@ -199,13 +199,13 @@ impl AMF0Decoder {
                 let (i, v) = self.parse_element_reference(i)?;
                 Ok((i, v))
             }
-            TypeMarker::MixedArrayStart => {
-                let (i, v) = self.parse_element_mixed_array(i)?;
+            TypeMarker::ECMAArray => {
+                let (i, v) = self.parse_element_ecma_array(i)?;
                 self.cache[cache_idx] = Rc::clone(&v);
                 Ok((i, v))
             }
-            TypeMarker::Array => {
-                let (i, v) = self.parse_element_array(i)?;
+            TypeMarker::StrictArray => {
+                let (i, v) = self.parse_element_strict_array(i)?;
                 self.cache[cache_idx] = Rc::clone(&v);
                 Ok((i, v))
             }
