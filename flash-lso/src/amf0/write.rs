@@ -75,7 +75,7 @@ fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(
     writer: &mut W,
     elements: &'b [Rc<Value>],
 ) -> Result<()> {
-    write_type_marker(writer, TypeMarker::Array)?;
+    write_type_marker(writer, TypeMarker::StrictArray)?;
     writer.write_u32(elements.len() as u32)?;
     for element in elements {
         write_value(writer, element)?;
@@ -133,7 +133,7 @@ fn write_dense_element<'a, 'b: 'a, W: Write + 'a>(
     Ok(())
 }
 
-fn write_mixed_array<'a, 'b: 'a, W: Write + 'a>(
+fn write_ecma_array<'a, 'b: 'a, W: Write + 'a>(
     writer: &mut W,
     dense: &'b [Rc<Value>],
     elements: &'b [Element],
@@ -142,7 +142,7 @@ fn write_mixed_array<'a, 'b: 'a, W: Write + 'a>(
     //TODO: what is the u16 padding
     //TODO: sometimes array length is ignored (u32) sometimes its: elements.len() as u32
 
-    write_type_marker(writer, TypeMarker::MixedArrayStart)?;
+    write_type_marker(writer, TypeMarker::ECMAArray)?;
     writer.write_u32(length)?;
     for (idx, value) in dense.iter().enumerate() {
         write_dense_element(writer, idx, value)?
@@ -183,7 +183,7 @@ pub(crate) fn write_value<'a, 'b: 'a, W: Write + 'a>(
         Value::Unsupported => write_unsupported_element(writer),
         Value::XML(x, _string) => write_xml_element(writer, x),
         Value::ECMAArray(_id, dense, elems, elems_length) => {
-            write_mixed_array(writer, dense, elems, *elems_length)
+            write_ecma_array(writer, dense, elems, *elems_length)
         }
         #[cfg(feature = "amf3")]
         Value::AMF3(e) => {
