@@ -17,7 +17,7 @@ use std::ops::Deref;
 pub struct PrettyArray<'a>(pub &'a Vec<u8>);
 
 /// Make diff to display string as single-line string
-impl<'a> fmt::Debug for PrettyArray<'a> {
+impl fmt::Debug for PrettyArray<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(&format!("{:?}", self.0))
     }
