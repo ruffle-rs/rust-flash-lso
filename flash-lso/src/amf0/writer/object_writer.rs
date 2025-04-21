@@ -13,7 +13,7 @@ pub struct ObjectWriter<'a, 'b> {
     pub(crate) parent: &'a mut dyn ObjWriter<'b>,
 }
 
-impl<'a, 'b> ObjWriter<'a> for ObjectWriter<'a, 'b> {
+impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
     fn add_element(&mut self, name: &str, s: Value, inc_ref: bool) {
         if inc_ref {
             self.parent.make_reference();
@@ -89,7 +89,7 @@ impl<'a, 'b> ObjWriter<'a> for ObjectWriter<'a, 'b> {
     }
 }
 
-impl<'a, 'b> ObjectWriter<'a, 'b> {
+impl ObjectWriter<'_, '_> {
     /// Finalize this object, adding it to it's parent
     /// If this is not called, the object will not be added
     pub fn commit<T: AsRef<str>>(self, name: T) {

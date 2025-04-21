@@ -3,7 +3,6 @@ use thiserror::Error;
 
 // Allow the Nom variant to be large
 #[allow(variant_size_differences)]
-
 /// Enum for representing decoding errors
 #[derive(Error, Debug, Clone, Eq, PartialEq)]
 pub enum Error<'a> {

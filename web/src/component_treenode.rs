@@ -198,7 +198,7 @@ impl TreeNode {
 
     pub fn selected(&self, ctx: &Context<Self>) -> bool {
         let selected_path = ctx.props().selection.clone().map(|s| s.path);
-        selected_path.map_or(false, |tnp| tnp.contains(self.path(ctx)))
+        selected_path.is_some_and(|tnp| tnp.contains(self.path(ctx)))
     }
 
     pub fn has_children(data: &Value) -> bool {
