@@ -21,7 +21,7 @@ serde = { version = "1.0.210", optional = true, features = ["derive", "rc"] }
 [dev-dependencies]
 pretty_assertions = "1.4.0"
 serde_json = "1.0.128"
-criterion = "0.5.1"
+criterion = "0.6.0"
 
 [[bench]]
 name = "benchmarks"
