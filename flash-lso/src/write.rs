@@ -2,12 +2,12 @@
 use std::io::Write;
 
 #[cfg(feature = "amf3")]
+use crate::FORMAT_VERSION_AMF3;
+#[cfg(feature = "amf3")]
 use crate::amf3::write::AMF3Encoder;
 use crate::errors::Error;
 use crate::nom_utils::write_string;
 use crate::types::{AMFVersion, Header, Lso};
-#[cfg(feature = "amf3")]
-use crate::FORMAT_VERSION_AMF3;
 use crate::{FORMAT_VERSION_AMF0, HEADER_SIGNATURE, HEADER_VERSION, PADDING};
 
 /// Handles writing a given LSO

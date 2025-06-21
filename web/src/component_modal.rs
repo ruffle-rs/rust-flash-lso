@@ -26,7 +26,7 @@ impl Component for ModalContainer {
         match msg {
             //TODO: should this be passed to host as well, to be able to remove dismissed messages
             Msg::Close(index) => {
-                let id = format!("#modal-{}", index);
+                let id = format!("#modal-{index}");
                 jquery(&id).modal(&JsValue::from("hide"));
                 ctx.props().onclose.emit(index);
             }
@@ -38,7 +38,7 @@ impl Component for ModalContainer {
         html! {
              <>
              { for ctx.props().children.iter().enumerate().map(|(i, modal)| {
-                 *modal.props.id.borrow_mut() = format!("modal-{}", i);
+                 *modal.props.id.borrow_mut() = format!("modal-{i}");
                  *modal.props.onclosed.borrow_mut() = Some(ctx.link().callback(move |_| {
                      Msg::Close(i)
                  }));
@@ -55,7 +55,7 @@ impl Component for ModalContainer {
             .children
             .iter()
             .enumerate()
-            .map(|(i, _)| format!("#modal-{}", i));
+            .map(|(i, _)| format!("#modal-{i}"));
 
         for id in ids {
             let o: js_sys::Object = js_sys::Object::new();

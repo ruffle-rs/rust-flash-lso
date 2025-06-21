@@ -2,7 +2,7 @@
 name = "web"
 version = "0.1.0"
 authors = ["CUB3D <callumthom11@gmail.com>"]
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,12 +10,11 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-yew = { version = "0.20.0", features = ["csr"] }
-yewtil = "0.4.0"
-web-sys = "0.3.59"
-wasm-bindgen = "0.2.81"
-js-sys = "0.3.58"
-log = "0.4.17"
-wasm-logger = "0.2.0"
+yew = { version = "=0.21.0", features = ["csr"] }
+web-sys = "=0.3.77"
+wasm-bindgen = "=0.2.100"
+js-sys = "=0.3.77"
+log = "=0.4.27"
+wasm-logger = "=0.2.0"
 flash-lso = { path = "../flash-lso", features = ["serde", "flex"] }
-gloo-file = "0.3.0"
+gloo-file = "=0.3.0"

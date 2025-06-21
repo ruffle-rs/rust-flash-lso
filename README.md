@@ -23,12 +23,7 @@ fn main() {
     let d = Reader::default().parse_full(&data).expect("Failed to parse lso file");
     println!("{:#?}", d);
 }
-``` 
-
-## Development / Testing
-To aid with development, there is a sub-project: reader, which can parse either a single file or all files in a directory and will report on which files succeeded and failed to parse
-
-In future this will be used to verify and compare the output with the official implementation
+```
 
 ## Fuzzing
 This project makes use of cargo-fuzz to ensure correct handling of invalid data
@@ -39,6 +34,7 @@ cargo +nightly fuzz run --release fuzz_amf3_body
 ## Web
 building:
 ```
+cd web/
 wasm-pack build --out-name web --out-dir ./static --target web --release
 miniserve ./static --index index.html
 ```

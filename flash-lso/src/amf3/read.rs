@@ -1,19 +1,19 @@
 use crate::amf3::custom_encoder::ExternalDecoderFn;
 use crate::amf3::type_marker::TypeMarker;
 
+use crate::PADDING;
 use crate::amf3::length::Length;
 use crate::nom_utils::AMFResult;
 use crate::types::*;
 use crate::types::{Element, Value};
-use crate::PADDING;
 use enumset::EnumSet;
+use nom::Err;
 use nom::bytes::complete::{tag, take};
 use nom::combinator::{map, map_res};
-use nom::error::{make_error, ErrorKind};
+use nom::error::{ErrorKind, make_error};
 use nom::lib::std::collections::HashMap;
 use nom::multi::{many_m_n, separated_list0};
-use nom::number::complete::{be_f64, be_i32, be_u32, be_u8};
-use nom::Err;
+use nom::number::complete::{be_f64, be_i32, be_u8, be_u32};
 
 use std::convert::{TryFrom, TryInto};
 use std::ops::DerefMut;
@@ -393,7 +393,7 @@ impl AMF3Decoder {
                     .expect("Index invalid"),
             )
             .expect("Unable to get Object");
-            if let Value::Object(_, _, ref mut def) = mut_obj {
+            if let Value::Object(_, _, ref mut def) = *mut_obj {
                 *def = Some(class_def.clone());
             }
         }
@@ -457,7 +457,7 @@ impl AMF3Decoder {
                     .expect("Index invalid"),
             )
             .expect("Unable to get Object");
-            if let Value::Object(_, ref mut elements_inner, _) = mut_obj {
+            if let Value::Object(_, ref mut elements_inner, _) = *mut_obj {
                 *elements_inner = elements;
             }
         }

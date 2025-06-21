@@ -192,7 +192,7 @@ fn write_abstract_message<'a, 'b: 'a, W: Write + 'a>(
         for n in 2..7 {
             if let Some(v) = elements
                 .iter()
-                .find(|e| e.name == format!("children_{}", n))
+                .find(|e| e.name == format!("children_{n}"))
                 .map(|e| e.value.clone())
             {
                 flag |= 0b1 << n;
@@ -286,7 +286,7 @@ fn write_async_message<'a, 'b: 'a, W: Write + 'a>(
         for n in 2..7 {
             if let Some(v) = elements
                 .iter()
-                .find(|e| e.name == format!("children_async_{}", n))
+                .find(|e| e.name == format!("children_async_{n}"))
                 .map(|e| e.value.clone())
             {
                 flag |= 0b1 << n;
@@ -430,7 +430,7 @@ fn write_command_message<'a, 'b: 'a, W: Write + 'a>(
         for n in 1..7 {
             if let Some(v) = elements
                 .iter()
-                .find(|e| e.name == format!("children_command_{}", n))
+                .find(|e| e.name == format!("children_command_{n}"))
                 .map(|e| e.value.clone())
             {
                 flag |= 0b1 << n;

@@ -122,7 +122,7 @@ fn parse_abstract_message<'a>(i: &'a [u8], amf3: &mut AMF3Decoder) -> AMFResult<
                 if (flags >> j) != 0 {
                     let (jj, value) = amf3.parse_single_element(k)?;
                     elements.push(Element {
-                        name: format!("children_{}", j),
+                        name: format!("children_{j}"),
                         value,
                     });
                     k = jj;
@@ -169,7 +169,7 @@ fn parse_async_message<'a>(i: &'a [u8], amf3: &mut AMF3Decoder) -> AMFResult<'a,
                 if (flags >> j) & 1 != 0u8 {
                     let (jj, value) = amf3.parse_single_element(k)?;
                     elements.push(Element {
-                        name: format!("children_async_{}", j),
+                        name: format!("children_async_{j}"),
                         value,
                     });
                     k = jj;
@@ -198,7 +198,7 @@ fn parse_acknowledge_message<'a>(
                 if (flags >> j) & 1 != 0 {
                     let (jj, value) = amf3.parse_single_element(k)?;
                     elements.push(Element {
-                        name: format!("children_acknowledge_{}", j),
+                        name: format!("children_acknowledge_{j}"),
                         value,
                     });
                     k = jj;
@@ -238,7 +238,7 @@ fn parse_command_message<'a>(i: &'a [u8], amf3: &mut AMF3Decoder) -> AMFResult<'
                 if (flags >> j) & 1 != 0 {
                     let (jj, value) = amf3.parse_single_element(k)?;
                     elements.push(Element {
-                        name: format!("children_command_{}", j),
+                        name: format!("children_command_{j}"),
                         value,
                     });
                     k = jj;

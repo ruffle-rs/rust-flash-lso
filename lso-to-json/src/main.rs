@@ -35,7 +35,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("{}", json);
                 }
                 Err(e) => {
-                    eprintln!("Couldn't read lso file, maybe open a issue on github at https://github.com/CUB3D/rust-flash-lso");
+                    eprintln!(
+                        "Couldn't read lso file, maybe open a issue on github at https://github.com/CUB3D/rust-flash-lso"
+                    );
                     eprintln!("Error = {:?}", e);
                 }
             };
@@ -66,7 +68,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 .expect("Unable to write file");
                         }
                         Err(e) => {
-                            eprintln!("Couldn't read lso file, maybe open a issue on github at https://github.com/CUB3D/rust-flash-lso");
+                            eprintln!(
+                                "Couldn't read lso file, maybe open a issue on github at https://github.com/CUB3D/rust-flash-lso"
+                            );
                             eprintln!("Error = {:?}", e);
                         }
                     };
@@ -86,7 +90,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             std::fs::write(out, json).expect("Unable to write file");
                         }
                         Err(e) => {
-                            eprintln!("Couldn't read amf file, maybe open a issue on github at https://github.com/CUB3D/rust-flash-lso");
+                            eprintln!(
+                                "Couldn't read amf file, maybe open a issue on github at https://github.com/CUB3D/rust-flash-lso"
+                            );
                             eprintln!("Error = {:?}", e);
                         }
                     };
@@ -99,6 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .parse_single_element(&data)
                 .expect("Failed to parse object");
             let json = serde_json::to_string(&obj).expect("Unable to encode lso as json");
+
             println!("{}", json);
         }
         _ => {

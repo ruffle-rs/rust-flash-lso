@@ -1,17 +1,17 @@
 //! Support for decoding AMF0 data
 use crate::amf0::type_marker::TypeMarker;
 
+use crate::PADDING;
 #[cfg(feature = "amf3")]
 use crate::amf3;
-use crate::nom_utils::{take_str, AMFResult};
+use crate::nom_utils::{AMFResult, take_str};
 use crate::types::{ClassDefinition, Element, ObjectId, Reference, Value};
-use crate::PADDING;
+use nom::Err;
 use nom::bytes::complete::{tag, take};
 use nom::combinator::{map, map_res};
-use nom::error::{make_error, ErrorKind};
-use nom::multi::{many0, many_m_n};
-use nom::number::complete::{be_f64, be_u16, be_u32, be_u8};
-use nom::Err;
+use nom::error::{ErrorKind, make_error};
+use nom::multi::{many_m_n, many0};
+use nom::number::complete::{be_f64, be_u8, be_u16, be_u32};
 use std::convert::{TryFrom, TryInto};
 use std::rc::Rc;
 

@@ -28,7 +28,7 @@ impl Component for Tabs {
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
-        log::info!("TAB msg={:?}", msg);
+        log::info!("TAB msg={msg:?}");
         match msg {
             Msg::Selected(pos) => {
                 ctx.props().ontabselect.emit(pos);

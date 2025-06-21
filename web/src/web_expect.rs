@@ -7,7 +7,7 @@ impl<T> WebSafeExpect<T> for Option<T> {
         match self {
             Some(val) => val,
             None => {
-                log::error!("{}", msg);
+                log::error!("{msg}");
                 log::logger().flush();
                 panic!()
             }
@@ -20,7 +20,7 @@ impl<T, E: std::fmt::Debug> WebSafeExpect<T> for Result<T, E> {
         match self {
             Ok(val) => val,
             Err(e) => {
-                log::error!("{} - {:?}", msg, e);
+                log::error!("{msg} - {e:?}");
                 log::logger().flush();
                 panic!()
             }
