@@ -1,6 +1,6 @@
 use wasm_bindgen::JsCast;
 use web_sys::{EventTarget, HtmlInputElement};
-use yew::{events::Event, html, Callback, Component, Context, Html, Properties};
+use yew::{Callback, Component, Context, Html, Properties, events::Event, html};
 
 pub struct StringInput {}
 

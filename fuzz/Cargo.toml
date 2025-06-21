@@ -4,13 +4,13 @@ name = "flash-lso-fuzz"
 version = "0.0.0"
 authors = ["Automatically generated"]
 publish = false
-edition = "2021"
+edition = "2024"
 
 [package.metadata]
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.4.7"
+libfuzzer-sys = "=0.4.9"
 flash-lso = { path = "../flash-lso", default-features = false, features = ["amf3"]}
 
 # Prevent this from interfering with workspaces

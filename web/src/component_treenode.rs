@@ -170,16 +170,16 @@ impl TreeNode {
                     || e1
                         .iter()
                         .enumerate()
-                        .any(|(i, _e)| format!("{}", i).contains(&ctx.props().filter))
+                        .any(|(i, _e)| format!("{i}").contains(&ctx.props().filter))
             }
             Value::StrictArray(_id, e1) => e1
                 .iter()
                 .enumerate()
-                .any(|(i, _e)| format!("{}", i).contains(&ctx.props().filter)),
+                .any(|(i, _e)| format!("{i}").contains(&ctx.props().filter)),
             Value::VectorObject(_, e1, _, _) => e1
                 .iter()
                 .enumerate()
-                .any(|(i, _e)| format!("{}", i).contains(&ctx.props().filter)),
+                .any(|(i, _e)| format!("{i}").contains(&ctx.props().filter)),
             Value::Custom(e1, e2, _) => {
                 e1.iter().any(|e| e.name.contains(&ctx.props().filter))
                     || e2.iter().any(|e| e.name.contains(&ctx.props().filter))

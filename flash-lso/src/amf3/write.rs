@@ -1,12 +1,12 @@
 //! Handles encoding AMF3
 
+use crate::PADDING;
 use crate::amf3::custom_encoder::CustomEncoder;
 use crate::amf3::element_cache::ElementCache;
 use crate::amf3::length::Length;
 use crate::amf3::type_marker::TypeMarker;
 use crate::types::{Attribute, ClassDefinition, Element, ObjectId, Value};
 use crate::write::WriteExt;
-use crate::PADDING;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::io::Result;

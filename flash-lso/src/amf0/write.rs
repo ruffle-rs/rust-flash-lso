@@ -1,6 +1,6 @@
+use crate::PADDING;
 /// Support for encoding AMF0
 use crate::types::{Element, Reference, Value};
-use crate::PADDING;
 use std::io::Write;
 
 use crate::amf0::type_marker::TypeMarker;

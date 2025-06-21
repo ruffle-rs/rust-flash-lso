@@ -5,10 +5,12 @@ use flash_lso::extra::flex;
 use flash_lso::read::Reader;
 use flash_lso::types::{Attribute, Element, Lso, Value};
 
+use crate::EditableValue;
+use crate::TreeNodePath;
 use crate::blob_bindgen::Blob;
 use crate::component_hexview::HexView;
-use crate::component_modal::modal::Modal;
 use crate::component_modal::ModalContainer;
+use crate::component_modal::modal::Modal;
 use crate::component_number_input::NumberInput;
 use crate::component_string_input::StringInput;
 use crate::component_tab::Tab;
@@ -17,8 +19,6 @@ use crate::component_treenode::TreeNode;
 use crate::uintarray_bindgen::Uint8Array;
 use crate::url_bindgen::URL;
 use crate::web_expect::WebSafeExpect;
-use crate::EditableValue;
-use crate::TreeNodePath;
 use flash_lso::write::write_to_bytes;
 use std::ops::Deref;
 use wasm_bindgen::JsCast;
@@ -86,7 +86,7 @@ impl Component for Model {
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
-        log::info!("MODEL msg={:?}", msg);
+        log::info!("MODEL msg={msg:?}");
         match msg {
             Msg::Files(files) => {
                 for file in files.into_iter() {
@@ -123,7 +123,7 @@ impl Component for Model {
                     Ok(sol) => {
                         self.files
                             .get_mut(index)
-                            .web_expect(&format!("No loading file at index {}", index))
+                            .web_expect(&format!("No loading file at index {index}"))
                             .file = Some(sol);
 
                         if self.current_tab.is_none() {
@@ -131,7 +131,7 @@ impl Component for Model {
                         }
                     }
                     Err(e) => {
-                        log::warn!("Got error {:?}", e);
+                        log::warn!("Got error {e:?}");
                         self.error_messages
                             .push(format!("Failed to load '{}'", file.name));
                         self.files.remove(index);
@@ -183,11 +183,11 @@ impl Component for Model {
             Msg::ElementChange(el) => {
                 if let Some(tab_index) = self.current_tab {
                     if let Some(file) = self.files.get_mut(tab_index) {
-                        if let Some(ref mut file) = &mut file.file {
+                        if let Some(file) = &mut file.file {
                             let old_element = file.body.iter().position(|e| e.name == el.name);
                             if let Some(index) = old_element {
                                 file.body[index] = el.clone();
-                                log::info!("Set {} to {:?}", index, el);
+                                log::info!("Set {index} to {el:?}");
                             }
                         }
                     }
@@ -359,7 +359,7 @@ impl Model {
                                      Msg::Edited(Value::Date(x, tz))
                                 }
                             })
-                        })} value={format!("{}", x)} class="form-control" type="number"/>
+                        })} value={format!("{x}")} class="form-control" type="number"/>
                   </div>
 
                   { if tz.is_some() { html!{
@@ -430,7 +430,7 @@ impl Model {
                                                  Msg::Edited(Value::VectorInt(elements_clone5.clone(), fixed_length))
                                             }
                                         })
-                                    })} value={format!("{}", e)} class="form-control" type="text"/>
+                                    })} value={format!("{e}")} class="form-control" type="text"/>
                                     </td>
                                     <td></td>
                                     <td>
@@ -497,7 +497,7 @@ impl Model {
                                                  Msg::Edited(Value::VectorUInt(elements_clone5.clone(), fixed_length))
                                             }
                                         })
-                                    })} value={format!("{}", e)} class="form-control" type="text"/>
+                                    })} value={format!("{e}")} class="form-control" type="text"/>
                                     </td>
                                     <td></td>
                                     <td>
@@ -564,7 +564,7 @@ impl Model {
                                                  Msg::Edited(Value::VectorDouble(elements_clone5.clone(), fixed_length))
                                             }
                                         })
-                                    })} value={format!("{}", e)} class="form-control" type="text"/>
+                                    })} value={format!("{e}")} class="form-control" type="text"/>
                                     </td>
                                     <td></td>
                                     <td>
@@ -723,11 +723,12 @@ impl Model {
                                     </>
                                 }
                             } else {
+                            let version = format!("{:?}", data.header.format_version);
                                 html! {
                                     <>
                                     <ul class="list-group list-group-horizontal mt-2">
                                       <li class="list-group-item"><img alt={"File format"} src={"icon/database.svg"} style={"width: 32; height: 32;"} class={"mr-2"}/>{data.header.length}</li>
-                                      <li class="list-group-item">{data.header.format_version}</li>
+                                      <li class="list-group-item">{version}</li>
                                     </ul>
                                     <p>{"Select an item for more details"}</p>
                                     </>

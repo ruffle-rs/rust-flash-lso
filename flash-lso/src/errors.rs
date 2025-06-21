@@ -1,10 +1,9 @@
 use nom::error::{ErrorKind, FromExternalError, ParseError};
 use thiserror::Error;
 
-// Allow the Nom variant to be large
-#[allow(variant_size_differences)]
 /// Enum for representing decoding errors
 #[derive(Error, Debug, Clone, Eq, PartialEq)]
+#[allow(variant_size_differences)] /* Allow the Nom variant to be large */
 pub enum Error<'a> {
     /// Out of bounds decoding
     #[error("Out of bounds")]
