@@ -18,7 +18,7 @@ fn fff() {
     {
         aw.string("asdf", "asfd");
         {
-            let (aw2, _) = aw.object(CacheKey::from_ptr(1 as *const u8));
+            let (aw2, _) = aw.object(CacheKey::from_ptr(core::ptr::dangling::<u8>()));
             let mut aw2 = aw2.unwrap();
             aw2.string("asf", "asdf");
             aw2.commit("asf");

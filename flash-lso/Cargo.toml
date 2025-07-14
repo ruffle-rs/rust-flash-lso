@@ -14,7 +14,7 @@ categories = ["data-structures", "encoding", "parser-implementations"]
 
 [dependencies]
 nom = "=7.1.3"
-enumset = "=1.1.6"
+enumset = "=1.1.7"
 thiserror = "=2.0.12"
 serde = { version = "=1.0.219", optional = true, features = ["derive", "rc"] }
 

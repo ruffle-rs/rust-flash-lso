@@ -32,13 +32,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             match parse_file(&data) {
                 Ok(lso) => {
                     let json = serde_json::to_string(&lso).expect("Unable to encode lso as json");
-                    println!("{}", json);
+                    println!("{json}");
                 }
                 Err(e) => {
                     eprintln!(
-                        "Couldn't read lso file, maybe open a issue on github at https://github.com/CUB3D/rust-flash-lso"
+                        "Couldn't read lso file, maybe open an issue on GitHub at https://github.com/CUB3D/rust-flash-lso"
                     );
-                    eprintln!("Error = {:?}", e);
+                    eprintln!("Error = {e:?}");
                 }
             };
         }
@@ -64,14 +64,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Ok(lso) => {
                             let json =
                                 serde_json::to_string(&lso).expect("Unable to encode lso as json");
-                            std::fs::write(out, format!("{}\n", json))
+                            std::fs::write(out, format!("{json}\n"))
                                 .expect("Unable to write file");
                         }
                         Err(e) => {
                             eprintln!(
-                                "Couldn't read lso file, maybe open a issue on github at https://github.com/CUB3D/rust-flash-lso"
+                                "Couldn't read lso file, maybe open an issue on GitHub at https://github.com/CUB3D/rust-flash-lso"
                             );
-                            eprintln!("Error = {:?}", e);
+                            eprintln!("Error = {e:?}");
                         }
                     };
                 } else if name.ends_with(".amf") {
@@ -91,9 +91,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                         Err(e) => {
                             eprintln!(
-                                "Couldn't read amf file, maybe open a issue on github at https://github.com/CUB3D/rust-flash-lso"
+                                "Couldn't read amf file, maybe open an issue on GitHub at https://github.com/CUB3D/rust-flash-lso"
                             );
-                            eprintln!("Error = {:?}", e);
+                            eprintln!("Error = {e:?}");
                         }
                     };
                 }
@@ -106,7 +106,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .expect("Failed to parse object");
             let json = serde_json::to_string(&obj).expect("Unable to encode lso as json");
 
-            println!("{}", json);
+            println!("{json}");
         }
         _ => {
             println!("Unknown command");
