@@ -64,8 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Ok(lso) => {
                             let json =
                                 serde_json::to_string(&lso).expect("Unable to encode lso as json");
-                            std::fs::write(out, format!("{json}\n"))
-                                .expect("Unable to write file");
+                            std::fs::write(out, format!("{json}\n")).expect("Unable to write file");
                         }
                         Err(e) => {
                             eprintln!(
