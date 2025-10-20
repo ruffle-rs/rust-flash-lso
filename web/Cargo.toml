@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 yew = { version = "=0.21.0", features = ["csr"] }
-web-sys = "=0.3.77"
+web-sys = "=0.3.81"
 wasm-bindgen = "=0.2.100"
 js-sys = "=0.3.77"
 log = "=0.4.27"
