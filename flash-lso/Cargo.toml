@@ -16,7 +16,7 @@ categories = ["data-structures", "encoding", "parser-implementations"]
 nom = "=7.1.3"
 enumset = "=1.1.7"
 thiserror = "=2.0.12"
-serde = { version = "=1.0.219", optional = true, features = ["derive", "rc"] }
+serde = { version = "=1.0.228", optional = true, features = ["derive", "rc"] }
 
 [dev-dependencies]
 pretty_assertions = "=1.4.1"
