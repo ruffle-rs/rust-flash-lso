@@ -26,14 +26,18 @@ fn main() {
 ```
 
 ## Fuzzing
-This project makes use of cargo-fuzz to ensure correct handling of invalid data
+This project makes use of [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) to ensure correct handling of invalid data
 ```
 cargo +nightly fuzz run --release fuzz_amf3_body
 ```
 
 ## Web
-building:
-```
+### Requires:
+- [wasm-pack](https://crates.io/crates/wasm-pack)
+- something to host the resulting page: [srv](https://github.com/CUB3D/srv) / [miniserve](https://github.com/svenstaro/miniserve)
+
+### Building
+```shell
 cd web/
 wasm-pack build --out-name web --out-dir ./static --target web --release
 miniserve ./static --index index.html

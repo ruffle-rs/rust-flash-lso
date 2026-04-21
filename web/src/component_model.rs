@@ -181,15 +181,14 @@ impl Component for Model {
                 self.search = s;
             }
             Msg::ElementChange(el) => {
-                if let Some(tab_index) = self.current_tab {
-                    if let Some(file) = self.files.get_mut(tab_index) {
-                        if let Some(file) = &mut file.file {
-                            let old_element = file.body.iter().position(|e| e.name == el.name);
-                            if let Some(index) = old_element {
-                                file.body[index] = el.clone();
-                                log::info!("Set {index} to {el:?}");
-                            }
-                        }
+                if let Some(tab_index) = self.current_tab
+                    && let Some(file) = self.files.get_mut(tab_index)
+                    && let Some(file) = &mut file.file
+                {
+                    let old_element = file.body.iter().position(|e| e.name == el.name);
+                    if let Some(index) = old_element {
+                        file.body[index] = el.clone();
+                        log::info!("Set {index} to {el:?}");
                     }
                 }
             }

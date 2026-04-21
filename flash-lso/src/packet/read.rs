@@ -10,9 +10,9 @@ use crate::errors::Error;
 use crate::nom_utils::AMFResult;
 use crate::packet::{Header, Message, Packet};
 use crate::types::AMFVersion;
+use nom::Parser;
 use nom::combinator::all_consuming;
 use nom::multi::length_count;
-use nom::Parser;
 
 const FORMAT_VERSION_AMF0: u8 = 0x0;
 const FORMAT_VERSION_AMF3: u8 = 0x3;
@@ -55,7 +55,11 @@ fn parse_message(i: &[u8]) -> AMFResult<'_, Message> {
 /// and will return the data that was not parsed
 pub fn parse_incomplete(i: &[u8]) -> AMFResult<'_, Packet> {
     let (i, _) = tag([0u8].as_slice())(i)?;
-    let (i, version) = alt((tag([FORMAT_VERSION_AMF0].as_slice()), tag([FORMAT_VERSION_AMF3].as_slice()))).parse(i)?;
+    let (i, version) = alt((
+        tag([FORMAT_VERSION_AMF0].as_slice()),
+        tag([FORMAT_VERSION_AMF3].as_slice()),
+    ))
+    .parse(i)?;
     // This unwrap can't fail because of the alt above
     let version: AMFVersion = version[0].try_into().unwrap();
 

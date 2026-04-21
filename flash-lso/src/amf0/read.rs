@@ -1,6 +1,6 @@
 //! Support for decoding AMF0 data
-use nom::Parser;
 use crate::amf0::type_marker::TypeMarker;
+use nom::Parser;
 
 use crate::PADDING;
 #[cfg(feature = "amf3")]
@@ -95,7 +95,8 @@ impl AMF0Decoder {
                     array_length,
                 ))
             },
-        ).parse(i)
+        )
+        .parse(i)
     }
 
     fn parse_element_typed_object<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
@@ -110,7 +111,8 @@ impl AMF0Decoder {
                     Some(ClassDefinition::default_with_name(name.to_string())),
                 ))
             },
-        ).parse(i)
+        )
+        .parse(i)
     }
 
     fn parse_element_object<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
@@ -237,7 +239,8 @@ impl AMF0Decoder {
                 name: name.to_string(),
                 value: v,
             },
-        ).parse(i)
+        )
+        .parse(i)
     }
 
     fn parse_element_and_padding<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Element> {

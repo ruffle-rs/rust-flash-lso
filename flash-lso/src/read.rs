@@ -11,8 +11,8 @@ use crate::amf3::read::AMF3Decoder;
 use crate::errors::Error;
 use crate::nom_utils::AMFResult;
 use crate::types::{AMFVersion, Header, Lso};
-use nom::combinator::all_consuming;
 use nom::Parser;
+use nom::combinator::all_consuming;
 
 const HEADER_VERSION: [u8; 2] = [0x00, 0xbf];
 const HEADER_SIGNATURE: [u8; 10] = [0x54, 0x43, 0x53, 0x4f, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00];
@@ -63,7 +63,8 @@ impl Reader {
             tag([FORMAT_VERSION_AMF0].as_slice()),
             #[cfg(feature = "amf3")]
             tag([FORMAT_VERSION_AMF3].as_slice()),
-        )).parse(i)?;
+        ))
+        .parse(i)?;
 
         // This unwrap can't fail because of the alt above
         let format_version: AMFVersion = version[0].try_into().unwrap();

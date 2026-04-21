@@ -1,6 +1,6 @@
-use nom::Parser;
 use crate::amf3::custom_encoder::ExternalDecoderFn;
 use crate::amf3::type_marker::TypeMarker;
+use nom::Parser;
 
 use crate::PADDING;
 use crate::amf3::length::Length;
@@ -590,7 +590,8 @@ impl AMF3Decoder {
 
                 if key.is_empty() {
                     let (i, elements) =
-                        many_m_n(length_usize, length_usize, |i| this.parse_single_element(i)).parse(i)?;
+                        many_m_n(length_usize, length_usize, |i| this.parse_single_element(i))
+                            .parse(i)?;
 
                     let id = if let Value::ECMAArray(id, _, _, _) =
                         this.object_reference_table.get(ofi).unwrap().as_ref()
@@ -625,7 +626,8 @@ impl AMF3Decoder {
 
                 // Must parse `length` elements
                 let (i, el) =
-                    many_m_n(length_usize, length_usize, |i| this.parse_single_element(i)).parse(i)?;
+                    many_m_n(length_usize, length_usize, |i| this.parse_single_element(i))
+                        .parse(i)?;
 
                 let elements_len = elements.len() as u32;
 
@@ -661,7 +663,8 @@ impl AMF3Decoder {
                     return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
                 }
 
-                let (i, pairs) = many_m_n(len * 2, len * 2, |i| this.parse_single_element(i)).parse(i)?;
+                let (i, pairs) =
+                    many_m_n(len * 2, len * 2, |i| this.parse_single_element(i)).parse(i)?;
 
                 let pairs = pairs
                     .chunks_exact(2)
@@ -750,12 +753,14 @@ impl AMF3Decoder {
                 name: name.clone(),
                 value: v,
             },
-        ).parse(i)
+        )
+        .parse(i)
     }
 
     /// Parse an AMF3 body from a slice into a list of elements
     pub fn parse_body<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {
-        let (i, elements) = separated_list0(tag(PADDING.as_slice()), |i| self.parse_element(i)).parse(i)?;
+        let (i, elements) =
+            separated_list0(tag(PADDING.as_slice()), |i| self.parse_element(i)).parse(i)?;
         let (i, _) = tag(PADDING.as_slice())(i)?;
         Ok((i, elements))
     }

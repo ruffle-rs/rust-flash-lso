@@ -454,10 +454,10 @@ impl AMF3Encoder {
             self.write_object_reference(writer, had_object.as_position().unwrap() as u32)?;
         }
         if !had_object.is_reference() {
-            if has_trait.is_some() {
+            if let Some(has_trait) = has_trait {
                 self.write_trait_reference(
                     writer,
-                    has_trait.unwrap() as u32,
+                    has_trait as u32,
                     children,
                     custom_props,
                     &def2,

@@ -1,5 +1,5 @@
-use nom::Parser;
 use crate::errors::Error;
+use nom::Parser;
 use nom::bytes::complete::take;
 use nom::combinator::map_res;
 
