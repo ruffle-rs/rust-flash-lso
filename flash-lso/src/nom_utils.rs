@@ -1,3 +1,4 @@
+use nom::Parser;
 use crate::errors::Error;
 use nom::bytes::complete::take;
 use nom::combinator::map_res;
@@ -18,5 +19,5 @@ pub(crate) fn write_string<'a, 'b: 'a, W: Write + 'a>(
 }
 
 pub(crate) fn take_str(i: &[u8], length: u16) -> AMFResult<'_, &str> {
-    map_res(take(length), std::str::from_utf8)(i)
+    map_res(take(length), std::str::from_utf8).parse(i)
 }

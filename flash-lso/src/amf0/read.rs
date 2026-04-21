@@ -1,4 +1,5 @@
 //! Support for decoding AMF0 data
+use nom::Parser;
 use crate::amf0::type_marker::TypeMarker;
 
 use crate::PADDING;
@@ -44,7 +45,7 @@ fn parse_element_date(i: &[u8]) -> AMFResult<'_, Rc<Value>> {
 
 fn parse_long_string_internal(i: &[u8]) -> AMFResult<'_, &str> {
     let (i, length) = be_u32(i)?;
-    map_res(take(length), std::str::from_utf8)(i)
+    map_res(take(length), std::str::from_utf8).parse(i)
 }
 
 fn parse_element_long_string(i: &[u8]) -> AMFResult<'_, Rc<Value>> {
@@ -94,7 +95,7 @@ impl AMF0Decoder {
                     array_length,
                 ))
             },
-        )(i)
+        ).parse(i)
     }
 
     fn parse_element_typed_object<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
@@ -109,7 +110,7 @@ impl AMF0Decoder {
                     Some(ClassDefinition::default_with_name(name.to_string())),
                 ))
             },
-        )(i)
+        ).parse(i)
     }
 
     fn parse_element_object<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
@@ -138,7 +139,7 @@ impl AMF0Decoder {
 
         // This must parse length elements
         let (i, elements) =
-            many_m_n(length_usize, length_usize, |i| self.parse_single_element(i))(i)?;
+            many_m_n(length_usize, length_usize, |i| self.parse_single_element(i)).parse(i)?;
 
         Ok((i, Rc::new(Value::StrictArray(ObjectId::INVALID, elements))))
     }
@@ -236,19 +237,19 @@ impl AMF0Decoder {
                 name: name.to_string(),
                 value: v,
             },
-        )(i)
+        ).parse(i)
     }
 
     fn parse_element_and_padding<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Element> {
         let (i, e) = self.parse_element(i)?;
-        let (i, _) = tag(PADDING)(i)?;
+        let (i, _) = tag(PADDING.as_slice())(i)?;
 
         Ok((i, e))
     }
 
     /// Parse a sequence of `PADDING` delimited `Values`
     pub fn parse_body<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {
-        many0(|i| self.parse_element_and_padding(i))(i)
+        many0(|i| self.parse_element_and_padding(i)).parse(i)
     }
 
     /// Convert the given value into a reference, if possible

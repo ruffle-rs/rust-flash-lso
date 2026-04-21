@@ -12,6 +12,7 @@ use crate::packet::{Header, Message, Packet};
 use crate::types::AMFVersion;
 use nom::combinator::all_consuming;
 use nom::multi::length_count;
+use nom::Parser;
 
 const FORMAT_VERSION_AMF0: u8 = 0x0;
 const FORMAT_VERSION_AMF3: u8 = 0x3;
@@ -53,13 +54,13 @@ fn parse_message(i: &[u8]) -> AMFResult<'_, Message> {
 /// Unlike parse, this function will not error if the entire slice isn't consumed
 /// and will return the data that was not parsed
 pub fn parse_incomplete(i: &[u8]) -> AMFResult<'_, Packet> {
-    let (i, _) = tag(&[0u8])(i)?;
-    let (i, version) = alt((tag(&[FORMAT_VERSION_AMF0]), tag(&[FORMAT_VERSION_AMF3])))(i)?;
+    let (i, _) = tag([0u8].as_slice())(i)?;
+    let (i, version) = alt((tag([FORMAT_VERSION_AMF0].as_slice()), tag([FORMAT_VERSION_AMF3].as_slice()))).parse(i)?;
     // This unwrap can't fail because of the alt above
     let version: AMFVersion = version[0].try_into().unwrap();
 
-    let (i, headers) = length_count(be_u16, parse_header)(i)?;
-    let (i, messages) = length_count(be_u16, parse_message)(i)?;
+    let (i, headers) = length_count(be_u16, parse_header).parse(i)?;
+    let (i, messages) = length_count(be_u16, parse_message).parse(i)?;
 
     Ok((
         i,
@@ -76,6 +77,6 @@ pub fn parse_incomplete(i: &[u8]) -> AMFResult<'_, Packet> {
 /// This function will return an error if the slice could not be parsed or if the entire slice
 /// was not consumed
 pub fn parse(i: &[u8]) -> Result<Packet, nom::Err<Error<'_>>> {
-    let (_, packet) = all_consuming(|i| parse_incomplete(i))(i)?;
+    let (_, packet) = all_consuming(|i| parse_incomplete(i)).parse(i)?;
     Ok(packet)
 }

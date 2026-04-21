@@ -1,3 +1,4 @@
+use nom::Parser;
 use crate::amf3::custom_encoder::ExternalDecoderFn;
 use crate::amf3::type_marker::TypeMarker;
 
@@ -142,7 +143,7 @@ fn read_length(i: &[u8]) -> AMFResult<'_, Length> {
 }
 
 fn parse_element_int(i: &[u8]) -> AMFResult<'_, Rc<Value>> {
-    let (i, s) = map(read_int_signed, Value::Integer)(i)?;
+    let (i, s) = map(read_int_signed, Value::Integer).parse(i)?;
     Ok((i, Rc::new(s)))
 }
 
@@ -167,13 +168,13 @@ pub struct AMF3Decoder {
 }
 
 fn parse_element_number(i: &[u8]) -> AMFResult<'_, Rc<Value>> {
-    let (i, v) = map(be_f64, Value::Number)(i)?;
+    let (i, v) = map(be_f64, Value::Number).parse(i)?;
     Ok((i, Rc::new(v)))
 }
 
 impl AMF3Decoder {
     fn parse_element_string<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Rc<Value>> {
-        let (i, s) = map(|i| self.parse_string(i), Value::String)(i)?;
+        let (i, s) = map(|i| self.parse_string(i), Value::String).parse(i)?;
         Ok((i, Rc::new(s)))
     }
 
@@ -224,7 +225,7 @@ impl AMF3Decoder {
 
         // Read static attributes if they exist
         let (i, static_props) =
-            many_m_n(attr_count_usize, attr_count_usize, |i| self.parse_string(i))(i)?;
+            many_m_n(attr_count_usize, attr_count_usize, |i| self.parse_string(i)).parse(i)?;
 
         let is_external = encoding & 0b1 == 1;
         let is_dynamic = encoding & 0b10 == 0b10;
@@ -495,7 +496,7 @@ impl AMF3Decoder {
 
                 let (i, fixed_length) = be_u8(i)?;
 
-                let (i, ints) = many_m_n(len, len, be_i32)(i)?;
+                let (i, ints) = many_m_n(len, len, be_i32).parse(i)?;
 
                 Ok((i, Value::VectorInt(ints, fixed_length == 1)))
             },
@@ -513,7 +514,7 @@ impl AMF3Decoder {
                 }
                 let (i, fixed_length) = be_u8(i)?;
 
-                let (i, ints) = many_m_n(len, len, be_u32)(i)?;
+                let (i, ints) = many_m_n(len, len, be_u32).parse(i)?;
 
                 Ok((i, Value::VectorUInt(ints, fixed_length == 1)))
             },
@@ -531,7 +532,7 @@ impl AMF3Decoder {
                 }
                 let (i, fixed_length) = be_u8(i)?;
 
-                let (i, numbers) = many_m_n(len, len, be_f64)(i)?;
+                let (i, numbers) = many_m_n(len, len, be_f64).parse(i)?;
 
                 Ok((i, Value::VectorDouble(numbers, fixed_length == 1)))
             },
@@ -551,7 +552,7 @@ impl AMF3Decoder {
 
                 let (i, object_type_name) = this.parse_string(i)?;
 
-                let (i, elems) = many_m_n(len, len, |i| this.parse_single_element(i))(i)?;
+                let (i, elems) = many_m_n(len, len, |i| this.parse_single_element(i)).parse(i)?;
 
                 let id = if let Value::VectorObject(id, _, _, _) =
                     this.object_reference_table.get(ofi).unwrap().as_ref()
@@ -589,7 +590,7 @@ impl AMF3Decoder {
 
                 if key.is_empty() {
                     let (i, elements) =
-                        many_m_n(length_usize, length_usize, |i| this.parse_single_element(i))(i)?;
+                        many_m_n(length_usize, length_usize, |i| this.parse_single_element(i)).parse(i)?;
 
                     let id = if let Value::ECMAArray(id, _, _, _) =
                         this.object_reference_table.get(ofi).unwrap().as_ref()
@@ -624,7 +625,7 @@ impl AMF3Decoder {
 
                 // Must parse `length` elements
                 let (i, el) =
-                    many_m_n(length_usize, length_usize, |i| this.parse_single_element(i))(i)?;
+                    many_m_n(length_usize, length_usize, |i| this.parse_single_element(i)).parse(i)?;
 
                 let elements_len = elements.len() as u32;
 
@@ -660,7 +661,7 @@ impl AMF3Decoder {
                     return Err(Err::Error(make_error(i, ErrorKind::TooLarge)));
                 }
 
-                let (i, pairs) = many_m_n(len * 2, len * 2, |i| this.parse_single_element(i))(i)?;
+                let (i, pairs) = many_m_n(len * 2, len * 2, |i| this.parse_single_element(i)).parse(i)?;
 
                 let pairs = pairs
                     .chunks_exact(2)
@@ -699,7 +700,7 @@ impl AMF3Decoder {
             i,
             |_| Value::XML("".to_string(), false),
             |_this, i, len, _| {
-                let (i, data) = map_res(take(len as u32), std::str::from_utf8)(i)?;
+                let (i, data) = map_res(take(len as u32), std::str::from_utf8).parse(i)?;
                 Ok((i, Value::XML(data.into(), string)))
             },
         )
@@ -749,13 +750,13 @@ impl AMF3Decoder {
                 name: name.clone(),
                 value: v,
             },
-        )(i)
+        ).parse(i)
     }
 
     /// Parse an AMF3 body from a slice into a list of elements
     pub fn parse_body<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {
-        let (i, elements) = separated_list0(tag(PADDING), |i| self.parse_element(i))(i)?;
-        let (i, _) = tag(PADDING)(i)?;
+        let (i, elements) = separated_list0(tag(PADDING.as_slice()), |i| self.parse_element(i)).parse(i)?;
+        let (i, _) = tag(PADDING.as_slice())(i)?;
         Ok((i, elements))
     }
 }
