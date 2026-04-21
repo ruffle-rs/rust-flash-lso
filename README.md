@@ -27,8 +27,13 @@ fn main() {
 
 ## Fuzzing
 This project makes use of [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) to ensure correct handling of invalid data
-```
+```shell
 cargo +nightly fuzz run --release fuzz_amf3_body
+```
+
+## Running tests
+```shell
+cargo test --release
 ```
 
 ## Web
