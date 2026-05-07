@@ -472,3 +472,34 @@ pub fn test_recursive_object() {
         panic!("Expected object");
     }
 }
+
+#[test]
+pub fn test_externalizable_object_back_reference() {
+    use flash_lso::amf3::read::AMF3Decoder;
+    use std::rc::Rc;
+
+    // Inline external "X" with a 1-byte body, then an object-ref to it.
+    let data = include_bytes!("./amf/externalizable-object-back-reference.amf");
+
+    let mut decoder = AMF3Decoder::default();
+    decoder.external_decoders.insert(
+        "X".to_string(),
+        Rc::new(Box::new(|input, _decoder| Ok((&input[1..], vec![])))),
+    );
+
+    let (rest, first) = decoder
+        .parse_single_element(data)
+        .expect("first parse failed");
+    assert!(
+        matches!(first.deref(), Value::Custom(_, _, _)),
+        "first element should be Custom, got {first:?}"
+    );
+
+    let (_rest, second) = decoder
+        .parse_single_element(rest)
+        .expect("back-ref parse failed");
+    assert!(
+        matches!(second.deref(), Value::Custom(_, _, _)),
+        "back-ref should resolve to Custom, got {second:?}"
+    );
+}

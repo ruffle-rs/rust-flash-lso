@@ -410,13 +410,23 @@ impl AMF3Decoder {
                 external_elements = v;
                 i = j;
                 //TODO: should it be possible to have both dynamic and external together
+                let value = Value::Custom(external_elements, vec![], Some(class_def.clone()));
+                // Update placeholder so back-refs resolve to the decoded Custom.
+                let mut initial_inner = Rc::get_mut(
+                    self.object_reference_table
+                        .get_mut(index)
+                        .expect("Index not in reference table"),
+                )
+                .expect("Reference still held to rc");
+                *initial_inner.deref_mut() = value;
+
                 Ok((
                     i,
-                    Rc::new(Value::Custom(
-                        external_elements,
-                        vec![],
-                        Some(class_def.clone()),
-                    )),
+                    Rc::clone(
+                        self.object_reference_table
+                            .get(index)
+                            .expect("Index not in reference table"),
+                    ),
                 ))
             } else {
                 Err(Err::Error(make_error(i, ErrorKind::Tag)))
