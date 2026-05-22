@@ -1,6 +1,5 @@
 use crate::amf0::writer::strict_array_writer::StrictArrayWriter;
 use crate::types::{Element, ObjectId, Reference, Value};
-use std::rc::Rc;
 
 use super::{ArrayWriter, CacheKey, ObjWriter, TypedObjectWriter};
 
@@ -19,7 +18,7 @@ impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
             self.parent.make_reference();
         }
 
-        self.elements.push(Element::new(name, Rc::new(s)));
+        self.elements.push(Element::new(name, s));
     }
 
     fn object<'c: 'a, 'd>(

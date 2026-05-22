@@ -1,6 +1,6 @@
 use crate::amf0::writer::strict_array_writer::StrictArrayWriter;
 use crate::types::{AMFVersion, Element, Lso, Reference, Value};
-use std::{collections::BTreeMap, rc::Rc};
+use std::collections::BTreeMap;
 
 use super::{ArrayWriter, CacheKey, ObjWriter, ObjectWriter, TypedObjectWriter};
 
@@ -23,7 +23,7 @@ impl<'a> ObjWriter<'a> for Amf0Writer {
             self.ref_num += 1;
         }
 
-        self.elements.push(Element::new(name, Rc::new(s)))
+        self.elements.push(Element::new(name, s))
     }
 
     fn object<'c: 'a, 'd>(

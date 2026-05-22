@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::types::{ObjectId, Reference, Value};
 
 use super::{ArrayWriter, CacheKey, ObjWriter, ObjectWriter, TypedObjectWriter};
@@ -7,7 +5,7 @@ use super::{ArrayWriter, CacheKey, ObjWriter, ObjectWriter, TypedObjectWriter};
 /// A writer for encoding `StrictArray` contents
 pub struct StrictArrayWriter<'a, 'b> {
     /// The values in this array
-    pub(crate) values: Vec<Rc<Value>>,
+    pub(crate) values: Vec<Value>,
 
     /// The parent of this writer
     pub(crate) parent: &'a mut dyn ObjWriter<'b>,
@@ -19,7 +17,7 @@ impl<'a> ObjWriter<'a> for StrictArrayWriter<'a, '_> {
             self.make_reference();
         }
 
-        self.values.push(Rc::new(s));
+        self.values.push(s);
     }
 
     fn object<'c: 'a, 'd>(
