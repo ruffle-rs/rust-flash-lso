@@ -26,10 +26,10 @@ pub enum Value {
 
     /// Represent ECMA-Arrays (amf0) and associative arrays (amf3, even if they contain a dense part)
     /// Final value represents the length of the array in amf0, this can differ from the actual number of elements
-    ECMAArray(ObjectId, Vec<Rc<Value>>, Vec<Element>, u32),
+    ECMAArray(ObjectId, Vec<Value>, Vec<Element>, u32),
 
     /// Represent a strict array (amf0) or a dense array (amf3)
-    StrictArray(ObjectId, Vec<Rc<Value>>),
+    StrictArray(ObjectId, Vec<Value>),
 
     /// Represent a timezone in the format (seconds since epoch, timezone or UTC if missing (amf3) )
     Date(f64, Option<u16>),
@@ -65,11 +65,11 @@ pub enum Value {
 
     /// Represent the object vector type (amf3)
     /// Format is (values, is_fixed_length)
-    VectorObject(ObjectId, Vec<Rc<Value>>, String, bool),
+    VectorObject(ObjectId, Vec<Value>, String, bool),
 
     /// Represent the dictionary type (amf3)
     /// Format is ((key, value), has_weak_keys)
-    Dictionary(ObjectId, Vec<(Rc<Value>, Rc<Value>)>, bool),
+    Dictionary(ObjectId, Vec<(Value, Value)>, bool),
 
     /// Represent a external object, such as from flex
     /// (custom_elements, regular elements, class def)
@@ -86,10 +86,4 @@ pub enum Value {
     /// As `Value` graphs can contain cycles which are best handled by garbage collected structures
     /// we leave the handling of this to the user, sorry
     Amf3ObjectReference(ObjectId),
-}
-
-impl FromIterator<Value> for Vec<Rc<Value>> {
-    fn from_iter<T: IntoIterator<Item = Value>>(iter: T) -> Self {
-        iter.into_iter().map(Rc::new).collect()
-    }
 }

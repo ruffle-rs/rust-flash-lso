@@ -1,5 +1,5 @@
 use std::convert::TryInto;
-
+use std::rc::Rc;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::number::complete::{be_u8, be_u16, be_u32};
@@ -28,7 +28,7 @@ fn parse_header(i: &[u8]) -> AMFResult<'_, Header> {
         Header {
             name: name.to_string(),
             must_understand: must_understand != 0,
-            value,
+            value: Rc::new(value),
         },
     ))
 }
@@ -44,7 +44,7 @@ fn parse_message(i: &[u8]) -> AMFResult<'_, Message> {
         Message {
             target_uri: target_uri.to_string(),
             response_uri: response_uri.to_string(),
-            contents,
+            contents: Rc::new(contents),
         },
     ))
 }
