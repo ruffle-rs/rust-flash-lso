@@ -15,6 +15,12 @@ updates:
         patterns:
           - "yew"
 
+      web:
+        patterns:
+          - web-sys
+          - js-sys
+          - wasm-bindgen
+
       cargo-minor:
         patterns:
           - "*"
