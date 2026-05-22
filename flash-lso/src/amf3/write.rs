@@ -1,18 +1,17 @@
 //! Handles encoding AMF3
 
-use crate::PADDING;
 use crate::amf3::custom_encoder::CustomEncoder;
 use crate::amf3::element_cache::ElementCache;
 use crate::amf3::length::Length;
 use crate::amf3::type_marker::TypeMarker;
 use crate::types::{Attribute, ClassDefinition, Element, ObjectId, Value};
 use crate::write::WriteExt;
+use crate::PADDING;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::io::Result;
 use std::io::Write;
 use std::ops::Deref;
-use std::rc::Rc;
 
 /// Handles encoding AMF3
 #[derive(Default)]
@@ -474,7 +473,7 @@ impl AMF3Encoder {
     fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
         writer: &mut W,
-        children: &'b [Rc<Value>],
+        children: &'b [Value],
     ) -> Result<()> {
         //TODO: why is this not a reference
         let len = Length::Size(children.len() as u32);
@@ -501,7 +500,7 @@ impl AMF3Encoder {
     fn write_ecma_array_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
         writer: &mut W,
-        dense: &'b [Rc<Value>],
+        dense: &'b [Value],
         assoc: &'b [Element],
     ) -> Result<()> {
         let len = Length::Size(dense.len() as u32);
@@ -526,7 +525,7 @@ impl AMF3Encoder {
         &'a self,
         writer: &mut W,
         id: ObjectId,
-        items: &'b [Rc<Value>],
+        items: &'b [Value],
         type_name: &'b str,
         fixed_length: bool,
     ) -> Result<()> {
@@ -558,7 +557,7 @@ impl AMF3Encoder {
         &'a self,
         writer: &mut W,
         id: ObjectId,
-        items: &'b [(Rc<Value>, Rc<Value>)],
+        items: &'b [(Value, Value)],
         weak_keys: bool,
     ) -> Result<()> {
         let dict = Value::Dictionary(id, items.to_vec(), weak_keys);
@@ -588,7 +587,7 @@ impl AMF3Encoder {
     pub(crate) fn write_value_element<'a, 'b: 'a, W: Write + 'a>(
         &'b self,
         writer: &mut W,
-        s: &'b Rc<Value>,
+        s: &'b Value,
     ) -> Result<()> {
         self.write_value(writer, s.deref())
     }
