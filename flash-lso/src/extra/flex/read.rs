@@ -1,5 +1,6 @@
 //! Handles decoding of flex types
 
+use std::rc::Rc;
 use crate::amf3::read::AMF3Decoder;
 use crate::extra::flex::{
     BODY_FLAG, CLIENT_ID_BYTES_FLAG, CLIENT_ID_FLAG, CORRELATION_ID_BYTES_FLAG,
@@ -9,8 +10,6 @@ use crate::extra::flex::{
 use crate::nom_utils::AMFResult;
 use crate::types::Element;
 use nom::number::complete::be_u8;
-
-use std::rc::Rc;
 
 fn parse_abstract_message_flags(i: &[u8]) -> AMFResult<'_, Vec<u8>> {
     let mut next_flag = true;
@@ -279,55 +278,55 @@ fn parse_object_proxy<'a>(i: &'a [u8], amf3: &mut AMF3Decoder) -> AMFResult<'a, 
 pub fn register_decoders(decoder: &mut AMF3Decoder) {
     decoder.external_decoders.insert(
         "flex.messaging.io.AbstractMessage".to_string(),
-        Rc::new(Box::new(parse_abstract_message)),
+        Box::new(parse_abstract_message),
     );
     decoder.external_decoders.insert(
         "flex.messaging.io.AsyncMessage".to_string(),
-        Rc::new(Box::new(parse_async_message)),
+        Box::new(parse_async_message),
     );
     decoder.external_decoders.insert(
         "flex.messaging.io.AsyncMessageExt".to_string(),
-        Rc::new(Box::new(parse_async_message)),
+        (Box::new(parse_async_message)),
     );
     decoder.external_decoders.insert(
         "flex.messaging.io.AcknowledgeMessage".to_string(),
-        Rc::new(Box::new(parse_acknowledge_message)),
+        Box::new(parse_acknowledge_message),
     );
     decoder.external_decoders.insert(
         "flex.messaging.io.AcknowledgeMessageExt".to_string(),
-        Rc::new(Box::new(parse_acknowledge_message)),
+        (Box::new(parse_acknowledge_message)),
     );
     decoder.external_decoders.insert(
         "flex.messaging.io.CommandMessage".to_string(),
-        Rc::new(Box::new(parse_command_message)),
+        Box::new(parse_command_message),
     );
     decoder.external_decoders.insert(
         "flex.messaging.io.CommandMessageExt".to_string(),
-        Rc::new(Box::new(parse_command_message)),
+        Box::new(parse_command_message),
     );
     decoder.external_decoders.insert(
         "flex.messaging.io.ErrorMessage".to_string(),
-        Rc::new(Box::new(parse_acknowledge_message)),
+        Box::new(parse_acknowledge_message),
     );
 
     decoder.external_decoders.insert(
         "flex.messaging.io.ArrayCollection".to_string(),
-        Rc::new(Box::new(parse_array_collection)),
+        Box::new(parse_array_collection),
     );
     decoder.external_decoders.insert(
         "flex.messaging.io.ArrayList".to_string(),
-        Rc::new(Box::new(parse_array_collection)),
+        Box::new(parse_array_collection),
     );
     decoder.external_decoders.insert(
         "flex.messaging.io.ObjectProxy".to_string(),
-        Rc::new(Box::new(parse_object_proxy)),
+        Box::new(parse_object_proxy),
     );
     decoder.external_decoders.insert(
         "flex.messaging.io.ManagedObjectProxy".to_string(),
-        Rc::new(Box::new(parse_object_proxy)),
+        Box::new(parse_object_proxy),
     );
     decoder.external_decoders.insert(
         "flex.messaging.io.SerializationProxy".to_string(),
-        Rc::new(Box::new(parse_object_proxy)),
+        Box::new(parse_object_proxy),
     );
 }

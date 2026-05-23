@@ -1,5 +1,4 @@
 use crate::types::{AMFVersion, Value};
-use std::rc::Rc;
 
 /// Reading of AMF Packets
 pub mod read;
@@ -17,7 +16,7 @@ pub struct Header {
     pub must_understand: bool,
 
     /// The value of this header.
-    pub value: Rc<Value>,
+    pub value: Value,
 }
 
 /// An AMF Packet Header
@@ -35,7 +34,7 @@ pub struct Message {
     pub response_uri: String,
 
     /// The contents of this message.
-    pub contents: Rc<Value>,
+    pub contents: Value,
 }
 
 /// An AMF Packet

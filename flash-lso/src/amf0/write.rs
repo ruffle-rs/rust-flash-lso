@@ -8,7 +8,6 @@ use crate::amf0::type_marker::TypeMarker;
 use crate::nom_utils::write_string;
 use crate::write::WriteExt;
 use std::io::Result;
-use std::ops::Deref;
 
 #[cfg(feature = "amf3")]
 use crate::amf3::write::AMF3Encoder;
@@ -159,7 +158,7 @@ pub(crate) fn write_value<'a, 'b: 'a, W: Write + 'a>(
     writer: &mut W,
     element: &'b Value,
 ) -> Result<()> {
-    match element.deref() {
+    match element {
         Value::Number(n) => write_number_element(writer, *n),
         Value::Bool(b) => write_bool_element(writer, *b),
         Value::String(s) => {

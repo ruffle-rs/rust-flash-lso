@@ -2,19 +2,18 @@
 use crate::amf0::type_marker::TypeMarker;
 use nom::Parser;
 
-use crate::PADDING;
 #[cfg(feature = "amf3")]
 use crate::amf3;
-use crate::nom_utils::{AMFResult, take_str};
+use crate::nom_utils::{take_str, AMFResult};
 use crate::types::{ClassDefinition, Element, ObjectId, Reference, Value};
-use nom::Err;
+use crate::PADDING;
 use nom::bytes::complete::{tag, take};
 use nom::combinator::{map, map_res};
-use nom::error::{ErrorKind, make_error};
-use nom::multi::{many_m_n, many0};
-use nom::number::complete::{be_f64, be_u8, be_u16, be_u32};
+use nom::error::{make_error, ErrorKind};
+use nom::multi::{many0, many_m_n};
+use nom::number::complete::{be_f64, be_u16, be_u32, be_u8};
+use nom::Err;
 use std::convert::{TryFrom, TryInto};
-use std::rc::Rc;
 
 pub(crate) fn parse_string(i: &[u8]) -> AMFResult<'_, &str> {
     let (i, length) = be_u16(i)?;
@@ -171,7 +170,7 @@ impl AMF0Decoder {
         #[cfg(feature = "amf3")]
         {
             let (i, x) = self.amf3_decoder.parse_single_element(i)?;
-            Ok((i, Value::AMF3(x)))
+            Ok((i, Value::AMF3(Box::new(x))))
         }
         #[cfg(not(feature = "amf3"))]
         {
