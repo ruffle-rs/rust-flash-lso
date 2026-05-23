@@ -35,7 +35,7 @@ macro_rules! packet_test {
             if let Ok((unparsed_bytes, mut packet)) =  parse_res {
                 println!("{:#?}", packet);
 
-                let empty: Vec<u8> = vec![];
+                let empty: Vec<u8> = Vec::new();
                 if unparsed_bytes.len() > 0 {
                     assert_eq!(crate::PrettyArray(&empty), crate::PrettyArray(&unparsed_bytes[..unparsed_bytes.len().min(100)].to_vec()));
                 }
@@ -65,7 +65,7 @@ macro_rules! auto_test {
             if let Ok((unparsed_bytes, mut sol)) =  parse_res {
                 println!("{:#?}", sol);
 
-                let empty: Vec<u8> = vec![];
+                let empty: Vec<u8> = Vec::new();
                 if unparsed_bytes.len() > 0 {
                     assert_eq!(crate::PrettyArray(&empty), crate::PrettyArray(&unparsed_bytes[..unparsed_bytes.len().min(100)].to_vec()));
                 }
@@ -94,7 +94,7 @@ macro_rules! test_parse_only {
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
                 println!("Parsed sol: {:?}", sol);
-                let empty: Vec<u8> = vec![];
+                let empty: Vec<u8> = Vec::new();
                 if unparsed_bytes.len() > 0 {
                     assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
                 }
@@ -122,12 +122,12 @@ macro_rules! auto_test_flex {
             let parse_res = des.parse_incomplete(data);
 
             if let Ok((unparsed_bytes, mut sol)) =  parse_res {
-                let empty: Vec<u8> = vec![];
+                let empty: Vec<u8> = Vec::new();
                 if unparsed_bytes.len() > 0 {
                     assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
                 }
 
-                let mut buffer = vec![];
+                let mut buffer = Vec::new();
                 let mut s = Writer::default();
                 flex::write::register_encoders(&mut s.amf3_encoder);
                 s.write_full(&mut buffer, &mut sol)?;
@@ -486,7 +486,7 @@ pub fn test_externalizable_object_back_reference() {
     struct TestDecoder;
     impl CustomDecoder for TestDecoder{
         fn decode<'a>(&self, i: &'a[u8], _dec: &AMF3Decoder) -> AMFResult<'a, Vec<Element>> {
-            Ok((&i[1..], vec![]))
+            Ok((&i[1..], Vec::new()))
         }
     }
 

@@ -1,5 +1,6 @@
 //! Handles decoding of flex types
 
+use std::rc::Rc;
 use crate::amf3::read::AMF3Decoder;
 use crate::extra::flex::{
     BODY_FLAG, CLIENT_ID_BYTES_FLAG, CLIENT_ID_FLAG, CORRELATION_ID_BYTES_FLAG,
@@ -9,6 +10,7 @@ use crate::extra::flex::{
 use crate::nom_utils::AMFResult;
 use crate::types::Element;
 use nom::number::complete::be_u8;
+use crate::amf3::custom_encoder::CustomDecoder;
 
 fn parse_abstract_message_flags(i: &[u8]) -> AMFResult<'_, Vec<u8>> {
     let mut next_flag = true;
@@ -275,57 +277,71 @@ fn parse_object_proxy<'a>(i: &'a [u8], amf3: &mut AMF3Decoder) -> AMFResult<'a, 
 /// Register the flex decoders into the given AMF3Decoder
 #[inline]
 pub fn register_decoders(decoder: &mut AMF3Decoder) {
-    decoder.external_decoders.insert(
-        "flex.messaging.io.AbstractMessage".to_string(),
-        Box::new(parse_abstract_message),
-    );
-    decoder.external_decoders.insert(
-        "flex.messaging.io.AsyncMessage".to_string(),
-        Box::new(parse_async_message),
-    );
-    decoder.external_decoders.insert(
-        "flex.messaging.io.AsyncMessageExt".to_string(),
-        Box::new(parse_async_message),
-    );
-    decoder.external_decoders.insert(
-        "flex.messaging.io.AcknowledgeMessage".to_string(),
-        Box::new(parse_acknowledge_message),
-    );
-    decoder.external_decoders.insert(
-        "flex.messaging.io.AcknowledgeMessageExt".to_string(),
-        Box::new(parse_acknowledge_message),
-    );
-    decoder.external_decoders.insert(
-        "flex.messaging.io.CommandMessage".to_string(),
-        Box::new(parse_command_message),
-    );
-    decoder.external_decoders.insert(
-        "flex.messaging.io.CommandMessageExt".to_string(),
-        Box::new(parse_command_message),
-    );
-    decoder.external_decoders.insert(
-        "flex.messaging.io.ErrorMessage".to_string(),
-        Box::new(parse_acknowledge_message),
-    );
+    // TODOS:
+    // Value::Object{id, objval}
+    // remove comments
+    // no unwrap
 
-    decoder.external_decoders.insert(
-        "flex.messaging.io.ArrayCollection".to_string(),
-        Box::new(parse_array_collection),
-    );
-    decoder.external_decoders.insert(
-        "flex.messaging.io.ArrayList".to_string(),
-        Box::new(parse_array_collection),
-    );
-    decoder.external_decoders.insert(
-        "flex.messaging.io.ObjectProxy".to_string(),
-        Box::new(parse_object_proxy),
-    );
-    decoder.external_decoders.insert(
-        "flex.messaging.io.ManagedObjectProxy".to_string(),
-        Box::new(parse_object_proxy),
-    );
-    decoder.external_decoders.insert(
-        "flex.messaging.io.SerializationProxy".to_string(),
-        Box::new(parse_object_proxy),
-    );
+    #[derive(Default)]
+    struct FlexAbstractMessageParser;
+    impl CustomDecoder for FlexAbstractMessageParser {
+        fn decode<'a>(&self, i: &'a [u8], dec: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>> {
+            parse_abstract_message(i, dec)
+        }
+    }
+    decoder.register_custom_decoder::<FlexAbstractMessageParser>("flex.messaging.io.AbstractMessage");
+
+    #[derive(Default)]
+    struct FlexAsyncMessageParser;
+    impl CustomDecoder for FlexAsyncMessageParser {
+        fn decode<'a>(&self, i: &'a [u8], dec: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>> {
+            parse_async_message(i, dec)
+        }
+    }
+    decoder.register_custom_decoder::<FlexAsyncMessageParser>("flex.messaging.io.AsyncMessage");
+    decoder.register_custom_decoder::<FlexAsyncMessageParser>("flex.messaging.io.AsyncMessageExt");
+
+
+    #[derive(Default)]
+    struct FlexAcknowledgeMessageParser;
+    impl CustomDecoder for FlexAcknowledgeMessageParser {
+        fn decode<'a>(&self, i: &'a [u8], dec: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>> {
+            parse_abstract_message(i, dec)
+        }
+    }
+    decoder.register_custom_decoder::<FlexAcknowledgeMessageParser>("flex.messaging.io.AcknowledgeMessage");
+    decoder.register_custom_decoder::<FlexAcknowledgeMessageParser>("flex.messaging.io.AcknowledgeMessageExt");
+    decoder.register_custom_decoder::<FlexAcknowledgeMessageParser>("flex.messaging.io.ErrorMessage");
+
+    #[derive(Default)]
+    struct FlexCommandMessageParser;
+    impl CustomDecoder for FlexCommandMessageParser {
+        fn decode<'a>(&self, i: &'a [u8], dec: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>> {
+            parse_command_message(i, dec)
+        }
+    }
+    decoder.register_custom_decoder::<FlexCommandMessageParser>("flex.messaging.io.CommandMessage");
+    decoder.register_custom_decoder::<FlexCommandMessageParser>("flex.messaging.io.CommandMessageExt");
+
+
+    #[derive(Default)]
+    struct FlexArrayCollectionParser;
+    impl CustomDecoder for FlexArrayCollectionParser {
+        fn decode<'a>(&self, i: &'a [u8], dec: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>> {
+            parse_array_collection(i, dec)
+        }
+    }
+    decoder.register_custom_decoder::<FlexArrayCollectionParser>("flex.messaging.io.ArrayCollection");
+    decoder.register_custom_decoder::<FlexArrayCollectionParser>("flex.messaging.io.ArrayList");
+
+    #[derive(Default)]
+    struct FlexObjectProxyParser;
+    impl CustomDecoder for FlexObjectProxyParser {
+        fn decode<'a>(&self, i: &'a [u8], dec: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>> {
+            parse_object_proxy(i, dec)
+        }
+    }
+    decoder.register_custom_decoder::<FlexObjectProxyParser>("flex.messaging.io.ObjectProxy");
+    decoder.register_custom_decoder::<FlexObjectProxyParser>("flex.messaging.io.ManagedObjectProxy");
+    decoder.register_custom_decoder::<FlexObjectProxyParser>("flex.messaging.io.SerializationProxy");
 }
