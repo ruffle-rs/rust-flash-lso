@@ -20,7 +20,8 @@ pub trait CustomEncoder {
     ) -> Vec<u8>;
 }
 
-//TODO: combine with trait
-/// Type used for specifying a custom decoder for a AMF3 external type
-pub type ExternalDecoderFn =
-    Box<dyn for<'a> Fn(&'a [u8], &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>>>;
+///
+pub trait CustomDecoder {
+    ///
+    fn decode<'a>(&self, i: &'a[u8], dec: &AMF3Decoder) -> AMFResult<'a, Vec<Element>>;
+}
