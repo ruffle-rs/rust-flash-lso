@@ -1,5 +1,4 @@
 use super::{ClassDefinition, Element, ObjectId, Reference};
-use std::rc::Rc;
 
 //TODO: should amf3 assoc arrays be their own type with a dense and assoc section
 /// A single or compound value
@@ -42,7 +41,7 @@ pub enum Value {
 
     #[cfg(feature = "amf3")]
     /// Represent an amf3 element embedded in an AMF0 file
-    AMF3(Rc<Value>),
+    AMF3(Box<Value>),
 
     // AMF3
     /// Represent the integer type (u29) (amf3)
