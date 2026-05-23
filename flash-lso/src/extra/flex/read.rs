@@ -1,6 +1,5 @@
 //! Handles decoding of flex types
 
-use std::rc::Rc;
 use crate::amf3::read::AMF3Decoder;
 use crate::extra::flex::{
     BODY_FLAG, CLIENT_ID_BYTES_FLAG, CLIENT_ID_FLAG, CORRELATION_ID_BYTES_FLAG,
@@ -286,7 +285,7 @@ pub fn register_decoders(decoder: &mut AMF3Decoder) {
     );
     decoder.external_decoders.insert(
         "flex.messaging.io.AsyncMessageExt".to_string(),
-        (Box::new(parse_async_message)),
+        Box::new(parse_async_message),
     );
     decoder.external_decoders.insert(
         "flex.messaging.io.AcknowledgeMessage".to_string(),
@@ -294,7 +293,7 @@ pub fn register_decoders(decoder: &mut AMF3Decoder) {
     );
     decoder.external_decoders.insert(
         "flex.messaging.io.AcknowledgeMessageExt".to_string(),
-        (Box::new(parse_acknowledge_message)),
+        Box::new(parse_acknowledge_message),
     );
     decoder.external_decoders.insert(
         "flex.messaging.io.CommandMessage".to_string(),
