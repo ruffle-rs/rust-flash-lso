@@ -1,11 +1,12 @@
 use core::fmt;
 use flash_lso::errors::Error;
 use flash_lso::read::Reader;
-use flash_lso::types::Value;
+use flash_lso::types::{Element, Value};
 use nom::error::ErrorKind;
 use std::borrow::Borrow;
 use std::ops::Deref;
-
+use flash_lso::amf3::custom_encoder::CustomDecoder;
+use flash_lso::AMFResult;
 // #[cfg(test)]
 // use pretty_assertions::assert_eq;
 
@@ -466,8 +467,8 @@ pub fn test_recursive_object() {
     let (_, obj) = flash_lso::amf3::read::AMF3Decoder::default()
         .parse_single_element(data)
         .expect("Failed to parse object");
-    if let Value::Object(id, elem, _) = obj.borrow() {
-        assert_eq!(elem[0].value.deref(), &Value::Amf3ObjectReference(*id));
+    if let Value::Object(id, elem, _) = &obj {
+        assert_eq!(elem[0].value, Value::Amf3ObjectReference(*id));
     } else {
         panic!("Expected object");
     }
@@ -482,16 +483,23 @@ pub fn test_externalizable_object_back_reference() {
     let data = include_bytes!("./amf/externalizable-object-back-reference.amf");
 
     let mut decoder = AMF3Decoder::default();
+    struct TestDecoder;
+    impl CustomDecoder for TestDecoder{
+        fn decode<'a>(&self, i: &'a[u8], _dec: &AMF3Decoder) -> AMFResult<'a, Vec<Element>> {
+            Ok((&i[1..], vec![]))
+        }
+    }
+
     decoder.external_decoders.insert(
         "X".to_string(),
-        Rc::new(Box::new(|input, _decoder| Ok((&input[1..], vec![])))),
+        Box::new(TestDecoder),
     );
 
     let (rest, first) = decoder
         .parse_single_element(data)
         .expect("first parse failed");
     assert!(
-        matches!(first.deref(), Value::Custom(_, _, _)),
+        matches!(first, Value::Custom(_, _, _)),
         "first element should be Custom, got {first:?}"
     );
 
@@ -499,7 +507,7 @@ pub fn test_externalizable_object_back_reference() {
         .parse_single_element(rest)
         .expect("back-ref parse failed");
     assert!(
-        matches!(second.deref(), Value::Custom(_, _, _)),
+        matches!(second, Value::Amf3ObjectReference(x) if x.0 == 0),
         "back-ref should resolve to Custom, got {second:?}"
     );
 }

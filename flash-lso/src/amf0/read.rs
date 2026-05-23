@@ -183,7 +183,7 @@ impl AMF0Decoder {
         // Get the type of the next element
         let (i, type_) = read_type_marker(i)?;
 
-        let cache_idx = self.cache.len();
+        // let cache_idx = self.cache.len();
         self.cache.push(Value::Undefined);
 
         let (i, v) = match type_ {
@@ -254,13 +254,13 @@ impl AMF0Decoder {
         many0(|i| self.parse_element_and_padding(i)).parse(i)
     }
 
-    /// Convert the given value into a reference, if possible
-    /// This reference is only valid for values sourced from this decoder and will only reference values decoded by it
-    pub fn as_reference(&self, v: &Value) -> Option<Reference> {
-        // self.cache
-        //     .iter()
-        //     .position(|cv| *cv == (v.clone()))
-        //     .map(|r| Reference(r as _))
-        None
-    }
+    // Convert the given value into a reference, if possible
+    // This reference is only valid for values sourced from this decoder and will only reference values decoded by it
+    // pub fn as_reference(&self, v: &Value) -> Option<Reference> {
+    //     // self.cache
+    //     //     .iter()
+    //     //     .position(|cv| *cv == (v.clone()))
+    //     //     .map(|r| Reference(r as _))
+    //     None
+    // }
 }
