@@ -1,4 +1,4 @@
-use crate::amf3::custom_encoder::CustomDecoder;
+use crate::amf3::custom_encoder::{CustomDecoder};
 use crate::amf3::type_marker::TypeMarker;
 use nom::Parser;
 
@@ -17,6 +17,7 @@ use nom::number::complete::{be_f64, be_i32, be_u32, be_u8};
 use nom::Err;
 
 use std::convert::{TryFrom, TryInto};
+use std::rc::Rc;
 
 const REFERENCE_FLAG: u32 = 0x01;
 
@@ -158,7 +159,7 @@ pub struct AMF3Decoder {
     pub object_reference_table: Vec<Value>,
 
     /// Encoders used for handling externalized types
-    pub external_decoders: HashMap<String, Box<dyn CustomDecoder>>,
+    pub external_decoders: HashMap<String, Rc<dyn CustomDecoder>>,
 
     /// Tracks the id of the last object we have read, used to generate `ObjectId`s for `Amf3Reference`
     /// Not an `ObjectId` itself as they don't impl `Default`
@@ -171,6 +172,11 @@ fn parse_element_number(i: &[u8]) -> AMFResult<'_, Value> {
 }
 
 impl AMF3Decoder {
+    /// Register a custom decoder for external data formats
+    pub fn register_custom_decoder<T: CustomDecoder + Default + 'static>(&mut self, name: &str) {
+        self.external_decoders.insert(name.to_string(), Rc::new(T::default()));
+    }
+
     fn parse_element_string<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         let (i, s) = map(|i| self.parse_string(i), Value::String).parse(i)?;
         Ok((i, (s)))
@@ -315,7 +321,7 @@ impl AMF3Decoder {
         match len {
             Length::Size(len) => {
                 if len == 0 {
-                    Ok((i, vec![]))
+                    Ok((i, Vec::new()))
                 } else {
                     let (i, bytes) = take(len)(i)?;
                     self.string_reference_table.push(bytes.to_vec());
@@ -406,12 +412,13 @@ impl AMF3Decoder {
 
         let mut i = i;
         if class_def.attributes.contains(Attribute::External) {
-            return if let Some(decoder) = self.external_decoders.get(&class_def.name) {
+            let dec = self.external_decoders.get(&class_def.name).map(|f| Rc::clone(f));
+            return if let Some(decoder) = dec {
                 let (j, v) = decoder.decode(i, self)?;
                 external_elements = v;
                 i = j;
                 //TODO: should it be possible to have both dynamic and external together
-                let value = Value::Custom(external_elements, vec![], Some(class_def.clone()));
+                let value = Value::Custom(external_elements, Vec::new(), Some(class_def.clone()));
 
 
                 // Update placeholder so back-refs resolve to the decoded Custom.
@@ -593,7 +600,7 @@ impl AMF3Decoder {
             i,
             |this| {
                 this.object_id += 1;
-                Value::ECMAArray(ObjectId(this.object_id-1), vec![], vec![], 0)
+                Value::ECMAArray(ObjectId(this.object_id-1), Vec::new(), Vec::new(), 0)
             },
             |this, i, length_usize, ofi| {
                 // There must be at least `length_usize` bytes to read this, this prevents OOM errors with v.large dicts

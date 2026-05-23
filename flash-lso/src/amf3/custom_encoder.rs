@@ -23,5 +23,5 @@ pub trait CustomEncoder {
 ///
 pub trait CustomDecoder {
     ///
-    fn decode<'a>(&self, i: &'a[u8], dec: &AMF3Decoder) -> AMFResult<'a, Vec<Element>>;
+    fn decode<'a>(&self, i: &'a[u8], dec: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>>;
 }

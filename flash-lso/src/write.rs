@@ -25,7 +25,7 @@ impl Writer {
         writer: &mut W,
         lso: &'b mut Lso,
     ) -> std::io::Result<()> {
-        let mut buffer = vec![];
+        let mut buffer = Vec::new();
         if lso.header.format_version == AMFVersion::AMF0 {
             crate::amf0::write::write_body(&mut buffer, &lso.body)?;
         } else {
@@ -68,7 +68,7 @@ pub fn header_length(header: &Header) -> usize {
 
 /// Write a LSO to a vec of bytes
 pub fn write_to_bytes<'a>(lso: &mut Lso) -> Result<Vec<u8>, Error<'a>> {
-    let mut v = vec![];
+    let mut v = Vec::new();
 
     let mut s = Writer::default();
     s.write_full(&mut v, lso)

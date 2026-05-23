@@ -1,10 +1,10 @@
 This file was generated with the following:
 
-let mut v = vec![];
+let mut v = Vec::new();
 let  r = Rc::new(Value::Object(0, Vec::new().into(), Some(ClassDefinition {
     name: "".to_string(),
     attributes: Default::default(),
-    static_properties: vec![],
+    static_properties: Vec::new(),
 })));
 
 let o = Value::Object(0, vec![
