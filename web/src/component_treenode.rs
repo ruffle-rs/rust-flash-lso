@@ -1,7 +1,6 @@
 use crate::{EditableValue, TreeNodePath};
 use flash_lso::types::{Element, Value};
 use std::ops::Deref;
-use std::rc::Rc;
 use yew::prelude::*;
 use yew::{Component, Html, Properties};
 
@@ -214,7 +213,7 @@ impl TreeNode {
         )
     }
 
-    pub fn view_array_element(&self, ctx: &Context<Self>, index: usize, data: &Rc<Value>) -> Html {
+    pub fn view_array_element(&self, ctx: &Context<Self>, index: usize, data: &Value) -> Html {
         html! {
             <div>
                 <TreeNode filter={ctx.props().filter.clone()} selection={ctx.props().selection.clone()} parent_path={self.path(ctx)} name={format!("{}", index)} value={data.deref().clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
@@ -222,7 +221,7 @@ impl TreeNode {
         }
     }
 
-    pub fn view_sol_value(&self, ctx: &Context<Self>, data: Rc<Value>) -> Html {
+    pub fn view_sol_value(&self, ctx: &Context<Self>, data: Value) -> Html {
         match data.deref() {
             Value::AMF3(e) => self.view_sol_value(ctx, e.clone()),
             Value::Object(_, elements, _class_def) => html! {
