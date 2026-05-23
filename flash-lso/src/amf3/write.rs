@@ -589,7 +589,7 @@ impl AMF3Encoder {
         writer: &mut W,
         s: &'b Value,
     ) -> Result<()> {
-        self.write_value(writer, s.deref())
+        self.write_value(writer, s)
     }
 
     fn write_value<'a, 'b: 'a, W: Write + 'a>(
@@ -707,7 +707,7 @@ mod write_number_tests {
     #[test]
     fn test_write_1byte_number() {
         let e = AMF3Encoder::default();
-        let mut v = vec![];
+        let mut v = Vec::new();
         e.write_int(&mut v, 0b00101011).unwrap();
         assert_eq!(v, &[0b00101011]);
     }
@@ -715,7 +715,7 @@ mod write_number_tests {
     #[test]
     fn test_write_4byte_number() {
         let e = AMF3Encoder::default();
-        let mut v = vec![];
+        let mut v = Vec::new();
         e.write_int(&mut v, 2097280).unwrap();
         assert_eq!(v, &[0b10000000, 0b11000000, 0b10000000, 0b10000000]);
     }
@@ -723,7 +723,7 @@ mod write_number_tests {
     #[test]
     fn write_neg_number() {
         let e = AMF3Encoder::default();
-        let mut v = vec![];
+        let mut v = Vec::new();
         e.write_int(&mut v, -268435455).unwrap();
         assert_eq!(v, &[192, 128, 128, 1]);
     }

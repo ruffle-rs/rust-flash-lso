@@ -76,8 +76,8 @@ impl Component for Model {
     type Properties = ();
     fn create(_ctx: &Context<Self>) -> Self {
         Self {
-            tasks: vec![],
-            files: vec![],
+            tasks: Vec::new(),
+            files: Vec::new(),
             current_selection: None,
             current_tab: None,
             error_messages: Vec::new(),
