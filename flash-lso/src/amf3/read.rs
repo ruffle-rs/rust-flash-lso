@@ -1,24 +1,22 @@
-use crate::amf3::custom_encoder::ExternalDecoderFn;
+use crate::amf3::custom_encoder::CustomDecoder;
 use crate::amf3::type_marker::TypeMarker;
 use nom::Parser;
 
-use crate::PADDING;
 use crate::amf3::length::Length;
 use crate::nom_utils::AMFResult;
 use crate::types::*;
 use crate::types::{Element, Value};
+use crate::PADDING;
 use enumset::EnumSet;
-use nom::Err;
 use nom::bytes::complete::{tag, take};
 use nom::combinator::{map, map_res};
-use nom::error::{ErrorKind, make_error};
+use nom::error::{make_error, ErrorKind};
 use nom::lib::std::collections::HashMap;
 use nom::multi::{many_m_n, separated_list0};
-use nom::number::complete::{be_f64, be_i32, be_u8, be_u32};
+use nom::number::complete::{be_f64, be_i32, be_u32, be_u8};
+use nom::Err;
 
 use std::convert::{TryFrom, TryInto};
-use std::ops::DerefMut;
-use std::rc::Rc;
 
 const REFERENCE_FLAG: u32 = 0x01;
 
@@ -160,7 +158,7 @@ pub struct AMF3Decoder {
     pub object_reference_table: Vec<Value>,
 
     /// Encoders used for handling externalized types
-    pub external_decoders: HashMap<String, ExternalDecoderFn>,
+    pub external_decoders: HashMap<String, Box<dyn CustomDecoder>>,
 
     /// Tracks the id of the last object we have read, used to generate `ObjectId`s for `Amf3Reference`
     /// Not an `ObjectId` itself as they don't impl `Default`
@@ -169,7 +167,7 @@ pub struct AMF3Decoder {
 
 fn parse_element_number(i: &[u8]) -> AMFResult<'_, Value> {
     let (i, v) = map(be_f64, Value::Number).parse(i)?;
-    Ok((i, (v)))
+    Ok((i, v))
 }
 
 impl AMF3Decoder {
@@ -285,7 +283,7 @@ impl AMF3Decoder {
                 let inital = mk_initial(self);
                 let initial = inital;
                 let index = self.object_reference_table.len();
-                // self.object_reference_table.push(initial);
+                self.object_reference_table.push(initial);
 
                 let (i, res) = parser(self, i, len_usize, index)?;
 
@@ -382,10 +380,10 @@ impl AMF3Decoder {
         }
         length >>= 1;
 
-        self.object_id += 1;
         let mut obj = Value::Object(ObjectId(self.object_id), Vec::new(), None);
+        self.object_id += 1;
 
-        let index = self.object_reference_table.len();
+        // let index = self.object_reference_table.len();
         // self.object_reference_table.push(obj);
 
         // Class def
@@ -408,12 +406,8 @@ impl AMF3Decoder {
 
         let mut i = i;
         if class_def.attributes.contains(Attribute::External) {
-            return if self.external_decoders.contains_key(&class_def.name) {
-                //TODO:
-
-                // let decoder = self.external_decoders.get(&class_def.name).unwrap().clone();
-                let (j, v) = (i, Vec::new());
-                // let (j, v) = decoder(i, self)?;
+            return if let Some(decoder) = self.external_decoders.get(&class_def.name) {
+                let (j, v) = decoder.decode(i, self)?;
                 external_elements = v;
                 i = j;
                 //TODO: should it be possible to have both dynamic and external together
@@ -566,7 +560,7 @@ impl AMF3Decoder {
             |this| {
                 this.object_id += 1;
 
-                Value::VectorObject(ObjectId(this.object_id), Vec::new(), "".to_string(), false)
+                Value::VectorObject(ObjectId(this.object_id-1), Vec::new(), "".to_string(), false)
             },
             |this, i, len, ofi| {
                 let (i, fixed_length) = be_u8(i)?;
@@ -599,7 +593,7 @@ impl AMF3Decoder {
             i,
             |this| {
                 this.object_id += 1;
-                Value::ECMAArray(ObjectId(this.object_id), vec![], vec![], 0)
+                Value::ECMAArray(ObjectId(this.object_id-1), vec![], vec![], 0)
             },
             |this, i, length_usize, ofi| {
                 // There must be at least `length_usize` bytes to read this, this prevents OOM errors with v.large dicts
@@ -673,7 +667,7 @@ impl AMF3Decoder {
             i,
             |this| {
                 this.object_id += 1;
-                Value::Dictionary(ObjectId(this.object_id), Vec::new(), false)
+                Value::Dictionary(ObjectId(this.object_id-1), Vec::new(), false)
             },
             |this, i, len, ofi| {
                 //TODO: implications of this

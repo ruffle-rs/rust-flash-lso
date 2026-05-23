@@ -1,5 +1,17 @@
 use super::{ClassDefinition, Element, ObjectId, Reference};
 
+/// The data contained within a Value of type Object
+pub struct ObjectValue {
+    ///
+    id: ObjectId,
+
+    /// The child elements of this Object
+    elements: Vec<Element>,
+
+    /// The class definition for this object, if it exists
+    class_definition: Option<ClassDefinition>
+}
+
 //TODO: should amf3 assoc arrays be their own type with a dense and assoc section
 /// A single or compound value
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

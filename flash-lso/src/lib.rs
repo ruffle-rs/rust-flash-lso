@@ -40,6 +40,7 @@ pub mod errors;
 
 /// Private internal utils for reading
 mod nom_utils;
+pub use nom_utils::AMFResult;
 
 /// Reading of the Lso container format
 pub mod read;

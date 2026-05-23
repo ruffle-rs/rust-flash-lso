@@ -7,7 +7,8 @@ use crate::write::WriteExt;
 use nom::IResult;
 use std::io::Write;
 
-pub(crate) type AMFResult<'a, T> = IResult<&'a [u8], T, Error<'a>>;
+/// The result type of all AMF parsers
+pub type AMFResult<'a, T> = IResult<&'a [u8], T, Error<'a>>;
 
 pub(crate) fn write_string<'a, 'b: 'a, W: Write + 'a>(
     writer: &mut W,
