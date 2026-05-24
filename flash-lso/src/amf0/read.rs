@@ -252,14 +252,4 @@ impl AMF0Decoder {
     pub fn parse_body<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {
         many0(|i| self.parse_element_and_padding(i)).parse(i)
     }
-
-    // Convert the given value into a reference, if possible
-    // This reference is only valid for values sourced from this decoder and will only reference values decoded by it
-    // pub fn as_reference(&self, v: &Value) -> Option<Reference> {
-    //     // self.cache
-    //     //     .iter()
-    //     //     .position(|cv| *cv == (v.clone()))
-    //     //     .map(|r| Reference(r as _))
-    //     None
-    // }
 }
