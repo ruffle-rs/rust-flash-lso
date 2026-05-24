@@ -1,5 +1,6 @@
 //! Handles decoding of flex types
 
+use crate::amf3::custom_encoder::CustomDecoder;
 use crate::amf3::read::AMF3Decoder;
 use crate::extra::flex::{
     BODY_FLAG, CLIENT_ID_BYTES_FLAG, CLIENT_ID_FLAG, CORRELATION_ID_BYTES_FLAG,
@@ -9,7 +10,6 @@ use crate::extra::flex::{
 use crate::nom_utils::AMFResult;
 use crate::types::Element;
 use nom::number::complete::be_u8;
-use crate::amf3::custom_encoder::CustomDecoder;
 
 fn parse_abstract_message_flags(i: &[u8]) -> AMFResult<'_, Vec<u8>> {
     let mut next_flag = true;
@@ -283,7 +283,8 @@ pub fn register_decoders(decoder: &mut AMF3Decoder) {
             parse_abstract_message(i, dec)
         }
     }
-    decoder.register_custom_decoder::<FlexAbstractMessageParser>("flex.messaging.io.AbstractMessage");
+    decoder
+        .register_custom_decoder::<FlexAbstractMessageParser>("flex.messaging.io.AbstractMessage");
 
     #[derive(Default)]
     struct FlexAsyncMessageParser;
@@ -295,7 +296,6 @@ pub fn register_decoders(decoder: &mut AMF3Decoder) {
     decoder.register_custom_decoder::<FlexAsyncMessageParser>("flex.messaging.io.AsyncMessage");
     decoder.register_custom_decoder::<FlexAsyncMessageParser>("flex.messaging.io.AsyncMessageExt");
 
-
     #[derive(Default)]
     struct FlexAcknowledgeMessageParser;
     impl CustomDecoder for FlexAcknowledgeMessageParser {
@@ -303,9 +303,14 @@ pub fn register_decoders(decoder: &mut AMF3Decoder) {
             parse_acknowledge_message(i, dec)
         }
     }
-    decoder.register_custom_decoder::<FlexAcknowledgeMessageParser>("flex.messaging.io.AcknowledgeMessage");
-    decoder.register_custom_decoder::<FlexAcknowledgeMessageParser>("flex.messaging.io.AcknowledgeMessageExt");
-    decoder.register_custom_decoder::<FlexAcknowledgeMessageParser>("flex.messaging.io.ErrorMessage");
+    decoder.register_custom_decoder::<FlexAcknowledgeMessageParser>(
+        "flex.messaging.io.AcknowledgeMessage",
+    );
+    decoder.register_custom_decoder::<FlexAcknowledgeMessageParser>(
+        "flex.messaging.io.AcknowledgeMessageExt",
+    );
+    decoder
+        .register_custom_decoder::<FlexAcknowledgeMessageParser>("flex.messaging.io.ErrorMessage");
 
     #[derive(Default)]
     struct FlexCommandMessageParser;
@@ -315,8 +320,8 @@ pub fn register_decoders(decoder: &mut AMF3Decoder) {
         }
     }
     decoder.register_custom_decoder::<FlexCommandMessageParser>("flex.messaging.io.CommandMessage");
-    decoder.register_custom_decoder::<FlexCommandMessageParser>("flex.messaging.io.CommandMessageExt");
-
+    decoder
+        .register_custom_decoder::<FlexCommandMessageParser>("flex.messaging.io.CommandMessageExt");
 
     #[derive(Default)]
     struct FlexArrayCollectionParser;
@@ -325,7 +330,8 @@ pub fn register_decoders(decoder: &mut AMF3Decoder) {
             parse_array_collection(i, dec)
         }
     }
-    decoder.register_custom_decoder::<FlexArrayCollectionParser>("flex.messaging.io.ArrayCollection");
+    decoder
+        .register_custom_decoder::<FlexArrayCollectionParser>("flex.messaging.io.ArrayCollection");
     decoder.register_custom_decoder::<FlexArrayCollectionParser>("flex.messaging.io.ArrayList");
 
     #[derive(Default)]
@@ -336,6 +342,8 @@ pub fn register_decoders(decoder: &mut AMF3Decoder) {
         }
     }
     decoder.register_custom_decoder::<FlexObjectProxyParser>("flex.messaging.io.ObjectProxy");
-    decoder.register_custom_decoder::<FlexObjectProxyParser>("flex.messaging.io.ManagedObjectProxy");
-    decoder.register_custom_decoder::<FlexObjectProxyParser>("flex.messaging.io.SerializationProxy");
+    decoder
+        .register_custom_decoder::<FlexObjectProxyParser>("flex.messaging.io.ManagedObjectProxy");
+    decoder
+        .register_custom_decoder::<FlexObjectProxyParser>("flex.messaging.io.SerializationProxy");
 }

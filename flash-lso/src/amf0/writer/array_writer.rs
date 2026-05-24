@@ -17,8 +17,7 @@ impl<'a> ObjWriter<'a> for ArrayWriter<'a, '_> {
             self.make_reference();
         }
 
-        self.elements
-            .push(Element::new(name.to_string(), s));
+        self.elements.push(Element::new(name.to_string(), s));
     }
 
     fn object<'c: 'a, 'd>(
