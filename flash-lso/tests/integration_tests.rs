@@ -1,12 +1,10 @@
 use core::fmt;
+use flash_lso::amf3::custom_encoder::CustomDecoder;
 use flash_lso::errors::Error;
 use flash_lso::read::Reader;
 use flash_lso::types::{Element, Value};
-use nom::error::ErrorKind;
-use std::borrow::Borrow;
-use std::ops::Deref;
-use flash_lso::amf3::custom_encoder::CustomDecoder;
 use flash_lso::AMFResult;
+use nom::error::ErrorKind;
 // #[cfg(test)]
 // use pretty_assertions::assert_eq;
 
@@ -477,23 +475,21 @@ pub fn test_recursive_object() {
 #[test]
 pub fn test_externalizable_object_back_reference() {
     use flash_lso::amf3::read::AMF3Decoder;
-    use std::rc::Rc;
 
     // Inline external "X" with a 1-byte body, then an object-ref to it.
     let data = include_bytes!("./amf/externalizable-object-back-reference.amf");
 
     let mut decoder = AMF3Decoder::default();
+
+    #[derive(Default)]
     struct TestDecoder;
     impl CustomDecoder for TestDecoder{
-        fn decode<'a>(&self, i: &'a[u8], _dec: &AMF3Decoder) -> AMFResult<'a, Vec<Element>> {
+        fn decode<'a>(&self, i: &'a[u8], _dec: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>> {
             Ok((&i[1..], Vec::new()))
         }
     }
 
-    decoder.external_decoders.insert(
-        "X".to_string(),
-        Box::new(TestDecoder),
-    );
+    decoder.register_custom_decoder::<TestDecoder>("X");
 
     let (rest, first) = decoder
         .parse_single_element(data)

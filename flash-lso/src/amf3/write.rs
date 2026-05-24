@@ -11,7 +11,6 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::io::Result;
 use std::io::Write;
-use std::ops::Deref;
 
 /// Handles encoding AMF3
 #[derive(Default)]
