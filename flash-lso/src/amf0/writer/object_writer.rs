@@ -1,4 +1,4 @@
-use crate::types::{Element, ObjectId, Reference, Value};
+use crate::types::{Element, ObjectId, ObjectValue, Reference, Value};
 
 use super::{ArrayWriter, CacheKey, ObjWriter};
 
@@ -94,7 +94,7 @@ impl ObjectWriter<'_, '_> {
         //TODO: this doent work for multi level nesting
         self.parent.add_element(
             name.as_ref(),
-            Value::Object(ObjectId::INVALID, self.elements, None),
+            Value::Object{id: ObjectId::INVALID, data: ObjectValue{ elements: self.elements, class_definition: None}},
             false,
         );
     }

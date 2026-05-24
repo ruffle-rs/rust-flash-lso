@@ -253,7 +253,6 @@ impl AMF3Decoder {
     fn parse_reference_or_val<'a>(
         &mut self,
         i: &'a [u8],
-        mk_initial: impl FnOnce(&mut Self) -> Value,
         parser: impl FnOnce(&mut Self, &'a [u8], usize, usize) -> AMFResult<'a, Value>,
     ) -> AMFResult<'a, Value> {
         let (i, len) = read_length(i)?;
@@ -267,8 +266,6 @@ impl AMF3Decoder {
                     .try_into()
                     .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-                //TODO: get rid?
-                let inital = mk_initial(self);
                 let index = self.object_id;
                 self.object_id += 1;
 
@@ -340,14 +337,14 @@ impl AMF3Decoder {
         }
         length >>= 1;
 
-        let mut obj = Value::Object(ObjectId(self.object_id), Vec::new(), None);
+        let mut obj = Value::Object{ id: ObjectId(self.object_id), data: ObjectValue{ elements: Vec::new(), class_definition: None}};
         self.object_id += 1;
 
         // Class def
         let (i, class_def) = self.parse_class_def(length, i)?;
 
-        if let Value::Object(_, _, def) = &mut obj {
-            *def = Some(class_def.clone());
+        if let Value::Object{ id: _,  data} = &mut obj {
+            data.class_definition = Some(class_def.clone());
         }
 
         let mut elements = Vec::new();
@@ -400,8 +397,8 @@ impl AMF3Decoder {
             i = j;
         }
 
-        if let Value::Object(_, elements_inner, _) = &mut obj {
-            *elements_inner = elements;
+        if let Value::Object{ id: _, data} = &mut obj {
+            data.elements = elements;
         }
 
         Ok((
@@ -413,7 +410,6 @@ impl AMF3Decoder {
     fn parse_element_byte_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         self.parse_reference_or_val(
             i,
-            |_| Value::ByteArray(Vec::new()),
             |_this, i, len, _| {
                 let (i, bytes) = take(len)(i)?;
                 Ok((i, Value::ByteArray(bytes.to_vec())))
@@ -424,7 +420,6 @@ impl AMF3Decoder {
     fn parse_element_vector_int<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         self.parse_reference_or_val(
             i,
-            |_| Value::VectorInt(Vec::new(), false),
             |_this, i, len, _| {
                 // There must be at least `len * 4` (i32 = 4 bytes) bytes to read this, this prevents OOM errors with v.large vecs
                 if i.len() < len * 4 {
@@ -443,7 +438,6 @@ impl AMF3Decoder {
     fn parse_element_vector_uint<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         self.parse_reference_or_val(
             i,
-            |_| Value::VectorUInt(Vec::new(), false),
             |_this, i, len, _| {
                 // There must be at least `len * 4` (u32 = 4 bytes) bytes to read this, this prevents OOM errors with v.large vecs
                 if i.len() < len * 4 {
@@ -461,7 +455,6 @@ impl AMF3Decoder {
     fn parse_element_vector_double<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         self.parse_reference_or_val(
             i,
-            |_| Value::VectorDouble(Vec::new(), false),
             |_this, i, len, _| {
                 // There must be at least `len * 8` (f64 = 8 bytes) bytes to read this, this prevents OOM errors with v.large dicts
                 if i.len() < len * 8 {
@@ -479,9 +472,6 @@ impl AMF3Decoder {
     fn parse_element_object_vector<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         self.parse_reference_or_val(
             i,
-            |this| {
-                Value::VectorObject(ObjectId(this.object_id-1), Vec::new(), "".to_string(), false)
-            },
             |this, i, len, ofi| {
                 let (i, fixed_length) = be_u8(i)?;
 
@@ -503,10 +493,6 @@ impl AMF3Decoder {
     fn parse_element_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         self.parse_reference_or_val(
             i,
-            |this| {
-                // this.object_id += 1;
-                Value::ECMAArray(ObjectId(this.object_id), Vec::new(), Vec::new(), 0)
-            },
             |this, i, length_usize, ofi| {
                 // There must be at least `length_usize` bytes to read this, this prevents OOM errors with v.large dicts
                 if i.len() < length_usize {
@@ -560,9 +546,6 @@ impl AMF3Decoder {
     fn parse_element_dict<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         self.parse_reference_or_val(
             i,
-            |this| {
-                Value::Dictionary(ObjectId(this.object_id-1), Vec::new(), false)
-            },
             |this, i, len, ofi| {
                 //TODO: implications of this
                 let (i, weak_keys) = be_u8(i)?;
@@ -590,7 +573,6 @@ impl AMF3Decoder {
     fn parse_element_date<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         self.parse_reference_or_val(
             i,
-            |_| Value::Date(0., None),
             |_this, i, _len, _| {
                 let (i, ms) = be_f64(i)?;
                 Ok((i, Value::Date(ms, None)))
@@ -601,7 +583,6 @@ impl AMF3Decoder {
     fn parse_element_xml<'a>(&mut self, i: &'a [u8], string: bool) -> AMFResult<'a, Value> {
         self.parse_reference_or_val(
             i,
-            |_| Value::XML("".to_string(), false),
             |_this, i, len, _| {
                 let (i, data) = map_res(take(len as u32), std::str::from_utf8).parse(i)?;
                 Ok((i, Value::XML(data.into(), string)))
