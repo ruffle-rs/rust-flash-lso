@@ -754,12 +754,8 @@ fn value_type_name(v: &Value) -> String {
         Value::VectorObject(_, _, _, _) => "Vector<Object>".to_string(),
         Value::Amf3ObjectReference(_) => "Reference".to_string(),
         Value::Dictionary(_, _, _) => "Dictionary".to_string(),
-        Value::Custom(_, _, cd) => {
-            if let Some(cd) = cd {
-                format!("Custom<{}>", cd.name)
-            } else {
-                "Custom<Unknown>".to_string()
-            }
+        Value::Custom(c) => {
+            format!("Custom<{}>", c.class_definition.name)
         }
     }
 }

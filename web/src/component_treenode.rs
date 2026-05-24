@@ -77,10 +77,10 @@ impl Component for TreeNode {
             }
             Msg::CustomElementChange(el) => {
                 match &mut self.value {
-                    Value::Custom(a, _b, _) => {
-                        let index = a.iter().position(|e| e.name == el.name);
+                    Value::Custom(c) => {
+                        let index = c.elements.iter().position(|e| e.name == el.name);
                         if let Some(index) = index {
-                            a[index] = el;
+                            c.elements[index] = el;
                         }
                     }
                     _ => {
@@ -92,10 +92,10 @@ impl Component for TreeNode {
             }
             Msg::CustomElementChangeStandard(el) => {
                 match &mut self.value {
-                    Value::Custom(_a, b, _) => {
-                        let index = b.iter().position(|e| e.name == el.name);
+                    Value::Custom(c) => {
+                        let index = c.dynamic_elements.iter().position(|e| e.name == el.name);
                         if let Some(index) = index {
-                            b[index] = el;
+                            c.dynamic_elements[index] = el;
                         }
                     }
                     _ => {
@@ -181,9 +181,9 @@ impl TreeNode {
                 .iter()
                 .enumerate()
                 .any(|(i, _e)| format!("{i}").contains(&ctx.props().filter)),
-            Value::Custom(e1, e2, _) => {
-                e1.iter().any(|e| e.name.contains(&ctx.props().filter))
-                    || e2.iter().any(|e| e.name.contains(&ctx.props().filter))
+            Value::Custom(c) => {
+                c.elements.iter().any(|e| e.name.contains(&ctx.props().filter))
+                    || c.dynamic_elements.iter().any(|e| e.name.contains(&ctx.props().filter))
             }
             _ => false,
         };
@@ -211,7 +211,7 @@ impl TreeNode {
                 | Value::VectorObject(_, _, _, _)
                 | Value::AMF3(_)
                 | Value::Dictionary(_, _, _)
-                | Value::Custom(_, _, _)
+                | Value::Custom(_)
         )
     }
 
@@ -265,12 +265,12 @@ impl TreeNode {
                         })}
                 </ul>
             },
-            Value::Custom(el, el2, _class_def) => html! {
+            Value::Custom(c) => html! {
                 <ul>
                     <li>
                         {"Custom elements"}
                         <ul>
-                            { for el.iter().map(|e| html! {
+                            { for c.elements.iter().map(|e| html! {
                                 <TreeNode element_callback={ctx.link().callback(Msg::CustomElementChange)} filter={ctx.props().filter.clone()} selection={ctx.props().selection.clone()} parent_path={self.path(ctx)} name={e.name.clone()} value={e.value.clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
                             })}
                         </ul>
@@ -278,7 +278,7 @@ impl TreeNode {
                     <li>
                         {"Standard elements"}
                         <ul>
-                           { for el2.iter().map(|e| html! {
+                           { for c.dynamic_elements.iter().map(|e| html! {
                                 <TreeNode element_callback={ctx.link().callback(Msg::CustomElementChangeStandard)} filter={ctx.props().filter.clone()} selection={ctx.props().selection.clone()} parent_path={self.path(ctx)} name={e.name.clone()} value={e.value.clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
                             })}
                         </ul>

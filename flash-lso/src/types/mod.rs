@@ -19,3 +19,4 @@ pub use object_id::ObjectId;
 pub use reference::Reference;
 pub use value::ObjectValue;
 pub use value::Value;
+pub use value::CustomObjectValue;
