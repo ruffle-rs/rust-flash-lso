@@ -155,11 +155,8 @@ pub struct AMF3Decoder {
     /// The table used to cache repeated trait definitions
     pub trait_reference_table: Vec<ClassDefinition>,
 
-    /// The table used to cache repeated objects
-    pub object_reference_table: Vec<Value>,
-
     /// Encoders used for handling externalized types
-    pub external_decoders: HashMap<String, Rc<dyn CustomDecoder>>,
+    external_decoders: HashMap<String, Rc<dyn CustomDecoder>>,
 
     /// Tracks the id of the last object we have read, used to generate `ObjectId`s for `Amf3Reference`
     /// Not an `ObjectId` itself as they don't impl `Default`
@@ -263,52 +260,22 @@ impl AMF3Decoder {
 
         match len {
             Length::Reference(index) => {
-                //TODO: test
                 Ok((i, Value::Amf3ObjectReference(ObjectId(index as _))))
-                // let ref_result = self
-                //     .object_reference_table
-                //     .get(index)
-                //     .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?;
-                // match ref_result {
-                //     Value::VectorObject(id, _, _, _) => {
-                //         Ok((i, Value::Amf3ObjectReference(*id).into()))
-                //     }
-                //     Value::Dictionary(id, _, _) => Ok((i, Value::Amf3ObjectReference(*id).into())),
-                //     Value::ECMAArray(id, _, _, _) => {
-                //         Ok((i, Value::Amf3ObjectReference(*id).into()))
-                //     }
-                //     Value::Object(id, _, _) => Ok((i, Value::Amf3ObjectReference(*id).into())),
-                //     _ => Ok((i, Rc::clone(ref_result))),
-                // }
             }
             Length::Size(len) => {
                 let len_usize: usize = len
                     .try_into()
                     .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
+                //TODO: get rid?
                 let inital = mk_initial(self);
-                let initial = inital;
-                let index = self.object_reference_table.len();
-                self.object_reference_table.push(initial);
+                let index = self.object_id;
+                self.object_id += 1;
 
-                let (i, res) = parser(self, i, len_usize, index)?;
-
-                //TODO: this should be an error case and also never happen
-                // let mut initial_inner = Rc::get_mut(
-                //     self.object_reference_table
-                //         .get_mut(index)
-                //         .expect("Index not in reference table"),
-                // )
-                // .expect("Reference still held to rc");
-                // *initial_inner.deref_mut() = res;
+                let (i, res) = parser(self, i, len_usize, index as _)?;
 
                 Ok((
                     i,
-                    // Rc::clone(
-                    //     self.object_reference_table
-                    //         .get(index)
-                    //         .expect("Index not in reference table"),
-                    // ),
                     res
                 ))
             }
@@ -370,41 +337,17 @@ impl AMF3Decoder {
                 .try_into()
                 .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
             return Ok((i, Value::Amf3ObjectReference(ObjectId(len_usize as _))));
-
-            // let ref_result = self
-            //     .object_reference_table
-            //     .get(len_usize)
-            //     .ok_or_else(|| Err::Error(make_error(i, ErrorKind::Digit)))?;
-            // return match ref_result {
-            //     Value::VectorObject(id, _, _, _) => Ok((i, Value::Amf3ObjectReference(*id).into())),
-            //     Value::Dictionary(id, _, _) => Ok((i, Value::Amf3ObjectReference(*id).into())),
-            //     Value::ECMAArray(id, _, _, _) => Ok((i, Value::Amf3ObjectReference(*id).into())),
-            //     Value::Object(id, _, _) => Ok((i, Value::Amf3ObjectReference(*id).into())),
-            //
-            //     _ => Ok((i, Rc::clone(ref_result))),
-            // };
         }
         length >>= 1;
 
         let mut obj = Value::Object(ObjectId(self.object_id), Vec::new(), None);
         self.object_id += 1;
 
-        // let index = self.object_reference_table.len();
-        // self.object_reference_table.push(obj);
-
         // Class def
         let (i, class_def) = self.parse_class_def(length, i)?;
 
-        {
-            // let mut_obj = Rc::get_mut(
-            //     self.object_reference_table
-            //         .get_mut(index)
-            //         .expect("Index invalid"),
-            // )
-            // .expect("Unable to get Object");
-            if let Value::Object(_, _, def) = &mut obj {
-                *def = Some(class_def.clone());
-            }
+        if let Value::Object(_, _, def) = &mut obj {
+            *def = Some(class_def.clone());
         }
 
         let mut elements = Vec::new();
@@ -420,23 +363,8 @@ impl AMF3Decoder {
                 //TODO: should it be possible to have both dynamic and external together
                 let value = Value::Custom(external_elements, Vec::new(), Some(class_def.clone()));
 
-
-                // Update placeholder so back-refs resolve to the decoded Custom.
-                // let mut initial_inner = Rc::get_mut(
-                //     self.object_reference_table
-                //         .get_mut(index)
-                //         .expect("Index not in reference table"),
-                // )
-                // .expect("Reference still held to rc");
-                // *initial_inner.deref_mut() = value;
-
                 Ok((
                     i,
-                    // Rc::clone(
-                    //     self.object_reference_table
-                    //         .get(index)
-                    //         .expect("Index not in reference table"),
-                    // ),
                     value
                 ))
             } else {
@@ -472,26 +400,13 @@ impl AMF3Decoder {
             i = j;
         }
 
-        {
-            // let mut_obj = Rc::get_mut(
-            //     self.object_reference_table
-            //         .get_mut(index)
-            //         .expect("Index invalid"),
-            // )
-            // .expect("Unable to get Object");
-            if let Value::Object(_, elements_inner, _) = &mut obj {
-                *elements_inner = elements;
-            }
+        if let Value::Object(_, elements_inner, _) = &mut obj {
+            *elements_inner = elements;
         }
 
         Ok((
             i,
             obj,
-            // Rc::clone(
-            //     self.object_reference_table
-            //         .get(index)
-            //         .expect("Index invalid"),
-            // ),
         ))
     }
 
@@ -565,8 +480,6 @@ impl AMF3Decoder {
         self.parse_reference_or_val(
             i,
             |this| {
-                this.object_id += 1;
-
                 Value::VectorObject(ObjectId(this.object_id-1), Vec::new(), "".to_string(), false)
             },
             |this, i, len, ofi| {
@@ -576,20 +489,12 @@ impl AMF3Decoder {
 
                 let (i, elems) = many_m_n(len, len, |i| this.parse_single_element(i)).parse(i)?;
 
-                let id = if let Value::VectorObject(id, _, _, _) =
-                    this.object_reference_table.get(ofi).unwrap()
-                {
-                    id
-                } else {
-                    unreachable!(
-                        "Element in reference table has changed type to {:?}",
-                        this.object_reference_table.get(ofi)
-                    )
-                };
+                //TODO: change args?
+                let id = ObjectId(ofi as _);
 
                 Ok((
                     i,
-                    Value::VectorObject(*id, elems, object_type_name, fixed_length == 1),
+                    Value::VectorObject(id, elems, object_type_name, fixed_length == 1),
                 ))
             },
         )
@@ -599,8 +504,8 @@ impl AMF3Decoder {
         self.parse_reference_or_val(
             i,
             |this| {
-                this.object_id += 1;
-                Value::ECMAArray(ObjectId(this.object_id-1), Vec::new(), Vec::new(), 0)
+                // this.object_id += 1;
+                Value::ECMAArray(ObjectId(this.object_id), Vec::new(), Vec::new(), 0)
             },
             |this, i, length_usize, ofi| {
                 // There must be at least `length_usize` bytes to read this, this prevents OOM errors with v.large dicts
@@ -615,18 +520,10 @@ impl AMF3Decoder {
                         many_m_n(length_usize, length_usize, |i| this.parse_single_element(i))
                             .parse(i)?;
 
-                    let id = if let Value::ECMAArray(id, _, _, _) =
-                        this.object_reference_table.get(ofi).unwrap()
-                    {
-                        id
-                    } else {
-                        unreachable!(
-                            "Element in reference table has changed type to {:?}",
-                            this.object_reference_table.get(ofi)
-                        )
-                    };
+                    //TODO: args
+                    let id = ObjectId(ofi as _);
 
-                    return Ok((i, Value::StrictArray(*id, elements)));
+                    return Ok((i, Value::StrictArray(id, elements)));
                 }
 
                 let mut elements = Vec::with_capacity(length_usize);
@@ -653,18 +550,9 @@ impl AMF3Decoder {
 
                 let elements_len = elements.len() as u32;
 
-                let id = if let Value::ECMAArray(id, _, _, _) =
-                    this.object_reference_table.get(ofi).unwrap()
-                {
-                    id
-                } else {
-                    unreachable!(
-                        "Element in reference table has changed type to {:?}",
-                        this.object_reference_table.get(ofi)
-                    )
-                };
+                let id = ObjectId(ofi as _);
 
-                Ok((i, Value::ECMAArray(*id, el, elements, elements_len)))
+                Ok((i, Value::ECMAArray(id, el, elements, elements_len)))
             },
         )
     }
@@ -673,7 +561,6 @@ impl AMF3Decoder {
         self.parse_reference_or_val(
             i,
             |this| {
-                this.object_id += 1;
                 Value::Dictionary(ObjectId(this.object_id-1), Vec::new(), false)
             },
             |this, i, len, ofi| {
@@ -693,18 +580,9 @@ impl AMF3Decoder {
                     .map(|chunk| (chunk[0].clone(), chunk[1].clone()))
                     .collect::<Vec<_>>();
 
-                let id = if let Value::Dictionary(id, _, _) =
-                    this.object_reference_table.get(ofi).unwrap()
-                {
-                    id
-                } else {
-                    unreachable!(
-                        "Element in reference table has changed type to {:?}",
-                        this.object_reference_table.get(ofi)
-                    )
-                };
+                let id = ObjectId(ofi as _);
 
-                Ok((i, Value::Dictionary(*id, pairs, weak_keys == 1)))
+                Ok((i, Value::Dictionary(id, pairs, weak_keys == 1)))
             },
         )
     }

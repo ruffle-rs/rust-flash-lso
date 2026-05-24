@@ -1,6 +1,5 @@
 //! Handles decoding of flex types
 
-use std::rc::Rc;
 use crate::amf3::read::AMF3Decoder;
 use crate::extra::flex::{
     BODY_FLAG, CLIENT_ID_BYTES_FLAG, CLIENT_ID_FLAG, CORRELATION_ID_BYTES_FLAG,
@@ -306,7 +305,7 @@ pub fn register_decoders(decoder: &mut AMF3Decoder) {
     struct FlexAcknowledgeMessageParser;
     impl CustomDecoder for FlexAcknowledgeMessageParser {
         fn decode<'a>(&self, i: &'a [u8], dec: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>> {
-            parse_abstract_message(i, dec)
+            parse_acknowledge_message(i, dec)
         }
     }
     decoder.register_custom_decoder::<FlexAcknowledgeMessageParser>("flex.messaging.io.AcknowledgeMessage");
