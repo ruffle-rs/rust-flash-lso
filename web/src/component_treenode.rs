@@ -62,10 +62,10 @@ impl Component for TreeNode {
             }
             Msg::ElementChange(el) => {
                 match &mut self.value {
-                    Value::Object(_, old_el, _) => {
-                        let index = old_el.iter().position(|e| e.name == el.name);
+                    Value::Object { data, .. } => {
+                        let index = data.elements.iter().position(|e| e.name == el.name);
                         if let Some(index) = index {
-                            old_el[index] = el;
+                            data.elements[index] = el;
                         }
                     }
                     _ => {
@@ -162,7 +162,7 @@ impl TreeNode {
     pub fn is_visible(&self, ctx: &Context<Self>) -> bool {
         // Visible if no filter or if we are included in filter, also we must be visible if we have visible children
         let has_visible_children = match &ctx.props().value {
-            Value::Object(_, ele, _) => ele.iter().any(|e| e.name.contains(&ctx.props().filter)),
+            Value::Object { data, ..} => data.elements.iter().any(|e| e.name.contains(&ctx.props().filter)),
             Value::ECMAArray(_id, e1, e2, _) => {
                 e2.iter().any(|e| e.name.contains(&ctx.props().filter))
                     || e1
@@ -202,7 +202,7 @@ impl TreeNode {
     pub fn has_children(data: &Value) -> bool {
         matches!(
             data,
-            Value::Object(_, _, _)
+            Value::Object { .. }
                 | Value::StrictArray(_, _)
                 | Value::ECMAArray(_, _, _, _)
                 | Value::VectorObject(_, _, _, _)
@@ -223,9 +223,9 @@ impl TreeNode {
     pub fn view_sol_value(&self, ctx: &Context<Self>, data: &Value) -> Html {
         match data {
             Value::AMF3(e) => self.view_sol_value(ctx, &e),
-            Value::Object(_, elements, _class_def) => html! {
+            Value::Object { id: _, data } => html! {
                 <ul>
-                    { for elements.iter().map(|e| html! {
+                    { for data.elements.iter().map(|e| html! {
                         <TreeNode element_callback={ctx.link().callback(Msg::ElementChange)} filter={ctx.props().filter.clone()} selection={ctx.props().selection.clone()} parent_path={self.path(ctx)} name={e.name.clone()} value={e.value.clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
                     })}
                 </ul>

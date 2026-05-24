@@ -429,8 +429,9 @@ impl AMF3Encoder {
         class_def: &'b Option<ClassDefinition>,
     ) -> Result<()> {
         let had_object = Length::Size(0);
+        use crate::types::ObjectValue;
 
-        let obj = Value::Object(id, children.to_vec(), class_def.clone());
+        let obj = Value::Object { id, data: ObjectValue { elements: children.to_vec(), class_definition: class_def.clone()}};
         self.object_reference_table.store(obj.clone());
         if let Length::Reference(r) = self.object_reference_table.to_length(obj, 0) {
             self.object_id_to_reference
@@ -600,8 +601,8 @@ impl AMF3Encoder {
             Value::Number(x) => self.write_number_element(writer, *x),
             Value::Bool(b) => self.write_boolean_element(writer, *b),
             Value::String(s) => self.write_string_element(writer, s),
-            Value::Object(id, children, class_def) => {
-                self.write_object_element(writer, *id, children, None, class_def)
+            Value::Object { id, data} => {
+                self.write_object_element(writer, *id, &data.elements, None, &data.class_definition)
             }
             Value::Null => self.write_null_element(writer),
             Value::Undefined => self.write_undefined_element(writer),

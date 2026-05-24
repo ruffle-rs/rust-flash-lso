@@ -1,15 +1,14 @@
 use super::{ClassDefinition, Element, ObjectId, Reference};
 
 /// The data contained within a Value of type Object
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ObjectValue {
-    ///
-    id: ObjectId,
-
     /// The child elements of this Object
-    elements: Vec<Element>,
+    pub elements: Vec<Element>,
 
     /// The class definition for this object, if it exists
-    class_definition: Option<ClassDefinition>
+    pub class_definition: Option<ClassDefinition>
 }
 
 //TODO: should amf3 assoc arrays be their own type with a dense and assoc section
@@ -27,7 +26,13 @@ pub enum Value {
     String(String),
 
     /// Represents the object type in both amf0 and amf3, class definition are only available with amf3
-    Object(ObjectId, Vec<Element>, Option<ClassDefinition>),
+    Object {
+        /// The unique id for this object, referenced by `Amf3ObjectReference` instances
+        id: ObjectId,
+
+        /// The data within this value
+        data: ObjectValue,
+    },
 
     /// Represent the null type
     Null,
