@@ -278,7 +278,6 @@ fn parse_object_proxy<'a>(i: &'a [u8], amf3: &mut AMF3Decoder) -> AMFResult<'a, 
 pub fn register_decoders(decoder: &mut AMF3Decoder) {
     // TODOS:
     // Value::Object{id, objval}
-    // remove comments
     // no unwrap
 
     #[derive(Default)]
