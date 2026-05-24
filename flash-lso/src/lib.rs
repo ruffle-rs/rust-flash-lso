@@ -14,7 +14,7 @@
     missing_copy_implementations,
     unsafe_code,
     unused_crate_dependencies,
-    clippy::unwrap_used,
+    clippy::unwrap_used
 )]
 
 // Used only during benchmarks and tests

@@ -8,7 +8,7 @@ pub struct ObjectValue {
     pub elements: Vec<Element>,
 
     /// The class definition for this object, if it exists
-    pub class_definition: Option<ClassDefinition>
+    pub class_definition: Option<ClassDefinition>,
 }
 
 //TODO: should amf3 assoc arrays be their own type with a dense and assoc section

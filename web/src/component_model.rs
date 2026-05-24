@@ -232,18 +232,36 @@ impl Model {
         match val.value {
             Value::Object { id, data } => {
                 let def_clone = data.class_definition.clone();
-                let dynamic_icon = if data.class_definition.as_ref().unwrap().attributes.contains(Attribute::Dynamic) {
+                let dynamic_icon = if data
+                    .class_definition
+                    .as_ref()
+                    .unwrap()
+                    .attributes
+                    .contains(Attribute::Dynamic)
+                {
                     "icon/check.svg"
                 } else {
                     "icon/x.svg"
                 };
-                let external_icon = if data.class_definition.as_ref().unwrap().attributes.contains(Attribute::External) {
+                let external_icon = if data
+                    .class_definition
+                    .as_ref()
+                    .unwrap()
+                    .attributes
+                    .contains(Attribute::External)
+                {
                     "icon/check.svg"
                 } else {
                     "icon/x.svg"
                 };
 
-                let static_props_details = if data.class_definition.as_ref().unwrap().static_properties.is_empty() {
+                let static_props_details = if data
+                    .class_definition
+                    .as_ref()
+                    .unwrap()
+                    .static_properties
+                    .is_empty()
+                {
                     html! {}
                 } else {
                     html! {
@@ -711,7 +729,6 @@ impl Model {
     }
 }
 
-
 fn value_type_name(v: &Value) -> String {
     match &v {
         Value::Reference(_) => "Reference".to_string(),
@@ -728,7 +745,7 @@ fn value_type_name(v: &Value) -> String {
         Value::XML(_, _) => "XML".to_string(),
         Value::AMF3(v) => {
             format!("AMF3<{}>", value_type_name(v))
-        },
+        }
         Value::Integer(_) => "Integer".to_string(),
         Value::ByteArray(_) => "ByteArray".to_string(),
         Value::VectorInt(_, _) => "Vector<Int>".to_string(),

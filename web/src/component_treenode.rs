@@ -162,7 +162,10 @@ impl TreeNode {
     pub fn is_visible(&self, ctx: &Context<Self>) -> bool {
         // Visible if no filter or if we are included in filter, also we must be visible if we have visible children
         let has_visible_children = match &ctx.props().value {
-            Value::Object { data, ..} => data.elements.iter().any(|e| e.name.contains(&ctx.props().filter)),
+            Value::Object { data, .. } => data
+                .elements
+                .iter()
+                .any(|e| e.name.contains(&ctx.props().filter)),
             Value::ECMAArray(_id, e1, e2, _) => {
                 e2.iter().any(|e| e.name.contains(&ctx.props().filter))
                     || e1

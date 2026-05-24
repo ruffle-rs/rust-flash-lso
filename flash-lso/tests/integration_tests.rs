@@ -1,9 +1,9 @@
 use core::fmt;
+use flash_lso::AMFResult;
 use flash_lso::amf3::custom_encoder::CustomDecoder;
 use flash_lso::errors::Error;
 use flash_lso::read::Reader;
 use flash_lso::types::{Element, Value};
-use flash_lso::AMFResult;
 use nom::error::ErrorKind;
 // #[cfg(test)]
 // use pretty_assertions::assert_eq;
@@ -483,8 +483,8 @@ pub fn test_externalizable_object_back_reference() {
 
     #[derive(Default)]
     struct TestDecoder;
-    impl CustomDecoder for TestDecoder{
-        fn decode<'a>(&self, i: &'a[u8], _dec: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>> {
+    impl CustomDecoder for TestDecoder {
+        fn decode<'a>(&self, i: &'a [u8], _dec: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>> {
             Ok((&i[1..], Vec::new()))
         }
     }
