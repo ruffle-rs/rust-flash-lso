@@ -151,7 +151,13 @@ impl ObjectWriter<'_, '_> {
         //TODO: this doesn't work for multi level nesting
         self.parent.add_element(
             name.as_ref(),
-            Value::Object{id: ObjectId::INVALID, data: ObjectValue{ elements: self.elements, class_definition: None}},
+            Value::Object {
+                id: ObjectId::INVALID,
+                data: ObjectValue {
+                    elements: self.elements,
+                    class_definition: None,
+                },
+            },
             false,
         );
     }

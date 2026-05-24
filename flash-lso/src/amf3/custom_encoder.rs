@@ -25,5 +25,5 @@ pub trait CustomDecoder {
     /// This should implement the decoding of a given set of external elements
     /// Access to the AMF3Decoder is given to allow access to caches
     /// This implements the decoding side of externalized type support
-    fn decode<'a>(&self, i: &'a[u8], dec: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>>;
+    fn decode<'a>(&self, i: &'a [u8], dec: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>>;
 }
