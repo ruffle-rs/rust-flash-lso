@@ -1,4 +1,3 @@
-#![type_length_limit = "94603681"]
 //! Library for reading and writing the Adobe Flash Local Shared Object (LSO) file format and the contained AMF0/AMF3 data
 
 #![deny(
@@ -7,12 +6,15 @@
     rust_2018_idioms,
     trivial_casts,
     trivial_numeric_casts,
-    // Temporarily removed, this has a false-positive on `Reference`
-    //unreachable_pub,
+    unreachable_pub,
     unused_extern_crates,
     unused_qualifications,
     variant_size_differences,
-    missing_docs
+    missing_docs,
+    missing_copy_implementations,
+    unsafe_code,
+    unused_crate_dependencies,
+    clippy::unwrap_used,
 )]
 
 const HEADER_VERSION: [u8; 2] = [0x00, 0xbf];

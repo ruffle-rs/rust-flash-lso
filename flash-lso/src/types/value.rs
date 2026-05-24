@@ -96,7 +96,7 @@ pub enum Value {
 
     /// A reference to a previously parsed element
     ///
-    /// While traversing `Value`s you should maintain a mapping of `ObjectId` to your internal
+    /// While traversing the graph of `Value` instances you should maintain a mapping of `ObjectId` to your internal
     /// representation of a value and consider this a reference to the exact same value.
     ///
     /// As `Value` graphs can contain cycles which are best handled by garbage collected structures

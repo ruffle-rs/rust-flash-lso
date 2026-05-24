@@ -306,7 +306,7 @@ impl AMF3Encoder {
         if def.attributes.contains(Attribute::External) {
             if let Some(encoder) = self.external_encoders.get(&def.name) {
                 writer.write_all(&encoder.encode(
-                    custom_props.unwrap(),
+                    custom_props.expect("Custom encoder, missing custom props"),
                     &Some(def.clone()),
                     self,
                 ))?;
@@ -385,7 +385,7 @@ impl AMF3Encoder {
         if def.attributes.contains(Attribute::External) {
             if let Some(encoder) = self.external_encoders.get(&def.name) {
                 writer.write_all(&encoder.encode(
-                    custom_props.unwrap(),
+                    custom_props.expect("Custom encode but missing custom props"),
                     &Some(def.clone()),
                     self,
                 ))?;
@@ -450,7 +450,7 @@ impl AMF3Encoder {
 
         self.write_type_marker(writer, TypeMarker::Object)?;
         if had_object.is_reference() {
-            self.write_object_reference(writer, had_object.as_position().unwrap() as u32)?;
+            self.write_object_reference(writer, had_object.as_position().expect("Failed to convert to position") as u32)?;
         }
         if !had_object.is_reference() {
             if let Some(has_trait) = has_trait {
