@@ -352,7 +352,7 @@ impl AMF3Decoder {
 
         let mut i = i;
         if class_def.attributes.contains(Attribute::External) {
-            let dec = self.external_decoders.get(&class_def.name).map(|f| Rc::clone(f));
+            let dec = self.external_decoders.get(&class_def.name).map(Rc::clone);
             return if let Some(decoder) = dec {
                 let (j, v) = decoder.decode(i, self)?;
                 external_elements = v;
