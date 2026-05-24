@@ -222,7 +222,7 @@ impl TreeNode {
 
     pub fn view_sol_value(&self, ctx: &Context<Self>, data: &Value) -> Html {
         match data {
-            Value::AMF3(e) => self.view_sol_value(ctx, &e),
+            Value::AMF3(e) => self.view_sol_value(ctx, e),
             Value::Object { id: _, data } => html! {
                 <ul>
                     { for data.elements.iter().map(|e| html! {

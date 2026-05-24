@@ -276,10 +276,6 @@ fn parse_object_proxy<'a>(i: &'a [u8], amf3: &mut AMF3Decoder) -> AMFResult<'a, 
 /// Register the flex decoders into the given AMF3Decoder
 #[inline]
 pub fn register_decoders(decoder: &mut AMF3Decoder) {
-    // TODOS:
-    // Value::Object{id, objval}
-    // no unwrap
-
     #[derive(Default)]
     struct FlexAbstractMessageParser;
     impl CustomDecoder for FlexAbstractMessageParser {
