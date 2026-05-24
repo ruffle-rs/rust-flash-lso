@@ -5,7 +5,7 @@ use nom::Parser;
 #[cfg(feature = "amf3")]
 use crate::amf3;
 use crate::nom_utils::{take_str, AMFResult};
-use crate::types::{ClassDefinition, Element, ObjectId, Reference, Value};
+use crate::types::{ClassDefinition, Element, ObjectId, ObjectValue, Reference, Value};
 use crate::PADDING;
 use nom::bytes::complete::{tag, take};
 use nom::combinator::{map, map_res};
@@ -104,11 +104,13 @@ impl AMF0Decoder {
         map(
             |i| self.parse_array_element(i),
             move |elms: Vec<Element>| {
-                Value::Object(
-                    ObjectId::INVALID,
-                    elms,
-                    Some(ClassDefinition::default_with_name(name.to_string())),
-                )
+                Value::Object {
+                    id: ObjectId::INVALID,
+                    data: ObjectValue {
+                        elements: elms,
+                        class_definition: Some(ClassDefinition::default_with_name(name.to_string()))
+                    }
+                }
             },
         )
         .parse(i)
@@ -116,7 +118,7 @@ impl AMF0Decoder {
 
     fn parse_element_object<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         let (i, v) = self.parse_array_element(i)?;
-        Ok((i, Value::Object(ObjectId::INVALID, v, None)))
+        Ok((i, Value::Object { id: ObjectId::INVALID, data: ObjectValue { elements: v, class_definition: None}}))
     }
 
     #[cfg(fuzzing)]

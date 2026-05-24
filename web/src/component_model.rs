@@ -3,7 +3,7 @@ use yew::prelude::*;
 
 use flash_lso::extra::flex;
 use flash_lso::read::Reader;
-use flash_lso::types::{Attribute, Element, Lso, Value};
+use flash_lso::types::{Attribute, Element, Lso, ObjectValue, Value};
 
 use crate::EditableValue;
 use crate::TreeNodePath;
@@ -230,20 +230,20 @@ impl Model {
 
     fn value_details(&self, val: EditableValue, ctx: &Context<Self>) -> Html {
         match val.value {
-            Value::Object(id, children, Some(def)) => {
-                let def_clone = def.clone();
-                let dynamic_icon = if def.attributes.contains(Attribute::Dynamic) {
+            Value::Object { id, data } => {
+                let def_clone = data.class_definition.clone();
+                let dynamic_icon = if data.class_definition.as_ref().unwrap().attributes.contains(Attribute::Dynamic) {
                     "icon/check.svg"
                 } else {
                     "icon/x.svg"
                 };
-                let external_icon = if def.attributes.contains(Attribute::External) {
+                let external_icon = if data.class_definition.as_ref().unwrap().attributes.contains(Attribute::External) {
                     "icon/check.svg"
                 } else {
                     "icon/x.svg"
                 };
 
-                let static_props_details = if def.static_properties.is_empty() {
+                let static_props_details = if data.class_definition.as_ref().unwrap().static_properties.is_empty() {
                     html! {}
                 } else {
                     html! {
@@ -253,7 +253,7 @@ impl Model {
                                     <th>{"Static Properties"}</th>
                                 </tr>
                             </thead>
-                            { for def_clone.static_properties.iter().map(|p| html! {
+                            { for def_clone.unwrap().static_properties.iter().map(|p| html! {
                                 <tr>
                                     <td>{p}</td>
                                 </tr>
@@ -274,11 +274,11 @@ impl Model {
                             let input = target.and_then(|t| t.dyn_into::<HtmlInputElement>().ok());
 
                             input.map(|input| {
-                                let mut new_def = def.clone();
+                                let mut new_def = data.class_definition.as_ref().unwrap().clone();
                                 new_def.name = input.value();
-                                Msg::Edited(Value::Object(id, children.clone(), Some(new_def)))
+                                Msg::Edited(Value::Object { id, data: ObjectValue { elements: data.elements.clone(), class_definition: Some(new_def) }})
                             })
-                        })}  value={def.name.clone()} class="form-control" type="text"/>
+                        })}  value={data.class_definition.as_ref().unwrap().name.clone()} class="form-control" type="text"/>
                       </div>
 
                       <ul class="list-group list-group-horizontal mt-2 mb-2">
@@ -685,7 +685,7 @@ impl Model {
                                     Value::Number(_) => "Number".to_string(),
                                     Value::Bool(_) => "Boolean".to_string(),
                                     Value::String(_) => "String".to_string(),
-                                    Value::Object(_, _, _) => "Object".to_string(),
+                                    Value::Object { .. } => "Object".to_string(),
                                     Value::Null => "Null".to_string(),
                                     Value::Undefined => "Undefined".to_string(),
                                     Value::ECMAArray(_, _, _, _) => "ECMAArray".to_string(),

@@ -1,6 +1,5 @@
 use crate::amf0::writer::strict_array_writer::StrictArrayWriter;
-use crate::types::{ClassDefinition, Element, ObjectId, Reference, Value};
-use std::rc::Rc;
+use crate::types::{ClassDefinition, Element, ObjectId, ObjectValue, Reference, Value};
 
 use super::{ArrayWriter, CacheKey, ObjWriter, ObjectWriter};
 
@@ -151,11 +150,13 @@ impl TypedObjectWriter<'_, '_> {
         //TODO: this doesn't work for multi level nesting
         self.parent.add_element(
             name.as_ref(),
-            Value::Object(
-                ObjectId::INVALID,
-                self.elements,
-                Some(ClassDefinition::default_with_name(self.class_name)),
-            ),
+            Value::Object {
+                id: ObjectId::INVALID,
+                data: ObjectValue {
+                    elements: self.elements,
+                    class_definition: Some(ClassDefinition::default_with_name(self.class_name))
+                }
+            },
             false,
         );
     }
