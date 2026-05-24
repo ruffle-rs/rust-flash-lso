@@ -719,7 +719,7 @@ mod write_number_tests {
     fn test_write_1byte_number() {
         let e = AMF3Encoder::default();
         let mut v = Vec::new();
-        e.write_int(&mut v, 0b00101011).unwrap();
+        e.write_int(&mut v, 0b00101011).expect("Test fail");
         assert_eq!(v, &[0b00101011]);
     }
 
@@ -727,7 +727,7 @@ mod write_number_tests {
     fn test_write_4byte_number() {
         let e = AMF3Encoder::default();
         let mut v = Vec::new();
-        e.write_int(&mut v, 2097280).unwrap();
+        e.write_int(&mut v, 2097280).expect("Test fail");
         assert_eq!(v, &[0b10000000, 0b11000000, 0b10000000, 0b10000000]);
     }
 
@@ -735,7 +735,7 @@ mod write_number_tests {
     fn write_neg_number() {
         let e = AMF3Encoder::default();
         let mut v = Vec::new();
-        e.write_int(&mut v, -268435455).unwrap();
+        e.write_int(&mut v, -268435455).expect("Test fail");
         assert_eq!(v, &[192, 128, 128, 1]);
     }
 }
