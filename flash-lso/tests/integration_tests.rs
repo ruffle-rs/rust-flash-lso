@@ -465,8 +465,8 @@ pub fn test_recursive_object() {
     let (_, obj) = flash_lso::amf3::read::AMF3Decoder::default()
         .parse_single_element(data)
         .expect("Failed to parse object");
-    if let Value::Object(id, elem, _) = &obj {
-        assert_eq!(elem[0].value, Value::Amf3ObjectReference(*id));
+    if let Value::Object { id, data } = &obj {
+        assert_eq!(data.elements[0].value, Value::Amf3ObjectReference(*id));
     } else {
         panic!("Expected object");
     }

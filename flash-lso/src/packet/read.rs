@@ -60,7 +60,7 @@ pub fn parse_incomplete(i: &[u8]) -> AMFResult<'_, Packet> {
     ))
     .parse(i)?;
     // This unwrap can't fail because of the alt above
-    let version: AMFVersion = version[0].try_into().unwrap();
+    let version: AMFVersion = version[0].try_into().expect("Invalid version");
 
     let (i, headers) = length_count(be_u16, parse_header).parse(i)?;
     let (i, messages) = length_count(be_u16, parse_message).parse(i)?;

@@ -680,36 +680,7 @@ impl Model {
                         {
                             if let Some(selection) = &self.current_selection {
                                 let details_content = self.value_details(selection.clone(), ctx);
-                                let value_type = match &selection.value {
-                                    Value::Reference(_) => "Reference".to_string(),
-                                    Value::Number(_) => "Number".to_string(),
-                                    Value::Bool(_) => "Boolean".to_string(),
-                                    Value::String(_) => "String".to_string(),
-                                    Value::Object { .. } => "Object".to_string(),
-                                    Value::Null => "Null".to_string(),
-                                    Value::Undefined => "Undefined".to_string(),
-                                    Value::ECMAArray(_, _, _, _) => "ECMAArray".to_string(),
-                                    Value::StrictArray(_, _) => "StrictArray".to_string(),
-                                    Value::Date(_, _) => "Date".to_string(),
-                                    Value::Unsupported => "Unsupported".to_string(),
-                                    Value::XML(_, _) => "XML".to_string(),
-                                    Value::AMF3(_) => "AMF3<TODO>".to_string(),
-                                    Value::Integer(_) => "Integer".to_string(),
-                                    Value::ByteArray(_) => "ByteArray".to_string(),
-                                    Value::VectorInt(_, _) => "Vector<Int>".to_string(),
-                                    Value::VectorUInt(_, _) => "Vector<UInt>".to_string(),
-                                    Value::VectorDouble(_, _) => "Vector<Double>".to_string(),
-                                    Value::VectorObject(_, _, _, _) => "Vector<Object>".to_string(),
-                                    Value::Amf3ObjectReference(_) => "Reference".to_string(),
-                                    Value::Dictionary(_, _, _) => "Dictionary".to_string(),
-                                    Value::Custom(_, _, cd) => {
-                                        if let Some(cd) = cd {
-                                            format!("Custom<{}>", cd.name)
-                                        } else {
-                                            "Custom<Unknown>".to_string()
-                                        }
-                                    },
-                                };
+                                let value_type = value_type_name(&selection.value);
 
                                 html! {
                                     <>
@@ -736,6 +707,42 @@ impl Model {
                     </div>
                 </div>
             </div>
+        }
+    }
+}
+
+
+fn value_type_name(v: &Value) -> String {
+    match &v {
+        Value::Reference(_) => "Reference".to_string(),
+        Value::Number(_) => "Number".to_string(),
+        Value::Bool(_) => "Boolean".to_string(),
+        Value::String(_) => "String".to_string(),
+        Value::Object { .. } => "Object".to_string(),
+        Value::Null => "Null".to_string(),
+        Value::Undefined => "Undefined".to_string(),
+        Value::ECMAArray(_, _, _, _) => "ECMAArray".to_string(),
+        Value::StrictArray(_, _) => "StrictArray".to_string(),
+        Value::Date(_, _) => "Date".to_string(),
+        Value::Unsupported => "Unsupported".to_string(),
+        Value::XML(_, _) => "XML".to_string(),
+        Value::AMF3(v) => {
+            format!("AMF3<{}>", value_type_name(v))
+        },
+        Value::Integer(_) => "Integer".to_string(),
+        Value::ByteArray(_) => "ByteArray".to_string(),
+        Value::VectorInt(_, _) => "Vector<Int>".to_string(),
+        Value::VectorUInt(_, _) => "Vector<UInt>".to_string(),
+        Value::VectorDouble(_, _) => "Vector<Double>".to_string(),
+        Value::VectorObject(_, _, _, _) => "Vector<Object>".to_string(),
+        Value::Amf3ObjectReference(_) => "Reference".to_string(),
+        Value::Dictionary(_, _, _) => "Dictionary".to_string(),
+        Value::Custom(_, _, cd) => {
+            if let Some(cd) = cd {
+                format!("Custom<{}>", cd.name)
+            } else {
+                "Custom<Unknown>".to_string()
+            }
         }
     }
 }
