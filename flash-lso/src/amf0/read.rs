@@ -183,7 +183,6 @@ impl AMF0Decoder {
         // Get the type of the next element
         let (i, type_) = read_type_marker(i)?;
 
-        // let cache_idx = self.cache.len();
         self.cache.push(Value::Undefined);
 
         let (i, v) = match type_ {
@@ -192,7 +191,6 @@ impl AMF0Decoder {
             TypeMarker::String => parse_element_string(i),
             TypeMarker::Object => {
                 let (i, v) = self.parse_element_object(i)?;
-                // self.cache[cache_idx] = Rc::clone(&v);
                 Ok((i, v))
             }
             TypeMarker::Null => Ok((i, (Value::Null))),
@@ -203,12 +201,10 @@ impl AMF0Decoder {
             }
             TypeMarker::ECMAArray => {
                 let (i, v) = self.parse_element_ecma_array(i)?;
-                // self.cache[cache_idx] = Rc::clone(&v); TODO
                 Ok((i, v))
             }
             TypeMarker::StrictArray => {
                 let (i, v) = self.parse_element_strict_array(i)?;
-                // self.cache[cache_idx] = Rc::clone(&v); TODO
                 Ok((i, v))
             }
             TypeMarker::Date => parse_element_date(i),
@@ -217,7 +213,6 @@ impl AMF0Decoder {
             TypeMarker::Xml => parse_element_xml(i),
             TypeMarker::TypedObject => {
                 let (i, v) = self.parse_element_typed_object(i)?;
-                // self.cache[cache_idx] = Rc::clone(&v); TODO
                 Ok((i, v))
             }
             TypeMarker::AMF3 => self.parse_element_amf3(i),
