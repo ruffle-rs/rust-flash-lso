@@ -1,7 +1,7 @@
-use std::convert::TryInto;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::number::complete::{be_u8, be_u16, be_u32};
+use std::convert::TryInto;
 
 use crate::amf0;
 use crate::amf0::read::AMF0Decoder;

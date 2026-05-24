@@ -1,8 +1,7 @@
+use crate::PADDING;
 /// Support for encoding AMF0
 use crate::types::{Element, Reference, Value};
-use crate::PADDING;
 use std::io::Write;
-
 
 use crate::amf0::type_marker::TypeMarker;
 use crate::nom_utils::write_string;
@@ -168,7 +167,7 @@ pub(crate) fn write_value<'a, 'b: 'a, W: Write + 'a>(
                 write_string_element(writer, s)
             }
         }
-        Value::Object{ id: _, data } => {
+        Value::Object { id: _, data } => {
             if let Some(class_def) = &data.class_definition {
                 write_typed_object_element(writer, &class_def.name, &data.elements)
             } else {

@@ -21,7 +21,8 @@ impl CustomEncoder for ArrayCollection {
         encoder: &AMF3Encoder,
     ) -> Vec<u8> {
         let mut v = Vec::new();
-        self.do_encode(&mut v, elements, encoder).expect("Failed to encode");
+        self.do_encode(&mut v, elements, encoder)
+            .expect("Failed to encode");
         v
     }
 }
@@ -48,7 +49,8 @@ impl CustomEncoder for ObjectProxy {
         encoder: &AMF3Encoder,
     ) -> Vec<u8> {
         let mut v = Vec::new();
-        self.do_encode(&mut v, elements, encoder).expect("Failed to encode ObjectProxy");
+        self.do_encode(&mut v, elements, encoder)
+            .expect("Failed to encode ObjectProxy");
         v
     }
 }
@@ -344,7 +346,8 @@ impl CustomEncoder for AcknowledgeMessage {
         encoder: &AMF3Encoder,
     ) -> Vec<u8> {
         let mut v = Vec::new();
-        write_acknowledge_message(&mut v, elements, encoder).expect("Failed to write acknowledge message");
+        write_acknowledge_message(&mut v, elements, encoder)
+            .expect("Failed to write acknowledge message");
         v
     }
 }

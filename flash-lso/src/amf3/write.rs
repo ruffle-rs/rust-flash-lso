@@ -1,12 +1,12 @@
 //! Handles encoding AMF3
 
+use crate::PADDING;
 use crate::amf3::custom_encoder::CustomEncoder;
 use crate::amf3::element_cache::ElementCache;
 use crate::amf3::length::Length;
 use crate::amf3::type_marker::TypeMarker;
 use crate::types::{Attribute, ClassDefinition, Element, ObjectId, Value};
 use crate::write::WriteExt;
-use crate::PADDING;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::io::Result;
@@ -431,7 +431,13 @@ impl AMF3Encoder {
         let had_object = Length::Size(0);
         use crate::types::ObjectValue;
 
-        let obj = Value::Object { id, data: ObjectValue { elements: children.to_vec(), class_definition: class_def.clone()}};
+        let obj = Value::Object {
+            id,
+            data: ObjectValue {
+                elements: children.to_vec(),
+                class_definition: class_def.clone(),
+            },
+        };
         self.object_reference_table.store(obj.clone());
         if let Length::Reference(r) = self.object_reference_table.to_length(obj, 0) {
             self.object_id_to_reference
@@ -450,7 +456,12 @@ impl AMF3Encoder {
 
         self.write_type_marker(writer, TypeMarker::Object)?;
         if had_object.is_reference() {
-            self.write_object_reference(writer, had_object.as_position().expect("Failed to convert to position") as u32)?;
+            self.write_object_reference(
+                writer,
+                had_object
+                    .as_position()
+                    .expect("Failed to convert to position") as u32,
+            )?;
         }
         if !had_object.is_reference() {
             if let Some(has_trait) = has_trait {
@@ -601,7 +612,7 @@ impl AMF3Encoder {
             Value::Number(x) => self.write_number_element(writer, *x),
             Value::Bool(b) => self.write_boolean_element(writer, *b),
             Value::String(s) => self.write_string_element(writer, s),
-            Value::Object { id, data} => {
+            Value::Object { id, data } => {
                 self.write_object_element(writer, *id, &data.elements, None, &data.class_definition)
             }
             Value::Null => self.write_null_element(writer),

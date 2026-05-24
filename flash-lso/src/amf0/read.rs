@@ -2,17 +2,17 @@
 use crate::amf0::type_marker::TypeMarker;
 use nom::Parser;
 
+use crate::PADDING;
 #[cfg(feature = "amf3")]
 use crate::amf3;
-use crate::nom_utils::{take_str, AMFResult};
+use crate::nom_utils::{AMFResult, take_str};
 use crate::types::{ClassDefinition, Element, ObjectId, ObjectValue, Reference, Value};
-use crate::PADDING;
+use nom::Err;
 use nom::bytes::complete::{tag, take};
 use nom::combinator::{map, map_res};
-use nom::error::{make_error, ErrorKind};
-use nom::multi::{many0, many_m_n};
-use nom::number::complete::{be_f64, be_u16, be_u32, be_u8};
-use nom::Err;
+use nom::error::{ErrorKind, make_error};
+use nom::multi::{many_m_n, many0};
+use nom::number::complete::{be_f64, be_u8, be_u16, be_u32};
 use std::convert::{TryFrom, TryInto};
 
 pub(crate) fn parse_string(i: &[u8]) -> AMFResult<'_, &str> {
@@ -87,12 +87,7 @@ impl AMF0Decoder {
         map(
             |i| self.parse_array_element(i),
             move |elms: Vec<Element>| {
-                Value::ECMAArray(
-                    ObjectId::INVALID,
-                    Vec::new(),
-                    elms,
-                    array_length,
-                )
+                Value::ECMAArray(ObjectId::INVALID, Vec::new(), elms, array_length)
             },
         )
         .parse(i)
@@ -103,14 +98,12 @@ impl AMF0Decoder {
 
         map(
             |i| self.parse_array_element(i),
-            move |elms: Vec<Element>| {
-                Value::Object {
-                    id: ObjectId::INVALID,
-                    data: ObjectValue {
-                        elements: elms,
-                        class_definition: Some(ClassDefinition::default_with_name(name.to_string()))
-                    }
-                }
+            move |elms: Vec<Element>| Value::Object {
+                id: ObjectId::INVALID,
+                data: ObjectValue {
+                    elements: elms,
+                    class_definition: Some(ClassDefinition::default_with_name(name.to_string())),
+                },
             },
         )
         .parse(i)
@@ -118,7 +111,16 @@ impl AMF0Decoder {
 
     fn parse_element_object<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         let (i, v) = self.parse_array_element(i)?;
-        Ok((i, Value::Object { id: ObjectId::INVALID, data: ObjectValue { elements: v, class_definition: None}}))
+        Ok((
+            i,
+            Value::Object {
+                id: ObjectId::INVALID,
+                data: ObjectValue {
+                    elements: v,
+                    class_definition: None,
+                },
+            },
+        ))
     }
 
     #[cfg(fuzzing)]
