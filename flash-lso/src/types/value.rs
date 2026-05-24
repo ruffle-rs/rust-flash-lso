@@ -1,3 +1,4 @@
+use crate::amf3::length::Length;
 use super::{ClassDefinition, Element, ObjectId, Reference};
 
 /// The data contained within a Value of type Object
@@ -10,6 +11,61 @@ pub struct ObjectValue {
     /// The class definition for this object, if it exists
     pub class_definition: Option<ClassDefinition>,
 }
+
+///
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq)]
+pub struct CustomObjectValue {
+    ///
+    pub elements: Vec<Element>,
+    ///
+    pub dynamic_elements: Vec<Element>,
+    ///
+    pub class_definition: ClassDefinition,
+}
+
+///
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq)]
+pub struct DictionaryObjectValue {
+    ///
+    pub elements: Vec<DictionaryEntry>,
+    ///
+    pub weak_keys: bool,
+}
+
+///
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq)]
+pub struct DictionaryEntry {
+    ///
+    key: Value,
+    ///
+    value: Value,
+}
+
+///
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq)]
+pub struct VectorObjectValue<T> {
+    ///
+    values: Vec<T>,
+    ///
+    fixed_length: bool,
+}
+
+///
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ECMAArrayObjectValue {
+    pub dense: Vec<Value>,
+    pub elements: Vec<Element>,
+
+    /// The length of the array in AMF0, this can differ from the actual number of elements
+    pub length: u32,
+}
+
+
 
 //TODO: should amf3 assoc arrays be their own type with a dense and assoc section
 /// A single or compound value
@@ -41,20 +97,35 @@ pub enum Value {
     Undefined,
 
     /// Represent ECMA-Arrays (amf0) and associative arrays (amf3, even if they contain a dense part)
-    /// Final value represents the length of the array in amf0, this can differ from the actual number of elements
-    ECMAArray(ObjectId, Vec<Value>, Vec<Element>, u32),
+    ECMAArray {
+        id: ObjectId,
+        data: ECMAArrayObjectValue,
+    },
 
     /// Represent a strict array (amf0) or a dense array (amf3)
-    StrictArray(ObjectId, Vec<Value>),
+    StrictArray {
+        ///
+        id: ObjectId,
+        ///
+        values: Vec<Value>,
+    },
 
     /// Represent a timezone in the format (seconds since epoch, timezone or UTC if missing (amf3) )
-    Date(f64, Option<u16>),
+    Date {
+        time: f64,
+        timezone_or_utc: Option<u16>
+    },
 
     /// Represent the unsupported type
     Unsupported,
 
     /// Represent the XML type, (value, is_string)
-    XML(String, bool),
+    XML {
+        ///
+        value: String,
+        ///
+        is_string: bool,
+    },
 
     #[cfg(feature = "amf3")]
     /// Represent an amf3 element embedded in an AMF0 file
@@ -68,28 +139,30 @@ pub enum Value {
     ByteArray(Vec<u8>),
 
     /// Represent the int vector type (amf3)
-    /// Format is (values, is_fixed_length)
-    VectorInt(Vec<i32>, bool),
+    VectorInt(VectorObjectValue<i32>),
 
     /// Represent the unsigned int vector type (amf3)
-    /// Format is (values, is_fixed_length)
-    VectorUInt(Vec<u32>, bool),
+    VectorUInt(VectorObjectValue<u32>),
 
     /// Represent the double vector type (amf3)
-    /// Format is (values, is_fixed_length)
-    VectorDouble(Vec<f64>, bool),
+    VectorDouble(VectorObjectValue<f64>),
 
     /// Represent the object vector type (amf3)
     /// Format is (values, is_fixed_length)
+    /// TODO
     VectorObject(ObjectId, Vec<Value>, String, bool),
 
     /// Represent the dictionary type (amf3)
-    /// Format is ((key, value), has_weak_keys)
-    Dictionary(ObjectId, Vec<(Value, Value)>, bool),
+    Dictionary {
+        ///
+        id: ObjectId,
+        ///
+        data: DictionaryObjectValue,
+    },
 
-    /// Represent a external object, such as from flex
+    /// Represent an external object, such as from flex
     /// (custom_elements, regular elements, class def)
-    Custom(Vec<Element>, Vec<Element>, Option<ClassDefinition>),
+    Custom(CustomObjectValue),
 
     /// Represent an existing value, stored by reference, the value here should be considered opaque
     Reference(Reference),
@@ -103,3 +176,5 @@ pub enum Value {
     /// we leave the handling of this to the user, sorry
     Amf3ObjectReference(ObjectId),
 }
+
+

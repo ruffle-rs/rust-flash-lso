@@ -657,12 +657,12 @@ impl AMF3Encoder {
                 self.write_dictionary_element(writer, *id, kv, *weak_keys)
             }
 
-            Value::Custom(elements, dynamic_elements, def) => self.write_object_element(
+            Value::Custom(c) => self.write_object_element(
                 writer,
                 ObjectId::INVALID,
-                dynamic_elements,
-                Some(elements),
-                def,
+                &c.dynamic_elements,
+                Some(&c.elements),
+                &Some(c.class_definition.clone()),
             ),
             Value::AMF3(e) => self.write_value_element(writer, e),
             Value::Unsupported => self.write_undefined_element(writer),

@@ -369,7 +369,11 @@ impl AMF3Decoder {
                 external_elements = v;
                 i = j;
                 //TODO: should it be possible to have both dynamic and external together
-                let value = Value::Custom(external_elements, Vec::new(), Some(class_def.clone()));
+                let value = Value::Custom(CustomObjectValue {
+                    elements: external_elements,
+                    dynamic_elements: Vec::new(),
+                    class_definition: class_def.clone()
+                });
 
                 Ok((i, value))
             } else {
