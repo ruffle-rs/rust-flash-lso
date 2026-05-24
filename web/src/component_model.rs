@@ -20,7 +20,6 @@ use crate::uintarray_bindgen::Uint8Array;
 use crate::url_bindgen::URL;
 use crate::web_expect::WebSafeExpect;
 use flash_lso::write::write_to_bytes;
-use std::ops::Deref;
 use wasm_bindgen::JsCast;
 use web_sys::File;
 use web_sys::{EventTarget, HtmlInputElement};
@@ -599,7 +598,7 @@ impl Model {
                 <ul class="navbar-nav mr-auto">
                     <li class="nav-item">
                         <div class="btn-group mr-2" role="group">
-                            <label for="files" class="btn btn-primary">{"Open"}</label>
+                            <label for="files" class="btn btn-primary mr-2">{"Open"}</label>
                             { self.save_button(ctx) }
                         </div>
                     </li>
@@ -672,7 +671,7 @@ impl Model {
                                 onclick={ctx.link().callback(move |_| Msg::RootSelected)}>{ "/" }</span>
                             <ul>
                                 { for data.body.iter().map(|e| html! {
-                                    <TreeNode element_callback={ctx.link().callback(Msg::ElementChange)} filter={self.search.clone()} selection={self.current_selection.clone()} parent_path={TreeNodePath::root()} name={e.name.clone()} value={e.value.deref().clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
+                                    <TreeNode element_callback={ctx.link().callback(Msg::ElementChange)} filter={self.search.clone()} selection={self.current_selection.clone()} parent_path={TreeNodePath::root()} name={e.name.clone()} value={e.value.clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
                                 })}
                             </ul>
                         </div>
