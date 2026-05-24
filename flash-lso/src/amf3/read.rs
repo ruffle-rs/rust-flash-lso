@@ -99,34 +99,34 @@ mod read_number_tests {
 
     #[test]
     fn test_read_1byte_number() {
-        assert_eq!(0b00101011, read_int_signed(&[0b00101011]).unwrap().1)
+        assert_eq!(0b00101011, read_int_signed(&[0b00101011]).expect("Test fail").1)
     }
 
     #[test]
     fn test_read_4byte_number() {
         let i = &[0b10000000, 0b11000000, 0b10000000, 0b10000000];
-        assert_eq!(2097280, read_int_signed(i).unwrap().1);
+        assert_eq!(2097280, read_int_signed(i).expect("Test fail").1);
     }
 
     #[test]
     fn read_neg_number() {
-        assert_eq!(-268435455, read_int_signed(&[192, 128, 128, 1]).unwrap().1);
+        assert_eq!(-268435455, read_int_signed(&[192, 128, 128, 1]).expect("Test fail").1);
     }
 
     #[test]
     fn test_read_1byte_number_unsigned() {
-        assert_eq!(0b00101011, read_int(&[0b00101011]).unwrap().1)
+        assert_eq!(0b00101011, read_int(&[0b00101011]).expect("Test fail").1)
     }
 
     #[test]
     fn test_read_4byte_number_unsigned() {
         let i = &[0b10000000, 0b11000000, 0b10000000, 0b10000000];
-        assert_eq!(2097280, read_int(i).unwrap().1);
+        assert_eq!(2097280, read_int(i).expect("Test fail").1);
     }
 
     #[test]
     fn read_neg_number_unsigned() {
-        assert_eq!(536870915, read_int(&[192, 128, 128, 1]).unwrap().1);
+        assert_eq!(536870915, read_int(&[192, 128, 128, 1]).expect("Test fail").1);
     }
 }
 
