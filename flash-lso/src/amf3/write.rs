@@ -7,7 +7,7 @@ use crate::amf3::length::Length;
 use crate::amf3::type_marker::TypeMarker;
 use crate::types::{
     Attribute, ClassDefinition, DictionaryEntry, DictionaryObjectValue, Element, ObjectId, Value,
-    VectorObjectValue,
+    VectorObjectValue, VectorPrimitiveValue,
 };
 use crate::write::WriteExt;
 use std::cell::RefCell;
@@ -151,7 +151,7 @@ impl AMF3Encoder {
         fixed_length: bool,
     ) -> Result<()> {
         let len = self.object_reference_table.to_length(
-            Value::VectorInt(VectorObjectValue {
+            Value::VectorInt(VectorPrimitiveValue {
                 values: items.to_vec(),
                 fixed_length,
             }),
@@ -178,7 +178,7 @@ impl AMF3Encoder {
         fixed_length: bool,
     ) -> Result<()> {
         let len = self.object_reference_table.to_length(
-            Value::VectorUInt(VectorObjectValue {
+            Value::VectorUInt(VectorPrimitiveValue {
                 values: items.to_vec(),
                 fixed_length,
             }),
@@ -205,7 +205,7 @@ impl AMF3Encoder {
         fixed_length: bool,
     ) -> Result<()> {
         let len = self.object_reference_table.to_length(
-            Value::VectorDouble(VectorObjectValue {
+            Value::VectorDouble(VectorPrimitiveValue {
                 values: items.to_vec(),
                 fixed_length,
             }),
@@ -556,11 +556,18 @@ impl AMF3Encoder {
         type_name: &'b str,
         fixed_length: bool,
     ) -> Result<()> {
-        let vo = Value::VectorObject(id, items.to_vec(), type_name.to_string(), fixed_length);
-        let len = self.object_reference_table.to_length(
-            Value::VectorObject(id, items.to_vec(), type_name.to_string(), fixed_length),
-            items.len() as u32,
-        );
+        let vo = Value::VectorObject {
+            id,
+            data: VectorObjectValue {
+                values: items.to_vec(),
+                object_type_name: type_name.to_string(),
+                fixed_length,
+            },
+        };
+
+        let len = self
+            .object_reference_table
+            .to_length(vo.clone(), items.len() as u32);
         self.object_reference_table.store(vo.clone());
         if let Length::Reference(r) = self.object_reference_table.to_length(vo, 0) {
             self.object_id_to_reference
@@ -669,9 +676,13 @@ impl AMF3Encoder {
             Value::VectorInt(v) => self.write_int_vector(writer, &v.values, v.fixed_length),
             Value::VectorUInt(v) => self.write_uint_vector(writer, &v.values, v.fixed_length),
             Value::VectorDouble(v) => self.write_number_vector(writer, &v.values, v.fixed_length),
-            Value::VectorObject(id, items, type_name, fixed_length) => {
-                self.write_object_vector_element(writer, *id, items, type_name, *fixed_length)
-            }
+            Value::VectorObject { id, data } => self.write_object_vector_element(
+                writer,
+                *id,
+                &data.values,
+                &data.object_type_name,
+                data.fixed_length,
+            ),
             Value::Dictionary { id, data } => {
                 self.write_dictionary_element(writer, *id, &data.elements, data.weak_keys)
             }
