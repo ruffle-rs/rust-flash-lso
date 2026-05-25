@@ -49,9 +49,23 @@ pub struct DictionaryEntry {
 /// An AMF vector of a some subtype
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
-pub struct VectorObjectValue<T> {
+pub struct VectorPrimitiveValue<T> {
     /// The contents of this Vector
     pub values: Vec<T>,
+
+    /// Is this vector of a fixed length
+    pub fixed_length: bool,
+}
+
+/// An AMF vector of Objects
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq)]
+pub struct VectorObjectValue {
+    /// The contents of this Vector
+    pub values: Vec<Value>,
+
+    /// The name of the class this is a vector of
+    pub object_type_name: String,
 
     /// Is this vector of a fixed length
     pub fixed_length: bool,
@@ -150,25 +164,29 @@ pub enum Value {
     ByteArray(Vec<u8>),
 
     /// Represent the int vector type (amf3)
-    VectorInt(VectorObjectValue<i32>),
+    VectorInt(VectorPrimitiveValue<i32>),
 
     /// Represent the unsigned int vector type (amf3)
-    VectorUInt(VectorObjectValue<u32>),
+    VectorUInt(VectorPrimitiveValue<u32>),
 
     /// Represent the double vector type (amf3)
-    VectorDouble(VectorObjectValue<f64>),
+    VectorDouble(VectorPrimitiveValue<f64>),
 
     /// Represent the object vector type (amf3)
-    /// Format is (values, is_fixed_length)
-    /// TODO
-    VectorObject(ObjectId, Vec<Value>, String, bool),
+    VectorObject {
+        /// A unique identifier that will be used to refer back to this VectorObject
+        id: ObjectId,
+
+        /// The data in this Vector
+        data: VectorObjectValue,
+    },
 
     /// Represent the dictionary type (amf3)
     Dictionary {
         /// A unique identifier that will be used to refer back to this Dictionary
         id: ObjectId,
 
-        /// The data contained within this dictionary
+        /// The data contained within this Dictionary
         data: DictionaryObjectValue,
     },
 

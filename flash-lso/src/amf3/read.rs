@@ -436,7 +436,7 @@ impl AMF3Decoder {
 
             Ok((
                 i,
-                Value::VectorInt(VectorObjectValue {
+                Value::VectorInt(VectorPrimitiveValue {
                     values,
                     fixed_length: fixed_length == 1,
                 }),
@@ -456,7 +456,7 @@ impl AMF3Decoder {
 
             Ok((
                 i,
-                Value::VectorUInt(VectorObjectValue {
+                Value::VectorUInt(VectorPrimitiveValue {
                     values,
                     fixed_length: fixed_length == 1,
                 }),
@@ -476,7 +476,7 @@ impl AMF3Decoder {
 
             Ok((
                 i,
-                Value::VectorDouble(VectorObjectValue {
+                Value::VectorDouble(VectorPrimitiveValue {
                     values,
                     fixed_length: fixed_length == 1,
                 }),
@@ -494,7 +494,14 @@ impl AMF3Decoder {
 
             Ok((
                 i,
-                Value::VectorObject(id, elems, object_type_name, fixed_length == 1),
+                Value::VectorObject {
+                    id,
+                    data: VectorObjectValue {
+                        values: elems,
+                        object_type_name,
+                        fixed_length: fixed_length == 1,
+                    },
+                },
             ))
         })
     }
