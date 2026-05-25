@@ -1,4 +1,4 @@
-use crate::types::{Element, ObjectId, Reference, Value};
+use crate::types::{ECMAArrayObjectValue, Element, ObjectId, Reference, Value};
 
 use super::{CacheKey, ObjWriter, ObjectWriter};
 
@@ -93,7 +93,11 @@ impl ArrayWriter<'_, '_> {
     pub fn commit<T: AsRef<str>>(self, name: T, length: u32) {
         self.parent.add_element(
             name.as_ref(),
-            Value::ECMAArray(ObjectId::INVALID, Vec::new(), self.elements, length),
+            Value::ECMAArray {id: ObjectId::INVALID, data: ECMAArrayObjectValue {
+                dense: Vec::new(),
+                elements: self.elements,
+                length
+            }},
             false,
         );
     }
