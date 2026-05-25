@@ -12,7 +12,7 @@ jobs:
       - name: Install wasm-pack
         run: cargo install --locked wasm-pack
       - name: Build web
-        run: mkdir _site && cd web && wasm-pack build --out-name web --out-dir ./static --target web --release && cp ./static/* ../_site/
+        run: mkdir _site && cd web && wasm-pack build --out-name web --out-dir ./static --target web --release && cp -r ./static/* ../_site/
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
   deploy:
