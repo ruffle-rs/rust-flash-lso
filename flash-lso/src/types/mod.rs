@@ -24,3 +24,4 @@ pub use value::ECMAArrayObjectValue;
 pub use value::ObjectValue;
 pub use value::Value;
 pub use value::VectorObjectValue;
+pub use value::VectorPrimitiveValue;
