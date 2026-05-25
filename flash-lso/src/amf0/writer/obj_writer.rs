@@ -89,13 +89,13 @@ pub trait ObjWriter<'a> {
     }
 
     /// Write a date
-    fn date(&mut self, name: &str, ms: f64, tz: Option<u16>) {
-        self.add_element(name, Value::Date(ms, tz), true)
+    fn date(&mut self, name: &str, time: f64, timezone_or_utc: Option<u16>) {
+        self.add_element(name, Value::Date { time, timezone_or_utc}, true)
     }
 
     /// Write an XML
-    fn xml(&mut self, name: &str, v: &str, s: bool) {
-        self.add_element(name, Value::XML(v.to_string(), s), true);
+    fn xml(&mut self, name: &str, v: &str, is_string: bool) {
+        self.add_element(name, Value::XML{value: v.to_string(), is_string}, true);
     }
 
     /// Create a reference in the root

@@ -1,4 +1,3 @@
-use crate::amf3::length::Length;
 use super::{ClassDefinition, Element, ObjectId, Reference};
 
 /// The data contained within a Value of type Object
@@ -12,7 +11,7 @@ pub struct ObjectValue {
     pub class_definition: Option<ClassDefinition>,
 }
 
-///
+/// Represents the contents of a Custom object
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct CustomObjectValue {
@@ -20,45 +19,52 @@ pub struct CustomObjectValue {
     pub elements: Vec<Element>,
     ///
     pub dynamic_elements: Vec<Element>,
-    ///
+
+    /// The ClassDefinition assigned to this Custom object
     pub class_definition: ClassDefinition,
 }
 
-///
+/// The data contained within a Dictionary
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct DictionaryObjectValue {
-    ///
+    /// The contents of this Dictionary
     pub elements: Vec<DictionaryEntry>,
-    ///
+
+    /// Are the keys of this Dictionary weakly referenced
     pub weak_keys: bool,
 }
 
-///
+/// Represents a Key-Value pair in an AMF Dictionary
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct DictionaryEntry {
-    ///
-    key: Value,
-    ///
-    value: Value,
+    /// The key
+    pub key: Value,
+
+    /// The value
+    pub value: Value,
 }
 
-///
+/// An AMF vector of a some subtype
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct VectorObjectValue<T> {
-    ///
-    values: Vec<T>,
-    ///
-    fixed_length: bool,
+    /// The contents of this Vector
+    pub values: Vec<T>,
+
+    /// Is this vector of a fixed length
+    pub fixed_length: bool,
 }
 
-///
+/// The contents of a ECMAArray object
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ECMAArrayObjectValue {
+    /// The dense component of this ECMAArray
     pub dense: Vec<Value>,
+
+    /// The non-dense component of this ECMAArray
     pub elements: Vec<Element>,
 
     /// The length of the array in AMF0, this can differ from the actual number of elements
@@ -83,7 +89,7 @@ pub enum Value {
 
     /// Represents the object type in both amf0 and amf3, class definition are only available with amf3
     Object {
-        /// The unique id for this object, referenced by `Amf3ObjectReference` instances
+        /// The unique id that will be used to refer back to this Object
         id: ObjectId,
 
         /// The data within this value
@@ -98,21 +104,28 @@ pub enum Value {
 
     /// Represent ECMA-Arrays (amf0) and associative arrays (amf3, even if they contain a dense part)
     ECMAArray {
+        /// A unique identifier that will be used to refer back to this ECMAArray
         id: ObjectId,
+
+        /// The data within this ECMAArray
         data: ECMAArrayObjectValue,
     },
 
     /// Represent a strict array (amf0) or a dense array (amf3)
     StrictArray {
-        ///
+        /// A unique identifier that will be used to refer back to this StrictArray
         id: ObjectId,
-        ///
+
+        /// The data within this StrictArray
         values: Vec<Value>,
     },
 
-    /// Represent a timezone in the format (seconds since epoch, timezone or UTC if missing (amf3) )
+    /// Represent a timestamp
     Date {
+        /// Number of seconds since the epoch
         time: f64,
+
+        /// The timezone identifier or UTC if missing
         timezone_or_utc: Option<u16>
     },
 
@@ -121,9 +134,9 @@ pub enum Value {
 
     /// Represent the XML type, (value, is_string)
     XML {
-        ///
+        /// The XML data
         value: String,
-        ///
+        /// Is this XML a string
         is_string: bool,
     },
 
@@ -154,9 +167,10 @@ pub enum Value {
 
     /// Represent the dictionary type (amf3)
     Dictionary {
-        ///
+        /// A unique identifier that will be used to refer back to this Dictionary
         id: ObjectId,
-        ///
+
+        /// The data contained within this dictionary
         data: DictionaryObjectValue,
     },
 

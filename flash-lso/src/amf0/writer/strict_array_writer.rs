@@ -149,7 +149,10 @@ impl StrictArrayWriter<'_, '_> {
     pub fn commit<T: AsRef<str>>(self, name: T) {
         self.parent.add_element(
             name.as_ref(),
-            Value::StrictArray(ObjectId::INVALID, self.values),
+            Value::StrictArray {
+                id: ObjectId::INVALID,
+                values: self.values,
+            },
             false,
         );
     }
