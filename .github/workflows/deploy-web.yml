@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Install wasm-pack
+        run: cargo install --locked wasm-pack
       - name: Build web
         run: mkdir _site && cd web && wasm-pack build --out-name web --out-dir ./static --target web --release && cp ./static/* ../_site/
       - name: Upload site
