@@ -1,0 +1,25 @@
+name: Publish web
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build web
+        run: mkdir _site && cd web && wasm-pack build --out-name web --out-dir ./static --target web --release && cp ./static/* ../_site/
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Github pages deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
