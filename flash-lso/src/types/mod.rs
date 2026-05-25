@@ -20,3 +20,7 @@ pub use reference::Reference;
 pub use value::ObjectValue;
 pub use value::Value;
 pub use value::CustomObjectValue;
+pub use value::ECMAArrayObjectValue;
+pub use value::VectorObjectValue;
+pub use value::DictionaryEntry;
+pub use value::DictionaryObjectValue;

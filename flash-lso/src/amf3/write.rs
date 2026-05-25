@@ -5,7 +5,7 @@ use crate::amf3::custom_encoder::CustomEncoder;
 use crate::amf3::element_cache::ElementCache;
 use crate::amf3::length::Length;
 use crate::amf3::type_marker::TypeMarker;
-use crate::types::{Attribute, ClassDefinition, Element, ObjectId, Value};
+use crate::types::{Attribute, ClassDefinition, DictionaryEntry, DictionaryObjectValue, Element, ObjectId, Value, VectorObjectValue};
 use crate::write::WriteExt;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
@@ -148,7 +148,10 @@ impl AMF3Encoder {
         fixed_length: bool,
     ) -> Result<()> {
         let len = self.object_reference_table.to_length(
-            Value::VectorInt(items.to_vec(), fixed_length),
+            Value::VectorInt(VectorObjectValue {
+                values: items.to_vec(),
+                fixed_length,
+            }),
             items.len() as u32,
         );
 
@@ -172,7 +175,10 @@ impl AMF3Encoder {
         fixed_length: bool,
     ) -> Result<()> {
         let len = self.object_reference_table.to_length(
-            Value::VectorUInt(items.to_vec(), fixed_length),
+            Value::VectorUInt(VectorObjectValue {
+                values: items.to_vec(),
+                fixed_length,
+            }),
             items.len() as u32,
         );
 
@@ -196,7 +202,10 @@ impl AMF3Encoder {
         fixed_length: bool,
     ) -> Result<()> {
         let len = self.object_reference_table.to_length(
-            Value::VectorDouble(items.to_vec(), fixed_length),
+            Value::VectorDouble(VectorObjectValue {
+                values: items.to_vec(),
+                fixed_length,
+            }),
             items.len() as u32,
         );
 
@@ -220,7 +229,7 @@ impl AMF3Encoder {
     ) -> Result<()> {
         let len = self
             .object_reference_table
-            .to_length(Value::Date(time, None), 0);
+            .to_length(Value::Date { time, timezone_or_utc: None}, 0);
 
         self.write_type_marker(writer, TypeMarker::Date)?;
         len.write(writer, self)?;
@@ -568,10 +577,10 @@ impl AMF3Encoder {
         &'a self,
         writer: &mut W,
         id: ObjectId,
-        items: &'b [(Value, Value)],
+        items: &'b [DictionaryEntry],
         weak_keys: bool,
     ) -> Result<()> {
-        let dict = Value::Dictionary(id, items.to_vec(), weak_keys);
+        let dict = Value::Dictionary { id, data: DictionaryObjectValue { elements: items.to_vec(), weak_keys}};
 
         let len = self
             .object_reference_table
@@ -588,8 +597,8 @@ impl AMF3Encoder {
         if len.is_size() {
             writer.write_u8(weak_keys as u8)?;
             for i in items {
-                self.write_value_element(writer, &i.0)?;
-                self.write_value_element(writer, &i.1)?;
+                self.write_value_element(writer, &i.key)?;
+                self.write_value_element(writer, &i.value)?;
             }
         }
         Ok(())
@@ -617,7 +626,7 @@ impl AMF3Encoder {
             }
             Value::Null => self.write_null_element(writer),
             Value::Undefined => self.write_undefined_element(writer),
-            Value::ECMAArray(id, dense, elements, _) => {
+            Value::ECMAArray { id, data } => {
                 self.object_reference_table.store(s.clone());
                 if let Length::Reference(r) = self.object_reference_table.to_length(s.clone(), 0) {
                     self.object_id_to_reference
@@ -625,9 +634,9 @@ impl AMF3Encoder {
                         .insert(*id, (TypeMarker::Array, r));
                 }
 
-                self.write_ecma_array_element(writer, dense, elements)
+                self.write_ecma_array_element(writer, &data.dense, &data.elements)
             }
-            Value::StrictArray(id, children) => {
+            Value::StrictArray { id, values } => {
                 self.object_reference_table.store(s.clone());
                 if let Length::Reference(r) = self.object_reference_table.to_length(s.clone(), 0) {
                     self.object_id_to_reference
@@ -635,26 +644,26 @@ impl AMF3Encoder {
                         .insert(*id, (TypeMarker::Array, r));
                 }
 
-                self.write_strict_array_element(writer, children)
+                self.write_strict_array_element(writer, &values)
             }
-            Value::Date(time, _tz) => self.write_date_element(writer, *time),
-            Value::XML(content, string) => self.write_xml_element(writer, content, *string),
+            Value::Date { time, timezone_or_utc: _ } => self.write_date_element(writer, *time),
+            Value::XML { value, is_string } => self.write_xml_element(writer, value, *is_string),
             Value::Integer(i) => self.write_integer_element(writer, *i),
             Value::ByteArray(bytes) => self.write_byte_array_element(writer, bytes),
-            Value::VectorInt(items, fixed_length) => {
-                self.write_int_vector(writer, items, *fixed_length)
+            Value::VectorInt(v) => {
+                self.write_int_vector(writer, &v.values, v.fixed_length)
             }
-            Value::VectorUInt(items, fixed_length) => {
-                self.write_uint_vector(writer, items, *fixed_length)
+            Value::VectorUInt(v) => {
+                self.write_uint_vector(writer, &v.values, v.fixed_length)
             }
-            Value::VectorDouble(items, fixed_length) => {
-                self.write_number_vector(writer, items, *fixed_length)
+            Value::VectorDouble(v) => {
+                self.write_number_vector(writer, &v.values, v.fixed_length)
             }
             Value::VectorObject(id, items, type_name, fixed_length) => {
                 self.write_object_vector_element(writer, *id, items, type_name, *fixed_length)
             }
-            Value::Dictionary(id, kv, weak_keys) => {
-                self.write_dictionary_element(writer, *id, kv, *weak_keys)
+            Value::Dictionary { id, data } => {
+                self.write_dictionary_element(writer, *id, &data.elements, data.weak_keys)
             }
 
             Value::Custom(c) => self.write_object_element(
