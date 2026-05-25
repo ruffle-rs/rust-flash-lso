@@ -166,14 +166,17 @@ impl TreeNode {
                 .elements
                 .iter()
                 .any(|e| e.name.contains(&ctx.props().filter)),
-            Value::ECMAArray { id: _, data} => {
-                data.elements.iter().any(|e| e.name.contains(&ctx.props().filter))
-                    || data.dense
+            Value::ECMAArray { id: _, data } => {
+                data.elements
+                    .iter()
+                    .any(|e| e.name.contains(&ctx.props().filter))
+                    || data
+                        .dense
                         .iter()
                         .enumerate()
                         .any(|(i, _e)| format!("{i}").contains(&ctx.props().filter))
             }
-            Value::StrictArray{id:_, values} => values
+            Value::StrictArray { id: _, values } => values
                 .iter()
                 .enumerate()
                 .any(|(i, _e)| format!("{i}").contains(&ctx.props().filter)),
@@ -182,8 +185,12 @@ impl TreeNode {
                 .enumerate()
                 .any(|(i, _e)| format!("{i}").contains(&ctx.props().filter)),
             Value::Custom(c) => {
-                c.elements.iter().any(|e| e.name.contains(&ctx.props().filter))
-                    || c.dynamic_elements.iter().any(|e| e.name.contains(&ctx.props().filter))
+                c.elements
+                    .iter()
+                    .any(|e| e.name.contains(&ctx.props().filter))
+                    || c.dynamic_elements
+                        .iter()
+                        .any(|e| e.name.contains(&ctx.props().filter))
             }
             _ => false,
         };
@@ -206,11 +213,11 @@ impl TreeNode {
         matches!(
             data,
             Value::Object { .. }
-                | Value::StrictArray{..}
-                | Value::ECMAArray{..}
+                | Value::StrictArray { .. }
+                | Value::ECMAArray { .. }
                 | Value::VectorObject(_, _, _, _)
                 | Value::AMF3(_)
-                | Value::Dictionary{..}
+                | Value::Dictionary { .. }
                 | Value::Custom(_)
         )
     }
@@ -233,12 +240,12 @@ impl TreeNode {
                     })}
                 </ul>
             },
-            Value::StrictArray{id: _, values} => html! {
+            Value::StrictArray { id: _, values } => html! {
                 <ul>
                     { for values.iter().enumerate().map(|(i, v)| self.view_array_element(ctx, i, v))}
                 </ul>
             },
-            Value::ECMAArray { id: _, data} => html! {
+            Value::ECMAArray { id: _, data } => html! {
                     <ul>
                        { for data.dense.iter().enumerate().map(|(i, v)| self.view_array_element(ctx, i, v))}
                         { for data.elements.iter().map(|e| html! {
@@ -251,7 +258,7 @@ impl TreeNode {
                    { for children.iter().enumerate().map(|(i, v)| self.view_array_element(ctx, i, v))}
                 </ul>
             },
-            Value::Dictionary {  id: _, data } => html! {
+            Value::Dictionary { id: _, data } => html! {
                 <ul>
                     { for data.elements.iter().map(|ent| html! {
                             <>

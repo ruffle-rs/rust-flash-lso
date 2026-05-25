@@ -495,7 +495,7 @@ pub fn test_externalizable_object_back_reference() {
         .parse_single_element(data)
         .expect("first parse failed");
     assert!(
-        matches!(first, Value::Custom(_, _, _)),
+        matches!(first, Value::Custom(_)),
         "first element should be Custom, got {first:?}"
     );
 
