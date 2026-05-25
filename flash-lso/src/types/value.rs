@@ -15,9 +15,9 @@ pub struct ObjectValue {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct CustomObjectValue {
-    ///
+    /// The external elements
     pub elements: Vec<Element>,
-    ///
+    /// The dynamic elements
     pub dynamic_elements: Vec<Element>,
 
     /// The ClassDefinition assigned to this Custom object
@@ -70,8 +70,6 @@ pub struct ECMAArrayObjectValue {
     /// The length of the array in AMF0, this can differ from the actual number of elements
     pub length: u32,
 }
-
-
 
 //TODO: should amf3 assoc arrays be their own type with a dense and assoc section
 /// A single or compound value
@@ -126,7 +124,7 @@ pub enum Value {
         time: f64,
 
         /// The timezone identifier or UTC if missing
-        timezone_or_utc: Option<u16>
+        timezone_or_utc: Option<u16>,
     },
 
     /// Represent the unsupported type
@@ -190,5 +188,3 @@ pub enum Value {
     /// we leave the handling of this to the user, sorry
     Amf3ObjectReference(ObjectId),
 }
-
-

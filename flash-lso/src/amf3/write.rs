@@ -5,7 +5,10 @@ use crate::amf3::custom_encoder::CustomEncoder;
 use crate::amf3::element_cache::ElementCache;
 use crate::amf3::length::Length;
 use crate::amf3::type_marker::TypeMarker;
-use crate::types::{Attribute, ClassDefinition, DictionaryEntry, DictionaryObjectValue, Element, ObjectId, Value, VectorObjectValue};
+use crate::types::{
+    Attribute, ClassDefinition, DictionaryEntry, DictionaryObjectValue, Element, ObjectId, Value,
+    VectorObjectValue,
+};
 use crate::write::WriteExt;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
@@ -227,9 +230,13 @@ impl AMF3Encoder {
         writer: &mut W,
         time: f64,
     ) -> Result<()> {
-        let len = self
-            .object_reference_table
-            .to_length(Value::Date { time, timezone_or_utc: None}, 0);
+        let len = self.object_reference_table.to_length(
+            Value::Date {
+                time,
+                timezone_or_utc: None,
+            },
+            0,
+        );
 
         self.write_type_marker(writer, TypeMarker::Date)?;
         len.write(writer, self)?;
@@ -580,7 +587,13 @@ impl AMF3Encoder {
         items: &'b [DictionaryEntry],
         weak_keys: bool,
     ) -> Result<()> {
-        let dict = Value::Dictionary { id, data: DictionaryObjectValue { elements: items.to_vec(), weak_keys}};
+        let dict = Value::Dictionary {
+            id,
+            data: DictionaryObjectValue {
+                elements: items.to_vec(),
+                weak_keys,
+            },
+        };
 
         let len = self
             .object_reference_table
@@ -644,21 +657,18 @@ impl AMF3Encoder {
                         .insert(*id, (TypeMarker::Array, r));
                 }
 
-                self.write_strict_array_element(writer, &values)
+                self.write_strict_array_element(writer, values)
             }
-            Value::Date { time, timezone_or_utc: _ } => self.write_date_element(writer, *time),
+            Value::Date {
+                time,
+                timezone_or_utc: _,
+            } => self.write_date_element(writer, *time),
             Value::XML { value, is_string } => self.write_xml_element(writer, value, *is_string),
             Value::Integer(i) => self.write_integer_element(writer, *i),
             Value::ByteArray(bytes) => self.write_byte_array_element(writer, bytes),
-            Value::VectorInt(v) => {
-                self.write_int_vector(writer, &v.values, v.fixed_length)
-            }
-            Value::VectorUInt(v) => {
-                self.write_uint_vector(writer, &v.values, v.fixed_length)
-            }
-            Value::VectorDouble(v) => {
-                self.write_number_vector(writer, &v.values, v.fixed_length)
-            }
+            Value::VectorInt(v) => self.write_int_vector(writer, &v.values, v.fixed_length),
+            Value::VectorUInt(v) => self.write_uint_vector(writer, &v.values, v.fixed_length),
+            Value::VectorDouble(v) => self.write_number_vector(writer, &v.values, v.fixed_length),
             Value::VectorObject(id, items, type_name, fixed_length) => {
                 self.write_object_vector_element(writer, *id, items, type_name, *fixed_length)
             }

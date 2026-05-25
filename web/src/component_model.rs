@@ -358,7 +358,10 @@ impl Model {
                   <label class={"custom-control-label"} for={"customSwitch1"}>{"State"}</label>
                 </div>
             },
-            Value::Date { time, timezone_or_utc} => html! {
+            Value::Date {
+                time,
+                timezone_or_utc,
+            } => html! {
                 <>
                 <div class="input-group mb-2">
                     <div class="input-group-prepend">
@@ -401,88 +404,88 @@ impl Model {
                   }} else {html!{}}}
                 </>
             },
-            Value::XML{value, is_string} => html! {
+            Value::XML { value, is_string } => html! {
                 <StringInput onchange={ctx.link().callback(move |s| Msg::Edited(Value::XML { value: s, is_string}))} value={value}/>
             },
             Value::VectorInt(v) => {
                 let elements_clone = v.values.clone();
                 let elements_clone3 = v.values.clone();
                 html! {
-                    <>
-                        <div class="custom-control custom-switch mb-2">
-                          <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={v.fixed_length} onclick={ctx.link().callback(move |_| {
-Msg::Edited(Value::VectorInt(VectorObjectValue {
-                                                    values: elements_clone.clone(),
-                                                    fixed_length: !v.fixed_length
-                                                }))                          })}/>
-                          <label class={"custom-control-label"} for={"vectorIntFixed"}>{"Fixed Length"}</label>
-                        </div>
+                                    <>
+                                        <div class="custom-control custom-switch mb-2">
+                                          <input type={"checkbox"} class={"custom-control-input"} id={"vectorIntFixed"} checked={v.fixed_length} onclick={ctx.link().callback(move |_| {
+                Msg::Edited(Value::VectorInt(VectorObjectValue {
+                                                                    values: elements_clone.clone(),
+                                                                    fixed_length: !v.fixed_length
+                                                                }))                          })}/>
+                                          <label class={"custom-control-label"} for={"vectorIntFixed"}>{"Fixed Length"}</label>
+                                        </div>
 
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>{"#"}</th>
-                                    <th>{"Value"}</th>
-                                    <th></th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            { for v.values.iter().enumerate().map(|(i, e)| {
-                                let elements_clone4 = elements_clone3.clone();
-                                let elements_clone5 = elements_clone3.clone();
-                                html! {
-                                <tr>
-                                    <td>{i}</td>
-                                    <td>
-                                        <input onchange={ctx.link().batch_callback(move |e: Event| {
-                                        let target: Option<EventTarget> = e.target();
-                                        let input = target.and_then(|t| t.dyn_into::<HtmlInputElement>().ok());
+                                        <table class="table table-striped">
+                                            <thead>
+                                                <tr>
+                                                    <th>{"#"}</th>
+                                                    <th>{"Value"}</th>
+                                                    <th></th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                            { for v.values.iter().enumerate().map(|(i, e)| {
+                                                let elements_clone4 = elements_clone3.clone();
+                                                let elements_clone5 = elements_clone3.clone();
+                                                html! {
+                                                <tr>
+                                                    <td>{i}</td>
+                                                    <td>
+                                                        <input onchange={ctx.link().batch_callback(move |e: Event| {
+                                                        let target: Option<EventTarget> = e.target();
+                                                        let input = target.and_then(|t| t.dyn_into::<HtmlInputElement>().ok());
 
-                                        input.map(|input| {
-                                            if let Ok(data) = input.value().parse::<i32>() {
-                                                let mut new_elements = elements_clone5.clone();
-                                                new_elements[i] = data;
-                                                Msg::Edited(Value::VectorInt(VectorObjectValue {
-                                                    values: new_elements,
-                                                    fixed_length: v.fixed_length
-                                                }))
-                                             } else {
-Msg::Edited(Value::VectorInt(VectorObjectValue {
-                                                    values: elements_clone5.clone(),
-                                                    fixed_length: v.fixed_length
-                                                }))                                              }
-                                        })
-                                    })} value={format!("{e}")} class="form-control" type="text"/>
-                                    </td>
-                                    <td></td>
-                                    <td>
-                                    <span onclick={ctx.link().callback(move |_| {
-                                        let mut e = elements_clone4.clone();
-                                        e.remove(i);
+                                                        input.map(|input| {
+                                                            if let Ok(data) = input.value().parse::<i32>() {
+                                                                let mut new_elements = elements_clone5.clone();
+                                                                new_elements[i] = data;
+                                                                Msg::Edited(Value::VectorInt(VectorObjectValue {
+                                                                    values: new_elements,
+                                                                    fixed_length: v.fixed_length
+                                                                }))
+                                                             } else {
+                Msg::Edited(Value::VectorInt(VectorObjectValue {
+                                                                    values: elements_clone5.clone(),
+                                                                    fixed_length: v.fixed_length
+                                                                }))                                              }
+                                                        })
+                                                    })} value={format!("{e}")} class="form-control" type="text"/>
+                                                    </td>
+                                                    <td></td>
+                                                    <td>
+                                                    <span onclick={ctx.link().callback(move |_| {
+                                                        let mut e = elements_clone4.clone();
+                                                        e.remove(i);
+                                                        Msg::Edited(Value::VectorInt(VectorObjectValue {
+                                                                    values: e,
+                                                                    fixed_length: v.fixed_length
+                                                                }))
+                                                      })} class="btn btn-link">
+                                                            <img alt={"Remove"} src={"icon/x.svg"} style={"width: 32; height: 32;"} class={"mr-2"}/>
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            }
+                                            })}
+                                            </tbody>
+                                        </table>
+                                        <span onclick={ctx.link().callback(move |_| {
+                                            let mut e = elements_clone3.clone();
+                                            e.push(0);
                                         Msg::Edited(Value::VectorInt(VectorObjectValue {
-                                                    values: e,
-                                                    fixed_length: v.fixed_length
-                                                }))
-                                      })} class="btn btn-link">
-                                            <img alt={"Remove"} src={"icon/x.svg"} style={"width: 32; height: 32;"} class={"mr-2"}/>
-                                        </span>
-                                    </td>
-                                </tr>
-                            }
-                            })}
-                            </tbody>
-                        </table>
-                        <span onclick={ctx.link().callback(move |_| {
-                            let mut e = elements_clone3.clone();
-                            e.push(0);
-                        Msg::Edited(Value::VectorInt(VectorObjectValue {
-                                                    values: e,
-                                                    fixed_length: v.fixed_length
-                                                }))
-                          })} class="btn btn-primary">{"Add"}</span>
-                    </>
-                }
+                                                                    values: e,
+                                                                    fixed_length: v.fixed_length
+                                                                }))
+                                          })} class="btn btn-primary">{"Add"}</span>
+                                    </>
+                                }
             }
             Value::VectorUInt(v) => {
                 let elements_clone = v.values.clone();
@@ -781,11 +784,11 @@ fn value_type_name(v: &Value) -> String {
         Value::Object { .. } => "Object".to_string(),
         Value::Null => "Null".to_string(),
         Value::Undefined => "Undefined".to_string(),
-        Value::ECMAArray{..} => "ECMAArray".to_string(),
-        Value::StrictArray{..} => "StrictArray".to_string(),
-        Value::Date{..}=> "Date".to_string(),
+        Value::ECMAArray { .. } => "ECMAArray".to_string(),
+        Value::StrictArray { .. } => "StrictArray".to_string(),
+        Value::Date { .. } => "Date".to_string(),
         Value::Unsupported => "Unsupported".to_string(),
-        Value::XML{..} => "XML".to_string(),
+        Value::XML { .. } => "XML".to_string(),
         Value::AMF3(v) => {
             format!("AMF3<{}>", value_type_name(v))
         }
@@ -796,7 +799,7 @@ fn value_type_name(v: &Value) -> String {
         Value::VectorDouble(_) => "Vector<Double>".to_string(),
         Value::VectorObject(_, _, _, _) => "Vector<Object>".to_string(),
         Value::Amf3ObjectReference(_) => "Reference".to_string(),
-        Value::Dictionary{..} => "Dictionary".to_string(),
+        Value::Dictionary { .. } => "Dictionary".to_string(),
         Value::Custom(c) => {
             format!("Custom<{}>", c.class_definition.name)
         }

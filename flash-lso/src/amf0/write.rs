@@ -176,11 +176,19 @@ pub(crate) fn write_value<'a, 'b: 'a, W: Write + 'a>(
         }
         Value::Null => write_null_element(writer),
         Value::Undefined => write_undefined_element(writer),
-        Value::StrictArray {id: _, values }=> write_strict_array_element(writer, values),
-        Value::Date{time, timezone_or_utc} => write_date_element(writer, *time, *timezone_or_utc),
+        Value::StrictArray { id: _, values } => write_strict_array_element(writer, values),
+        Value::Date {
+            time,
+            timezone_or_utc,
+        } => write_date_element(writer, *time, *timezone_or_utc),
         Value::Unsupported => write_unsupported_element(writer),
-        Value::XML{value, is_string: _} => write_xml_element(writer, value),
-        Value::ECMAArray { id: _, data} => write_ecma_array(writer, &data.dense, &data.elements, data.length),
+        Value::XML {
+            value,
+            is_string: _,
+        } => write_xml_element(writer, value),
+        Value::ECMAArray { id: _, data } => {
+            write_ecma_array(writer, &data.dense, &data.elements, data.length)
+        }
         #[cfg(feature = "amf3")]
         Value::AMF3(e) => {
             write_type_marker(writer, TypeMarker::AMF3)?;

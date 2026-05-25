@@ -150,11 +150,14 @@ impl ArrayWriter<'_, '_> {
     pub fn commit<T: AsRef<str>>(self, name: T, length: u32) {
         self.parent.add_element(
             name.as_ref(),
-            Value::ECMAArray {id: ObjectId::INVALID, data: ECMAArrayObjectValue {
-                dense: Vec::new(),
-                elements: self.elements,
-                length
-            }},
+            Value::ECMAArray {
+                id: ObjectId::INVALID,
+                data: ECMAArrayObjectValue {
+                    dense: Vec::new(),
+                    elements: self.elements,
+                    length,
+                },
+            },
             false,
         );
     }
