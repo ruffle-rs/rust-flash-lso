@@ -20,7 +20,7 @@ jobs:
       - name: Build web
         run: mkdir _site && cd web && wasm-pack build --out-name web --out-dir ./static --target web --release && cp -r ./static/* ../_site/
       - name: Upload site
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
   deploy:
     environment:
       name: github-pages
