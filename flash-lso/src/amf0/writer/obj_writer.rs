@@ -1,6 +1,6 @@
 use crate::types::{Reference, Value};
 
-use super::{ArrayWriter, CacheKey, ObjectWriter};
+use super::{ArrayWriter, CacheKey, ObjectWriter, TypedObjectWriter};
 
 /// A trait of common functions between writers
 pub trait ObjWriter<'a> {
@@ -30,7 +30,20 @@ pub trait ObjWriter<'a> {
     where
         'a: 'c,
         'a: 'd;
-    //Typed objects can also be sent cached
+
+    /// Typed objects can also be sent cached
+    /// Create a writer that can serialize a typed object
+    ///
+    /// If an object with the same `cache_key` has already been written, then this will return `None` for the Writer and the existing reference
+    /// If this key is unique, then both a Writer and a Reference will be returned
+    fn typed_object<'c: 'a, 'd>(
+        &'d mut self,
+        class_name: &str,
+        cache_key: CacheKey,
+    ) -> (Option<TypedObjectWriter<'d, 'c>>, Reference)
+    where
+        'a: 'c,
+        'a: 'd;
 
     /// Write a string
     fn string(&mut self, name: &str, s: &str) {
