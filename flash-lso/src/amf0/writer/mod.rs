@@ -3,12 +3,14 @@ mod array_writer;
 mod cache_key;
 mod obj_writer;
 mod object_writer;
+mod typed_object_writer;
 
 pub use amf0_writer::Amf0Writer;
 pub use array_writer::ArrayWriter;
 pub use cache_key::CacheKey;
 pub use obj_writer::ObjWriter;
 pub use object_writer::ObjectWriter;
+pub use typed_object_writer::TypedObjectWriter;
 
 #[test]
 fn fff() {

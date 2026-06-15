@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::types::{Element, ObjectId, Reference, Value};
 
-use super::{CacheKey, ObjWriter, ObjectWriter};
+use super::{CacheKey, ObjWriter, ObjectWriter, TypedObjectWriter};
 
 /// A writer for encoding `ECMAArray` contents
 pub struct ArrayWriter<'a, 'b> {
@@ -69,6 +69,35 @@ impl<'a> ObjWriter<'a> for ArrayWriter<'a, '_> {
             // Return the writer and the reference
             (
                 Some(ArrayWriter {
+                    elements: Vec::new(),
+                    parent: self,
+                }),
+                r,
+            )
+        }
+    }
+
+    fn typed_object<'c: 'a, 'd>(
+        &'d mut self,
+        class_name: &str,
+        cache_key: CacheKey,
+    ) -> (Option<TypedObjectWriter<'d, 'c>>, Reference)
+    where
+        'a: 'c,
+        'a: 'd,
+    {
+        if let Some(existing_ref) = self.cache_get(&cache_key) {
+            (None, existing_ref)
+        } else {
+            let r = self.make_reference();
+
+            // Cache this new typed object
+            self.cache_add(cache_key, r);
+
+            // Return the writer and the reference
+            (
+                Some(TypedObjectWriter {
+                    class_name: class_name.to_string(),
                     elements: Vec::new(),
                     parent: self,
                 }),

@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, rc::Rc};
 
 use crate::types::{AMFVersion, Element, Lso, Reference, Value};
 
-use super::{ArrayWriter, CacheKey, ObjWriter, ObjectWriter};
+use super::{ArrayWriter, CacheKey, ObjWriter, ObjectWriter, TypedObjectWriter};
 
 /// A writer for Amf0 encoded data
 #[derive(Default)]
@@ -76,6 +76,37 @@ impl<'a> ObjWriter<'a> for Amf0Writer {
             // Return the writer and the reference
             (
                 Some(ArrayWriter {
+                    elements: Vec::new(),
+                    parent: self,
+                }),
+                r,
+            )
+        }
+    }
+
+    fn typed_object<'c: 'a, 'd>(
+        &'d mut self,
+        class_name: &str,
+        cache_key: CacheKey,
+    ) -> (Option<TypedObjectWriter<'d, 'c>>, Reference)
+    where
+        'a: 'c,
+        'a: 'd,
+    {
+        if let Some(existing_ref) = self.cache.get(&cache_key) {
+            (None, *existing_ref)
+        } else {
+            // Create new typed object reference
+            let r = Reference(self.ref_num);
+            self.ref_num += 1;
+
+            // Cache this new typed object
+            self.cache.insert(cache_key, r);
+
+            // Return the writer and the reference
+            (
+                Some(TypedObjectWriter {
+                    class_name: class_name.to_string(),
                     elements: Vec::new(),
                     parent: self,
                 }),

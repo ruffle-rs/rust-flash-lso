@@ -1,11 +1,14 @@
 use std::rc::Rc;
 
-use crate::types::{Element, ObjectId, Reference, Value};
+use crate::types::{ClassDefinition, Element, ObjectId, Reference, Value};
 
-use super::{ArrayWriter, CacheKey, ObjWriter, TypedObjectWriter};
+use super::{ArrayWriter, CacheKey, ObjWriter, ObjectWriter};
 
-/// A writer for encoding the contents of a child object
-pub struct ObjectWriter<'a, 'b> {
+/// A writer for encoding the contents of a typed child object
+pub struct TypedObjectWriter<'a, 'b> {
+    /// The class name/alias of this typed object
+    pub(crate) class_name: String,
+
     /// The elements of this object
     pub(crate) elements: Vec<Element>,
 
@@ -13,7 +16,7 @@ pub struct ObjectWriter<'a, 'b> {
     pub(crate) parent: &'a mut dyn ObjWriter<'b>,
 }
 
-impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
+impl<'a> ObjWriter<'a> for TypedObjectWriter<'a, '_> {
     fn add_element(&mut self, name: &str, s: Value, inc_ref: bool) {
         if inc_ref {
             self.parent.make_reference();
@@ -89,11 +92,7 @@ impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
             (None, existing_ref)
         } else {
             let r = self.make_reference();
-
-            // Cache this new typed object
             self.cache_add(cache_key, r);
-
-            // Return the writer and the reference
             (
                 Some(TypedObjectWriter {
                     class_name: class_name.to_string(),
@@ -118,14 +117,18 @@ impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
     }
 }
 
-impl ObjectWriter<'_, '_> {
-    /// Finalize this object, adding it to it's parent
+impl TypedObjectWriter<'_, '_> {
+    /// Finalize this typed object, adding it to its parent
     /// If this is not called, the object will not be added
     pub fn commit<T: AsRef<str>>(self, name: T) {
-        //TODO: this doent work for multi level nesting
+        //TODO: this doesn't work for multi level nesting
         self.parent.add_element(
             name.as_ref(),
-            Value::Object(ObjectId::INVALID, self.elements, None),
+            Value::Object(
+                ObjectId::INVALID,
+                self.elements,
+                Some(ClassDefinition::default_with_name(self.class_name)),
+            ),
             false,
         );
     }
