@@ -73,6 +73,31 @@ impl<'a> ObjWriter<'a> for TypedObjectWriter<'a, '_> {
                 Some(ArrayWriter {
                     elements: Vec::new(),
                     parent: self,
+                    is_strict: false,
+                }),
+                r,
+            )
+        }
+    }
+
+    fn strict_array<'c: 'a, 'd>(
+        &'d mut self,
+        cache_key: CacheKey,
+    ) -> (Option<ArrayWriter<'d, 'c>>, Reference)
+    where
+        'a: 'c,
+        'a: 'd,
+    {
+        if let Some(existing_ref) = self.cache_get(&cache_key) {
+            (None, existing_ref)
+        } else {
+            let r = self.make_reference();
+            self.cache_add(cache_key, r);
+            (
+                Some(ArrayWriter {
+                    elements: Vec::new(),
+                    parent: self,
+                    is_strict: true,
                 }),
                 r,
             )
