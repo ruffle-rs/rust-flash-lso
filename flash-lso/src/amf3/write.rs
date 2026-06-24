@@ -11,8 +11,6 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::io::Result;
 use std::io::Write;
-use std::ops::Deref;
-use std::rc::Rc;
 
 /// Handles encoding AMF3
 #[derive(Default)]
@@ -308,7 +306,7 @@ impl AMF3Encoder {
         if def.attributes.contains(Attribute::External) {
             if let Some(encoder) = self.external_encoders.get(&def.name) {
                 writer.write_all(&encoder.encode(
-                    custom_props.unwrap(),
+                    custom_props.expect("Custom encoder, missing custom props"),
                     &Some(def.clone()),
                     self,
                 ))?;
@@ -387,7 +385,7 @@ impl AMF3Encoder {
         if def.attributes.contains(Attribute::External) {
             if let Some(encoder) = self.external_encoders.get(&def.name) {
                 writer.write_all(&encoder.encode(
-                    custom_props.unwrap(),
+                    custom_props.expect("Custom encode but missing custom props"),
                     &Some(def.clone()),
                     self,
                 ))?;
@@ -431,8 +429,15 @@ impl AMF3Encoder {
         class_def: &'b Option<ClassDefinition>,
     ) -> Result<()> {
         let had_object = Length::Size(0);
+        use crate::types::ObjectValue;
 
-        let obj = Value::Object(id, children.to_vec(), class_def.clone());
+        let obj = Value::Object {
+            id,
+            data: ObjectValue {
+                elements: children.to_vec(),
+                class_definition: class_def.clone(),
+            },
+        };
         self.object_reference_table.store(obj.clone());
         if let Length::Reference(r) = self.object_reference_table.to_length(obj, 0) {
             self.object_id_to_reference
@@ -451,7 +456,12 @@ impl AMF3Encoder {
 
         self.write_type_marker(writer, TypeMarker::Object)?;
         if had_object.is_reference() {
-            self.write_object_reference(writer, had_object.as_position().unwrap() as u32)?;
+            self.write_object_reference(
+                writer,
+                had_object
+                    .as_position()
+                    .expect("Failed to convert to position") as u32,
+            )?;
         }
         if !had_object.is_reference() {
             if let Some(has_trait) = has_trait {
@@ -474,7 +484,7 @@ impl AMF3Encoder {
     fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
         writer: &mut W,
-        children: &'b [Rc<Value>],
+        children: &'b [Value],
     ) -> Result<()> {
         //TODO: why is this not a reference
         let len = Length::Size(children.len() as u32);
@@ -501,7 +511,7 @@ impl AMF3Encoder {
     fn write_ecma_array_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
         writer: &mut W,
-        dense: &'b [Rc<Value>],
+        dense: &'b [Value],
         assoc: &'b [Element],
     ) -> Result<()> {
         let len = Length::Size(dense.len() as u32);
@@ -526,7 +536,7 @@ impl AMF3Encoder {
         &'a self,
         writer: &mut W,
         id: ObjectId,
-        items: &'b [Rc<Value>],
+        items: &'b [Value],
         type_name: &'b str,
         fixed_length: bool,
     ) -> Result<()> {
@@ -558,7 +568,7 @@ impl AMF3Encoder {
         &'a self,
         writer: &mut W,
         id: ObjectId,
-        items: &'b [(Rc<Value>, Rc<Value>)],
+        items: &'b [(Value, Value)],
         weak_keys: bool,
     ) -> Result<()> {
         let dict = Value::Dictionary(id, items.to_vec(), weak_keys);
@@ -588,9 +598,9 @@ impl AMF3Encoder {
     pub(crate) fn write_value_element<'a, 'b: 'a, W: Write + 'a>(
         &'b self,
         writer: &mut W,
-        s: &'b Rc<Value>,
+        s: &'b Value,
     ) -> Result<()> {
-        self.write_value(writer, s.deref())
+        self.write_value(writer, s)
     }
 
     fn write_value<'a, 'b: 'a, W: Write + 'a>(
@@ -602,8 +612,8 @@ impl AMF3Encoder {
             Value::Number(x) => self.write_number_element(writer, *x),
             Value::Bool(b) => self.write_boolean_element(writer, *b),
             Value::String(s) => self.write_string_element(writer, s),
-            Value::Object(id, children, class_def) => {
-                self.write_object_element(writer, *id, children, None, class_def)
+            Value::Object { id, data } => {
+                self.write_object_element(writer, *id, &data.elements, None, &data.class_definition)
             }
             Value::Null => self.write_null_element(writer),
             Value::Undefined => self.write_undefined_element(writer),
@@ -708,24 +718,24 @@ mod write_number_tests {
     #[test]
     fn test_write_1byte_number() {
         let e = AMF3Encoder::default();
-        let mut v = vec![];
-        e.write_int(&mut v, 0b00101011).unwrap();
+        let mut v = Vec::new();
+        e.write_int(&mut v, 0b00101011).expect("Test fail");
         assert_eq!(v, &[0b00101011]);
     }
 
     #[test]
     fn test_write_4byte_number() {
         let e = AMF3Encoder::default();
-        let mut v = vec![];
-        e.write_int(&mut v, 2097280).unwrap();
+        let mut v = Vec::new();
+        e.write_int(&mut v, 2097280).expect("Test fail");
         assert_eq!(v, &[0b10000000, 0b11000000, 0b10000000, 0b10000000]);
     }
 
     #[test]
     fn write_neg_number() {
         let e = AMF3Encoder::default();
-        let mut v = vec![];
-        e.write_int(&mut v, -268435455).unwrap();
+        let mut v = Vec::new();
+        e.write_int(&mut v, -268435455).expect("Test fail");
         assert_eq!(v, &[192, 128, 128, 1]);
     }
 }

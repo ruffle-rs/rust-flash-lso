@@ -67,7 +67,7 @@ impl Reader {
         .parse(i)?;
 
         // This unwrap can't fail because of the alt above
-        let format_version: AMFVersion = version[0].try_into().unwrap();
+        let format_version: AMFVersion = version[0].try_into().expect("Invalid version");
 
         Ok((
             i,

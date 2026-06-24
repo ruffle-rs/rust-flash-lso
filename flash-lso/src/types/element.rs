@@ -1,6 +1,4 @@
 use super::Value;
-use core::ops::Deref;
-use std::rc::Rc;
 
 /// Represent a named element
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -10,13 +8,13 @@ pub struct Element {
     pub name: String,
 
     /// The value of the element
-    pub value: Rc<Value>,
+    pub value: Value,
 }
 
 impl Element {
     /// Create a new Element
     #[inline]
-    pub fn new(name: impl Into<String>, value: Rc<Value>) -> Self {
+    pub fn new(name: impl Into<String>, value: Value) -> Self {
         Self {
             name: name.into(),
             value,
@@ -25,7 +23,7 @@ impl Element {
 
     /// Get the Value of this element
     pub fn value(&self) -> &Value {
-        self.value.deref()
+        &self.value
     }
 
     /// Get the name of this element

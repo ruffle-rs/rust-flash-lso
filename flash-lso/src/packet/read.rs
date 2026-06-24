@@ -1,8 +1,7 @@
-use std::convert::TryInto;
-
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::number::complete::{be_u8, be_u16, be_u32};
+use std::convert::TryInto;
 
 use crate::amf0;
 use crate::amf0::read::AMF0Decoder;
@@ -28,7 +27,7 @@ fn parse_header(i: &[u8]) -> AMFResult<'_, Header> {
         Header {
             name: name.to_string(),
             must_understand: must_understand != 0,
-            value,
+            value: (value),
         },
     ))
 }
@@ -44,7 +43,7 @@ fn parse_message(i: &[u8]) -> AMFResult<'_, Message> {
         Message {
             target_uri: target_uri.to_string(),
             response_uri: response_uri.to_string(),
-            contents,
+            contents: (contents),
         },
     ))
 }
@@ -61,7 +60,7 @@ pub fn parse_incomplete(i: &[u8]) -> AMFResult<'_, Packet> {
     ))
     .parse(i)?;
     // This unwrap can't fail because of the alt above
-    let version: AMFVersion = version[0].try_into().unwrap();
+    let version: AMFVersion = version[0].try_into().expect("Invalid version");
 
     let (i, headers) = length_count(be_u16, parse_header).parse(i)?;
     let (i, messages) = length_count(be_u16, parse_message).parse(i)?;

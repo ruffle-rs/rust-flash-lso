@@ -23,7 +23,7 @@ fn write_header(
     }
 
     // Value
-    let mut value = vec![];
+    let mut value = Vec::new();
     amf0::write::write_value(&mut value, &header.value)
         .map_err(|e| Error::IoError(e.to_string(), e.kind()))?;
     if exact_lengths {
@@ -55,7 +55,7 @@ fn write_message(
     out.extend(message.response_uri.as_bytes());
 
     // Contents
-    let mut contents = vec![];
+    let mut contents = Vec::new();
     amf0::write::write_value(&mut contents, &message.contents)
         .map_err(|e| Error::IoError(e.to_string(), e.kind()))?;
     if exact_lengths {
@@ -71,7 +71,7 @@ fn write_message(
 
 /// Write a packet to a vec of bytes
 pub fn write_to_bytes(packet: &Packet, exact_lengths: bool) -> Result<Vec<u8>, Error<'static>> {
-    let mut buffer = vec![];
+    let mut buffer = Vec::new();
 
     // Version
     buffer.push(0);

@@ -1,11 +1,10 @@
 use core::fmt;
+use flash_lso::AMFResult;
+use flash_lso::amf3::custom_encoder::CustomDecoder;
 use flash_lso::errors::Error;
 use flash_lso::read::Reader;
-use flash_lso::types::Value;
+use flash_lso::types::{Element, Value};
 use nom::error::ErrorKind;
-use std::borrow::Borrow;
-use std::ops::Deref;
-
 // #[cfg(test)]
 // use pretty_assertions::assert_eq;
 
@@ -34,7 +33,7 @@ macro_rules! packet_test {
             if let Ok((unparsed_bytes, mut packet)) =  parse_res {
                 println!("{:#?}", packet);
 
-                let empty: Vec<u8> = vec![];
+                let empty: Vec<u8> = Vec::new();
                 if unparsed_bytes.len() > 0 {
                     assert_eq!(crate::PrettyArray(&empty), crate::PrettyArray(&unparsed_bytes[..unparsed_bytes.len().min(100)].to_vec()));
                 }
@@ -64,7 +63,7 @@ macro_rules! auto_test {
             if let Ok((unparsed_bytes, mut sol)) =  parse_res {
                 println!("{:#?}", sol);
 
-                let empty: Vec<u8> = vec![];
+                let empty: Vec<u8> = Vec::new();
                 if unparsed_bytes.len() > 0 {
                     assert_eq!(crate::PrettyArray(&empty), crate::PrettyArray(&unparsed_bytes[..unparsed_bytes.len().min(100)].to_vec()));
                 }
@@ -93,7 +92,7 @@ macro_rules! test_parse_only {
 
             if let Ok((unparsed_bytes, sol)) =  parse_res {
                 println!("Parsed sol: {:?}", sol);
-                let empty: Vec<u8> = vec![];
+                let empty: Vec<u8> = Vec::new();
                 if unparsed_bytes.len() > 0 {
                     assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
                 }
@@ -121,12 +120,12 @@ macro_rules! auto_test_flex {
             let parse_res = des.parse_incomplete(data);
 
             if let Ok((unparsed_bytes, mut sol)) =  parse_res {
-                let empty: Vec<u8> = vec![];
+                let empty: Vec<u8> = Vec::new();
                 if unparsed_bytes.len() > 0 {
                     assert_eq!(PrettyArray(&empty), PrettyArray(&unparsed_bytes[..100].to_vec()));
                 }
 
-                let mut buffer = vec![];
+                let mut buffer = Vec::new();
                 let mut s = Writer::default();
                 flex::write::register_encoders(&mut s.amf3_encoder);
                 s.write_full(&mut buffer, &mut sol)?;
@@ -466,8 +465,8 @@ pub fn test_recursive_object() {
     let (_, obj) = flash_lso::amf3::read::AMF3Decoder::default()
         .parse_single_element(data)
         .expect("Failed to parse object");
-    if let Value::Object(id, elem, _) = obj.borrow() {
-        assert_eq!(elem[0].value.deref(), &Value::Amf3ObjectReference(*id));
+    if let Value::Object { id, data } = &obj {
+        assert_eq!(data.elements[0].value, Value::Amf3ObjectReference(*id));
     } else {
         panic!("Expected object");
     }
@@ -476,22 +475,27 @@ pub fn test_recursive_object() {
 #[test]
 pub fn test_externalizable_object_back_reference() {
     use flash_lso::amf3::read::AMF3Decoder;
-    use std::rc::Rc;
 
     // Inline external "X" with a 1-byte body, then an object-ref to it.
     let data = include_bytes!("./amf/externalizable-object-back-reference.amf");
 
     let mut decoder = AMF3Decoder::default();
-    decoder.external_decoders.insert(
-        "X".to_string(),
-        Rc::new(Box::new(|input, _decoder| Ok((&input[1..], vec![])))),
-    );
+
+    #[derive(Default)]
+    struct TestDecoder;
+    impl CustomDecoder for TestDecoder {
+        fn decode<'a>(&self, i: &'a [u8], _dec: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>> {
+            Ok((&i[1..], Vec::new()))
+        }
+    }
+
+    decoder.register_custom_decoder::<TestDecoder>("X");
 
     let (rest, first) = decoder
         .parse_single_element(data)
         .expect("first parse failed");
     assert!(
-        matches!(first.deref(), Value::Custom(_, _, _)),
+        matches!(first, Value::Custom(_, _, _)),
         "first element should be Custom, got {first:?}"
     );
 
@@ -499,7 +503,7 @@ pub fn test_externalizable_object_back_reference() {
         .parse_single_element(rest)
         .expect("back-ref parse failed");
     assert!(
-        matches!(second.deref(), Value::Custom(_, _, _)),
+        matches!(second, Value::Amf3ObjectReference(x) if x.0 == 0),
         "back-ref should resolve to Custom, got {second:?}"
     );
 }

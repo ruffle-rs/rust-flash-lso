@@ -3,7 +3,7 @@ use yew::prelude::*;
 
 use flash_lso::extra::flex;
 use flash_lso::read::Reader;
-use flash_lso::types::{Attribute, Element, Lso, Value};
+use flash_lso::types::{Attribute, Element, Lso, ObjectValue, Value};
 
 use crate::EditableValue;
 use crate::TreeNodePath;
@@ -20,7 +20,6 @@ use crate::uintarray_bindgen::Uint8Array;
 use crate::url_bindgen::URL;
 use crate::web_expect::WebSafeExpect;
 use flash_lso::write::write_to_bytes;
-use std::ops::Deref;
 use wasm_bindgen::JsCast;
 use web_sys::File;
 use web_sys::{EventTarget, HtmlInputElement};
@@ -76,8 +75,8 @@ impl Component for Model {
     type Properties = ();
     fn create(_ctx: &Context<Self>) -> Self {
         Self {
-            tasks: vec![],
-            files: vec![],
+            tasks: Vec::new(),
+            files: Vec::new(),
             current_selection: None,
             current_tab: None,
             error_messages: Vec::new(),
@@ -231,20 +230,38 @@ impl Model {
 
     fn value_details(&self, val: EditableValue, ctx: &Context<Self>) -> Html {
         match val.value {
-            Value::Object(id, children, Some(def)) => {
-                let def_clone = def.clone();
-                let dynamic_icon = if def.attributes.contains(Attribute::Dynamic) {
+            Value::Object { id, data } => {
+                let def_clone = data.class_definition.clone();
+                let dynamic_icon = if data
+                    .class_definition
+                    .as_ref()
+                    .unwrap()
+                    .attributes
+                    .contains(Attribute::Dynamic)
+                {
                     "icon/check.svg"
                 } else {
                     "icon/x.svg"
                 };
-                let external_icon = if def.attributes.contains(Attribute::External) {
+                let external_icon = if data
+                    .class_definition
+                    .as_ref()
+                    .unwrap()
+                    .attributes
+                    .contains(Attribute::External)
+                {
                     "icon/check.svg"
                 } else {
                     "icon/x.svg"
                 };
 
-                let static_props_details = if def.static_properties.is_empty() {
+                let static_props_details = if data
+                    .class_definition
+                    .as_ref()
+                    .unwrap()
+                    .static_properties
+                    .is_empty()
+                {
                     html! {}
                 } else {
                     html! {
@@ -254,7 +271,7 @@ impl Model {
                                     <th>{"Static Properties"}</th>
                                 </tr>
                             </thead>
-                            { for def_clone.static_properties.iter().map(|p| html! {
+                            { for def_clone.unwrap().static_properties.iter().map(|p| html! {
                                 <tr>
                                     <td>{p}</td>
                                 </tr>
@@ -275,11 +292,11 @@ impl Model {
                             let input = target.and_then(|t| t.dyn_into::<HtmlInputElement>().ok());
 
                             input.map(|input| {
-                                let mut new_def = def.clone();
+                                let mut new_def = data.class_definition.as_ref().unwrap().clone();
                                 new_def.name = input.value();
-                                Msg::Edited(Value::Object(id, children.clone(), Some(new_def)))
+                                Msg::Edited(Value::Object { id, data: ObjectValue { elements: data.elements.clone(), class_definition: Some(new_def) }})
                             })
-                        })}  value={def.name.clone()} class="form-control" type="text"/>
+                        })}  value={data.class_definition.as_ref().unwrap().name.clone()} class="form-control" type="text"/>
                       </div>
 
                       <ul class="list-group list-group-horizontal mt-2 mb-2">
@@ -599,7 +616,7 @@ impl Model {
                 <ul class="navbar-nav mr-auto">
                     <li class="nav-item">
                         <div class="btn-group mr-2" role="group">
-                            <label for="files" class="btn btn-primary">{"Open"}</label>
+                            <label for="files" class="btn btn-primary mr-2">{"Open"}</label>
                             { self.save_button(ctx) }
                         </div>
                     </li>
@@ -672,7 +689,7 @@ impl Model {
                                 onclick={ctx.link().callback(move |_| Msg::RootSelected)}>{ "/" }</span>
                             <ul>
                                 { for data.body.iter().map(|e| html! {
-                                    <TreeNode element_callback={ctx.link().callback(Msg::ElementChange)} filter={self.search.clone()} selection={self.current_selection.clone()} parent_path={TreeNodePath::root()} name={e.name.clone()} value={e.value.deref().clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
+                                    <TreeNode element_callback={ctx.link().callback(Msg::ElementChange)} filter={self.search.clone()} selection={self.current_selection.clone()} parent_path={TreeNodePath::root()} name={e.name.clone()} value={e.value.clone()} parent_callback={ctx.link().callback(Msg::Selection)}></TreeNode>
                                 })}
                             </ul>
                         </div>
@@ -681,36 +698,7 @@ impl Model {
                         {
                             if let Some(selection) = &self.current_selection {
                                 let details_content = self.value_details(selection.clone(), ctx);
-                                let value_type = match &selection.value {
-                                    Value::Reference(_) => "Reference".to_string(),
-                                    Value::Number(_) => "Number".to_string(),
-                                    Value::Bool(_) => "Boolean".to_string(),
-                                    Value::String(_) => "String".to_string(),
-                                    Value::Object(_, _, _) => "Object".to_string(),
-                                    Value::Null => "Null".to_string(),
-                                    Value::Undefined => "Undefined".to_string(),
-                                    Value::ECMAArray(_, _, _, _) => "ECMAArray".to_string(),
-                                    Value::StrictArray(_, _) => "StrictArray".to_string(),
-                                    Value::Date(_, _) => "Date".to_string(),
-                                    Value::Unsupported => "Unsupported".to_string(),
-                                    Value::XML(_, _) => "XML".to_string(),
-                                    Value::AMF3(_) => "AMF3<TODO>".to_string(),
-                                    Value::Integer(_) => "Integer".to_string(),
-                                    Value::ByteArray(_) => "ByteArray".to_string(),
-                                    Value::VectorInt(_, _) => "Vector<Int>".to_string(),
-                                    Value::VectorUInt(_, _) => "Vector<UInt>".to_string(),
-                                    Value::VectorDouble(_, _) => "Vector<Double>".to_string(),
-                                    Value::VectorObject(_, _, _, _) => "Vector<Object>".to_string(),
-                                    Value::Amf3ObjectReference(_) => "Reference".to_string(),
-                                    Value::Dictionary(_, _, _) => "Dictionary".to_string(),
-                                    Value::Custom(_, _, cd) => {
-                                        if let Some(cd) = cd {
-                                            format!("Custom<{}>", cd.name)
-                                        } else {
-                                            "Custom<Unknown>".to_string()
-                                        }
-                                    },
-                                };
+                                let value_type = value_type_name(&selection.value);
 
                                 html! {
                                     <>
@@ -737,6 +725,41 @@ impl Model {
                     </div>
                 </div>
             </div>
+        }
+    }
+}
+
+fn value_type_name(v: &Value) -> String {
+    match &v {
+        Value::Reference(_) => "Reference".to_string(),
+        Value::Number(_) => "Number".to_string(),
+        Value::Bool(_) => "Boolean".to_string(),
+        Value::String(_) => "String".to_string(),
+        Value::Object { .. } => "Object".to_string(),
+        Value::Null => "Null".to_string(),
+        Value::Undefined => "Undefined".to_string(),
+        Value::ECMAArray(_, _, _, _) => "ECMAArray".to_string(),
+        Value::StrictArray(_, _) => "StrictArray".to_string(),
+        Value::Date(_, _) => "Date".to_string(),
+        Value::Unsupported => "Unsupported".to_string(),
+        Value::XML(_, _) => "XML".to_string(),
+        Value::AMF3(v) => {
+            format!("AMF3<{}>", value_type_name(v))
+        }
+        Value::Integer(_) => "Integer".to_string(),
+        Value::ByteArray(_) => "ByteArray".to_string(),
+        Value::VectorInt(_, _) => "Vector<Int>".to_string(),
+        Value::VectorUInt(_, _) => "Vector<UInt>".to_string(),
+        Value::VectorDouble(_, _) => "Vector<Double>".to_string(),
+        Value::VectorObject(_, _, _, _) => "Vector<Object>".to_string(),
+        Value::Amf3ObjectReference(_) => "Reference".to_string(),
+        Value::Dictionary(_, _, _) => "Dictionary".to_string(),
+        Value::Custom(_, _, cd) => {
+            if let Some(cd) = cd {
+                format!("Custom<{}>", cd.name)
+            } else {
+                "Custom<Unknown>".to_string()
+            }
         }
     }
 }
