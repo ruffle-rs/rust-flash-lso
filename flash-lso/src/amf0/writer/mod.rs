@@ -13,15 +13,15 @@ pub use object_writer::ObjectWriter;
 pub use typed_object_writer::TypedObjectWriter;
 
 #[test]
-fn fff() {
+fn objectwriter_serialization_test() {
     let mut w = Amf0Writer::default();
     let (aw, _) = w.object(CacheKey::from_ptr(std::ptr::null::<u8>()));
-    let mut aw = aw.unwrap();
+    let mut aw = aw.expect("amf0writer should not fail");
     {
         aw.string("asdf", "asfd");
         {
             let (aw2, _) = aw.object(CacheKey::from_ptr(core::ptr::dangling::<u8>()));
-            let mut aw2 = aw2.unwrap();
+            let mut aw2 = aw2.expect("amf0writer should not fail");
             aw2.string("asf", "asdf");
             aw2.commit("asf");
         }

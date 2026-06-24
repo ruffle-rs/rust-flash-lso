@@ -1,5 +1,3 @@
-#![recursion_limit = "1024"]
-
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 
@@ -58,5 +56,3 @@ pub fn run_app() {
     wasm_logger::init(wasm_logger::Config::default());
     yew::Renderer::<Model>::new().render();
 }
-
-//TODO fix saving

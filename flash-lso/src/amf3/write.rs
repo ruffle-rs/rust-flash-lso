@@ -5,14 +5,15 @@ use crate::amf3::custom_encoder::CustomEncoder;
 use crate::amf3::element_cache::ElementCache;
 use crate::amf3::length::Length;
 use crate::amf3::type_marker::TypeMarker;
-use crate::types::{Attribute, ClassDefinition, Element, ObjectId, Value};
+use crate::types::{
+    Attribute, ClassDefinition, DictionaryEntry, DictionaryObjectValue, Element, ObjectId, Value,
+    VectorObjectValue, VectorPrimitiveValue,
+};
 use crate::write::WriteExt;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::io::Result;
 use std::io::Write;
-use std::ops::Deref;
-use std::rc::Rc;
 
 /// Handles encoding AMF3
 #[derive(Default)]
@@ -150,7 +151,10 @@ impl AMF3Encoder {
         fixed_length: bool,
     ) -> Result<()> {
         let len = self.object_reference_table.to_length(
-            Value::VectorInt(items.to_vec(), fixed_length),
+            Value::VectorInt(VectorPrimitiveValue {
+                values: items.to_vec(),
+                fixed_length,
+            }),
             items.len() as u32,
         );
 
@@ -174,7 +178,10 @@ impl AMF3Encoder {
         fixed_length: bool,
     ) -> Result<()> {
         let len = self.object_reference_table.to_length(
-            Value::VectorUInt(items.to_vec(), fixed_length),
+            Value::VectorUInt(VectorPrimitiveValue {
+                values: items.to_vec(),
+                fixed_length,
+            }),
             items.len() as u32,
         );
 
@@ -198,7 +205,10 @@ impl AMF3Encoder {
         fixed_length: bool,
     ) -> Result<()> {
         let len = self.object_reference_table.to_length(
-            Value::VectorDouble(items.to_vec(), fixed_length),
+            Value::VectorDouble(VectorPrimitiveValue {
+                values: items.to_vec(),
+                fixed_length,
+            }),
             items.len() as u32,
         );
 
@@ -220,9 +230,13 @@ impl AMF3Encoder {
         writer: &mut W,
         time: f64,
     ) -> Result<()> {
-        let len = self
-            .object_reference_table
-            .to_length(Value::Date(time, None), 0);
+        let len = self.object_reference_table.to_length(
+            Value::Date {
+                time,
+                timezone_or_utc: None,
+            },
+            0,
+        );
 
         self.write_type_marker(writer, TypeMarker::Date)?;
         len.write(writer, self)?;
@@ -308,7 +322,7 @@ impl AMF3Encoder {
         if def.attributes.contains(Attribute::External) {
             if let Some(encoder) = self.external_encoders.get(&def.name) {
                 writer.write_all(&encoder.encode(
-                    custom_props.unwrap(),
+                    custom_props.expect("Custom encoder, missing custom props"),
                     &Some(def.clone()),
                     self,
                 ))?;
@@ -387,7 +401,7 @@ impl AMF3Encoder {
         if def.attributes.contains(Attribute::External) {
             if let Some(encoder) = self.external_encoders.get(&def.name) {
                 writer.write_all(&encoder.encode(
-                    custom_props.unwrap(),
+                    custom_props.expect("Custom encode but missing custom props"),
                     &Some(def.clone()),
                     self,
                 ))?;
@@ -431,8 +445,15 @@ impl AMF3Encoder {
         class_def: &'b Option<ClassDefinition>,
     ) -> Result<()> {
         let had_object = Length::Size(0);
+        use crate::types::ObjectValue;
 
-        let obj = Value::Object(id, children.to_vec(), class_def.clone());
+        let obj = Value::Object {
+            id,
+            data: ObjectValue {
+                elements: children.to_vec(),
+                class_definition: class_def.clone(),
+            },
+        };
         self.object_reference_table.store(obj.clone());
         if let Length::Reference(r) = self.object_reference_table.to_length(obj, 0) {
             self.object_id_to_reference
@@ -451,7 +472,12 @@ impl AMF3Encoder {
 
         self.write_type_marker(writer, TypeMarker::Object)?;
         if had_object.is_reference() {
-            self.write_object_reference(writer, had_object.as_position().unwrap() as u32)?;
+            self.write_object_reference(
+                writer,
+                had_object
+                    .as_position()
+                    .expect("Failed to convert to position") as u32,
+            )?;
         }
         if !had_object.is_reference() {
             if let Some(has_trait) = has_trait {
@@ -474,7 +500,7 @@ impl AMF3Encoder {
     fn write_strict_array_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
         writer: &mut W,
-        children: &'b [Rc<Value>],
+        children: &'b [Value],
     ) -> Result<()> {
         //TODO: why is this not a reference
         let len = Length::Size(children.len() as u32);
@@ -501,7 +527,7 @@ impl AMF3Encoder {
     fn write_ecma_array_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
         writer: &mut W,
-        dense: &'b [Rc<Value>],
+        dense: &'b [Value],
         assoc: &'b [Element],
     ) -> Result<()> {
         let len = Length::Size(dense.len() as u32);
@@ -526,15 +552,22 @@ impl AMF3Encoder {
         &'a self,
         writer: &mut W,
         id: ObjectId,
-        items: &'b [Rc<Value>],
+        items: &'b [Value],
         type_name: &'b str,
         fixed_length: bool,
     ) -> Result<()> {
-        let vo = Value::VectorObject(id, items.to_vec(), type_name.to_string(), fixed_length);
-        let len = self.object_reference_table.to_length(
-            Value::VectorObject(id, items.to_vec(), type_name.to_string(), fixed_length),
-            items.len() as u32,
-        );
+        let vo = Value::VectorObject {
+            id,
+            data: VectorObjectValue {
+                values: items.to_vec(),
+                object_type_name: type_name.to_string(),
+                fixed_length,
+            },
+        };
+
+        let len = self
+            .object_reference_table
+            .to_length(vo.clone(), items.len() as u32);
         self.object_reference_table.store(vo.clone());
         if let Length::Reference(r) = self.object_reference_table.to_length(vo, 0) {
             self.object_id_to_reference
@@ -558,10 +591,16 @@ impl AMF3Encoder {
         &'a self,
         writer: &mut W,
         id: ObjectId,
-        items: &'b [(Rc<Value>, Rc<Value>)],
+        items: &'b [DictionaryEntry],
         weak_keys: bool,
     ) -> Result<()> {
-        let dict = Value::Dictionary(id, items.to_vec(), weak_keys);
+        let dict = Value::Dictionary {
+            id,
+            data: DictionaryObjectValue {
+                elements: items.to_vec(),
+                weak_keys,
+            },
+        };
 
         let len = self
             .object_reference_table
@@ -578,8 +617,8 @@ impl AMF3Encoder {
         if len.is_size() {
             writer.write_u8(weak_keys as u8)?;
             for i in items {
-                self.write_value_element(writer, &i.0)?;
-                self.write_value_element(writer, &i.1)?;
+                self.write_value_element(writer, &i.key)?;
+                self.write_value_element(writer, &i.value)?;
             }
         }
         Ok(())
@@ -588,9 +627,9 @@ impl AMF3Encoder {
     pub(crate) fn write_value_element<'a, 'b: 'a, W: Write + 'a>(
         &'b self,
         writer: &mut W,
-        s: &'b Rc<Value>,
+        s: &'b Value,
     ) -> Result<()> {
-        self.write_value(writer, s.deref())
+        self.write_value(writer, s)
     }
 
     fn write_value<'a, 'b: 'a, W: Write + 'a>(
@@ -602,12 +641,12 @@ impl AMF3Encoder {
             Value::Number(x) => self.write_number_element(writer, *x),
             Value::Bool(b) => self.write_boolean_element(writer, *b),
             Value::String(s) => self.write_string_element(writer, s),
-            Value::Object(id, children, class_def) => {
-                self.write_object_element(writer, *id, children, None, class_def)
+            Value::Object { id, data } => {
+                self.write_object_element(writer, *id, &data.elements, None, &data.class_definition)
             }
             Value::Null => self.write_null_element(writer),
             Value::Undefined => self.write_undefined_element(writer),
-            Value::ECMAArray(id, dense, elements, _) => {
+            Value::ECMAArray { id, data } => {
                 self.object_reference_table.store(s.clone());
                 if let Length::Reference(r) = self.object_reference_table.to_length(s.clone(), 0) {
                     self.object_id_to_reference
@@ -615,9 +654,9 @@ impl AMF3Encoder {
                         .insert(*id, (TypeMarker::Array, r));
                 }
 
-                self.write_ecma_array_element(writer, dense, elements)
+                self.write_ecma_array_element(writer, &data.dense, &data.elements)
             }
-            Value::StrictArray(id, children) => {
+            Value::StrictArray { id, values } => {
                 self.object_reference_table.store(s.clone());
                 if let Length::Reference(r) = self.object_reference_table.to_length(s.clone(), 0) {
                     self.object_id_to_reference
@@ -625,34 +664,35 @@ impl AMF3Encoder {
                         .insert(*id, (TypeMarker::Array, r));
                 }
 
-                self.write_strict_array_element(writer, children)
+                self.write_strict_array_element(writer, values)
             }
-            Value::Date(time, _tz) => self.write_date_element(writer, *time),
-            Value::XML(content, string) => self.write_xml_element(writer, content, *string),
+            Value::Date {
+                time,
+                timezone_or_utc: _,
+            } => self.write_date_element(writer, *time),
+            Value::XML { value, is_string } => self.write_xml_element(writer, value, *is_string),
             Value::Integer(i) => self.write_integer_element(writer, *i),
             Value::ByteArray(bytes) => self.write_byte_array_element(writer, bytes),
-            Value::VectorInt(items, fixed_length) => {
-                self.write_int_vector(writer, items, *fixed_length)
-            }
-            Value::VectorUInt(items, fixed_length) => {
-                self.write_uint_vector(writer, items, *fixed_length)
-            }
-            Value::VectorDouble(items, fixed_length) => {
-                self.write_number_vector(writer, items, *fixed_length)
-            }
-            Value::VectorObject(id, items, type_name, fixed_length) => {
-                self.write_object_vector_element(writer, *id, items, type_name, *fixed_length)
-            }
-            Value::Dictionary(id, kv, weak_keys) => {
-                self.write_dictionary_element(writer, *id, kv, *weak_keys)
+            Value::VectorInt(v) => self.write_int_vector(writer, &v.values, v.fixed_length),
+            Value::VectorUInt(v) => self.write_uint_vector(writer, &v.values, v.fixed_length),
+            Value::VectorDouble(v) => self.write_number_vector(writer, &v.values, v.fixed_length),
+            Value::VectorObject { id, data } => self.write_object_vector_element(
+                writer,
+                *id,
+                &data.values,
+                &data.object_type_name,
+                data.fixed_length,
+            ),
+            Value::Dictionary { id, data } => {
+                self.write_dictionary_element(writer, *id, &data.elements, data.weak_keys)
             }
 
-            Value::Custom(elements, dynamic_elements, def) => self.write_object_element(
+            Value::Custom(c) => self.write_object_element(
                 writer,
                 ObjectId::INVALID,
-                dynamic_elements,
-                Some(elements),
-                def,
+                &c.dynamic_elements,
+                Some(&c.elements),
+                &Some(c.class_definition.clone()),
             ),
             Value::AMF3(e) => self.write_value_element(writer, e),
             Value::Unsupported => self.write_undefined_element(writer),
@@ -708,24 +748,24 @@ mod write_number_tests {
     #[test]
     fn test_write_1byte_number() {
         let e = AMF3Encoder::default();
-        let mut v = vec![];
-        e.write_int(&mut v, 0b00101011).unwrap();
+        let mut v = Vec::new();
+        e.write_int(&mut v, 0b00101011).expect("Test fail");
         assert_eq!(v, &[0b00101011]);
     }
 
     #[test]
     fn test_write_4byte_number() {
         let e = AMF3Encoder::default();
-        let mut v = vec![];
-        e.write_int(&mut v, 2097280).unwrap();
+        let mut v = Vec::new();
+        e.write_int(&mut v, 2097280).expect("Test fail");
         assert_eq!(v, &[0b10000000, 0b11000000, 0b10000000, 0b10000000]);
     }
 
     #[test]
     fn write_neg_number() {
         let e = AMF3Encoder::default();
-        let mut v = vec![];
-        e.write_int(&mut v, -268435455).unwrap();
+        let mut v = Vec::new();
+        e.write_int(&mut v, -268435455).expect("Test fail");
         assert_eq!(v, &[192, 128, 128, 1]);
     }
 }

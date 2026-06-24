@@ -6,7 +6,6 @@ use crate::types::Element;
 use crate::types::*;
 
 use crate::nom_utils::AMFResult;
-use std::rc::Rc;
 
 /// A trait to define encoding for custom types for use with Externalized objects
 pub trait CustomEncoder {
@@ -21,7 +20,10 @@ pub trait CustomEncoder {
     ) -> Vec<u8>;
 }
 
-//TODO: combine with trait
-/// Type used for specifying a custom decoder for a AMF3 external type
-pub type ExternalDecoderFn =
-    Rc<Box<dyn for<'a> Fn(&'a [u8], &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>>>>;
+/// A trait to define decoding for custom types for use with Externalized objects
+pub trait CustomDecoder {
+    /// This should implement the decoding of a given set of external elements
+    /// Access to the AMF3Decoder is given to allow access to caches
+    /// This implements the decoding side of externalized type support
+    fn decode<'a>(&self, i: &'a [u8], dec: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>>;
+}

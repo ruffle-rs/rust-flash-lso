@@ -21,7 +21,8 @@ impl CustomEncoder for ArrayCollection {
         encoder: &AMF3Encoder,
     ) -> Vec<u8> {
         let mut v = Vec::new();
-        self.do_encode(&mut v, elements, encoder).unwrap();
+        self.do_encode(&mut v, elements, encoder)
+            .expect("Failed to encode");
         v
     }
 }
@@ -33,7 +34,7 @@ impl ArrayCollection {
         elements: &'b [Element],
         encoder: &'a AMF3Encoder,
     ) -> std::io::Result<()> {
-        let data = elements.first().unwrap();
+        let data = elements.first().expect("No elements to encode");
         encoder.write_value_element(writer, &data.value)
     }
 }
@@ -48,7 +49,8 @@ impl CustomEncoder for ObjectProxy {
         encoder: &AMF3Encoder,
     ) -> Vec<u8> {
         let mut v = Vec::new();
-        self.do_encode(&mut v, elements, encoder).unwrap();
+        self.do_encode(&mut v, elements, encoder)
+            .expect("Failed to encode ObjectProxy");
         v
     }
 }
@@ -60,7 +62,7 @@ impl ObjectProxy {
         elements: &'b [Element],
         encoder: &'a AMF3Encoder,
     ) -> std::io::Result<()> {
-        let data = elements.first().unwrap();
+        let data = elements.first().expect("No element to encode");
         encoder.write_value_element(writer, &data.value)
     }
 }
@@ -86,7 +88,7 @@ impl CustomEncoder for AbstractMessage {
         encoder: &AMF3Encoder,
     ) -> Vec<u8> {
         let mut v = Vec::new();
-        write_abstract_message(&mut v, elements, encoder).unwrap();
+        write_abstract_message(&mut v, elements, encoder).expect("Failed to write AbstractMessage");
         v
     }
 }
@@ -250,7 +252,7 @@ impl CustomEncoder for AsyncMessage {
         encoder: &AMF3Encoder,
     ) -> Vec<u8> {
         let mut v = Vec::new();
-        write_async_message(&mut v, elements, encoder).unwrap();
+        write_async_message(&mut v, elements, encoder).expect("Failed to write AsyncMessage");
         v
     }
 }
@@ -344,7 +346,8 @@ impl CustomEncoder for AcknowledgeMessage {
         encoder: &AMF3Encoder,
     ) -> Vec<u8> {
         let mut v = Vec::new();
-        write_acknowledge_message(&mut v, elements, encoder).unwrap();
+        write_acknowledge_message(&mut v, elements, encoder)
+            .expect("Failed to write acknowledge message");
         v
     }
 }
@@ -403,7 +406,7 @@ impl CustomEncoder for CommandMessage {
         encoder: &AMF3Encoder,
     ) -> Vec<u8> {
         let mut v = Vec::new();
-        write_command_message(&mut v, elements, encoder).unwrap();
+        write_command_message(&mut v, elements, encoder).expect("Failed to encode cmd message");
         v
     }
 }
