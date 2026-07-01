@@ -1,6 +1,6 @@
-use std::rc::Rc;
-
+use crate::amf0::writer::strict_array_writer::StrictArrayWriter;
 use crate::types::{ClassDefinition, Element, ObjectId, Reference, Value};
+use std::rc::Rc;
 
 use super::{ArrayWriter, CacheKey, ObjWriter, ObjectWriter};
 
@@ -79,6 +79,33 @@ impl<'a> ObjWriter<'a> for TypedObjectWriter<'a, '_> {
         }
     }
 
+    fn strict_array<'c: 'a, 'd>(
+        &'d mut self,
+        cache_key: CacheKey,
+    ) -> (Option<StrictArrayWriter<'d, 'c>>, Reference)
+    where
+        'a: 'c,
+        'a: 'd,
+    {
+        if let Some(existing_ref) = self.cache_get(&cache_key) {
+            (None, existing_ref)
+        } else {
+            let r = self.make_reference();
+
+            // Cache this new array
+            self.cache_add(cache_key, r);
+
+            // Return the writer and the reference
+            (
+                Some(StrictArrayWriter {
+                    values: Vec::new(),
+                    parent: self,
+                }),
+                r,
+            )
+        }
+    }
+
     fn typed_object<'c: 'a, 'd>(
         &'d mut self,
         class_name: &str,
@@ -118,7 +145,7 @@ impl<'a> ObjWriter<'a> for TypedObjectWriter<'a, '_> {
 }
 
 impl TypedObjectWriter<'_, '_> {
-    /// Finalize this typed object, adding it to its parent
+    /// Finalise this typed object, adding it to its parent
     /// If this is not called, the object will not be added
     pub fn commit<T: AsRef<str>>(self, name: T) {
         //TODO: this doesn't work for multi level nesting
