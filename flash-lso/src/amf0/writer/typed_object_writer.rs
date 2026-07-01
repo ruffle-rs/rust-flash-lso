@@ -154,8 +154,8 @@ impl TypedObjectWriter<'_, '_> {
                 id: ObjectId::INVALID,
                 data: ObjectValue {
                     elements: self.elements,
-                    class_definition: Some(ClassDefinition::default_with_name(self.class_name))
-                }
+                    class_definition: Some(ClassDefinition::default_with_name(self.class_name)),
+                },
             },
             false,
         );
