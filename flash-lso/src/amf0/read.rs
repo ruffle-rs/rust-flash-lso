@@ -6,7 +6,9 @@ use crate::PADDING;
 #[cfg(feature = "amf3")]
 use crate::amf3;
 use crate::nom_utils::{AMFResult, take_str};
-use crate::types::{ClassDefinition, Element, ObjectId, ObjectValue, Reference, Value};
+use crate::types::{
+    ClassDefinition, ECMAArrayObjectValue, Element, ObjectId, ObjectValue, Reference, Value,
+};
 use nom::Err;
 use nom::bytes::complete::{tag, take};
 use nom::combinator::{map, map_res};
@@ -39,7 +41,13 @@ fn parse_element_date(i: &[u8]) -> AMFResult<'_, Value> {
     let (i, millis) = be_f64(i)?;
     let (i, time_zone) = be_u16(i)?;
 
-    Ok((i, Value::Date(millis, Some(time_zone))))
+    Ok((
+        i,
+        Value::Date {
+            time: millis,
+            timezone_or_utc: Some(time_zone),
+        },
+    ))
 }
 
 fn parse_long_string_internal(i: &[u8]) -> AMFResult<'_, &str> {
@@ -54,7 +62,13 @@ fn parse_element_long_string(i: &[u8]) -> AMFResult<'_, Value> {
 
 fn parse_element_xml(i: &[u8]) -> AMFResult<'_, Value> {
     let (i, content) = parse_long_string_internal(i)?;
-    Ok((i, Value::XML(content.to_string(), true)))
+    Ok((
+        i,
+        Value::XML {
+            value: content.to_string(),
+            is_string: true,
+        },
+    ))
 }
 
 fn read_type_marker(i: &[u8]) -> AMFResult<'_, TypeMarker> {
@@ -86,8 +100,13 @@ impl AMF0Decoder {
         let (i, array_length) = be_u32(i)?;
         map(
             |i| self.parse_array_element(i),
-            move |elms: Vec<Element>| {
-                Value::ECMAArray(ObjectId::INVALID, Vec::new(), elms, array_length)
+            move |elms: Vec<Element>| Value::ECMAArray {
+                id: ObjectId::INVALID,
+                data: ECMAArrayObjectValue {
+                    dense: Vec::new(),
+                    elements: elms,
+                    length: array_length,
+                },
             },
         )
         .parse(i)
@@ -146,7 +165,13 @@ impl AMF0Decoder {
         let (i, elements) =
             many_m_n(length_usize, length_usize, |i| self.parse_single_element(i)).parse(i)?;
 
-        Ok((i, Value::StrictArray(ObjectId::INVALID, elements)))
+        Ok((
+            i,
+            Value::StrictArray {
+                id: ObjectId::INVALID,
+                values: elements,
+            },
+        ))
     }
 
     fn parse_array_element<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Vec<Element>> {
