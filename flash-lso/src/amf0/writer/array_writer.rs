@@ -11,9 +11,6 @@ pub struct ArrayWriter<'a, 'b> {
 
     /// The parent of this writer
     pub(crate) parent: &'a mut dyn ObjWriter<'b>,
-
-    /// Tracks if this writes a Strict Array (0x0A) or an ECMA Array (0x08)
-    pub(crate) is_strict: bool,
 }
 
 impl<'a> ObjWriter<'a> for ArrayWriter<'a, '_> {
@@ -74,33 +71,6 @@ impl<'a> ObjWriter<'a> for ArrayWriter<'a, '_> {
                 Some(ArrayWriter {
                     elements: Vec::new(),
                     parent: self,
-                    is_strict: false,
-                }),
-                r,
-            )
-        }
-    }
-
-    fn strict_array<'c: 'a, 'd>(
-        &'d mut self,
-        cache_key: CacheKey,
-    ) -> (Option<ArrayWriter<'d, 'c>>, Reference)
-    where
-        'a: 'c,
-        'a: 'd,
-    {
-        if let Some(existing_ref) = self.cache_get(&cache_key) {
-            (None, existing_ref)
-        } else {
-            let r = self.make_reference();
-
-            self.cache_add(cache_key, r);
-
-            (
-                Some(ArrayWriter {
-                    elements: Vec::new(),
-                    parent: self,
-                    is_strict: true,
                 }),
                 r,
             )
@@ -153,17 +123,10 @@ impl ArrayWriter<'_, '_> {
     /// Finalize this array, adding it to it's parent
     /// If this is not called, the array will not be added
     pub fn commit<T: AsRef<str>>(self, name: T, length: u32) {
-        let value = if self.is_strict {
-            let strict_elements = self
-                .elements
-                .into_iter()
-                .map(|e| e.value)
-                .collect::<Vec<Rc<Value>>>();
-
-            Value::StrictArray(ObjectId::INVALID, strict_elements)
-        } else {
-            Value::ECMAArray(ObjectId::INVALID, Vec::new(), self.elements, length)
-        };
-        self.parent.add_element(name.as_ref(), value, false);
+        self.parent.add_element(
+            name.as_ref(),
+            Value::ECMAArray(ObjectId::INVALID, Vec::new(), self.elements, length),
+            false,
+        );
     }
 }

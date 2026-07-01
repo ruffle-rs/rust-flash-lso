@@ -19,23 +19,11 @@ pub trait ObjWriter<'a> {
         'a: 'c,
         'a: 'd;
 
-    /// Create a writer that can serialize an ECMA array (0x08)
+    /// Create a writer that can serialize an array
     ///
     /// If an object with the same `cache_key` has already been written, then this will return `None` for the Writer and the existing reference
     /// If this key is unique, then both a Writer and a Reference will be returned
     fn array<'c: 'a, 'd>(
-        &'d mut self,
-        cache_key: CacheKey,
-    ) -> (Option<ArrayWriter<'d, 'c>>, Reference)
-    where
-        'a: 'c,
-        'a: 'd;
-
-    /// Create a writer that can serialize a dense, keyless strict array (0x0A)
-    ///
-    /// If an object with the same `cache_key` has already been written, then this will return `None` for the Writer and the existing reference
-    /// If this key is unique, then both a Writer and a Reference will be returned
-    fn strict_array<'c: 'a, 'd>(
         &'d mut self,
         cache_key: CacheKey,
     ) -> (Option<ArrayWriter<'d, 'c>>, Reference)
