@@ -48,6 +48,9 @@ wasm-pack build --out-name web --out-dir ./static --target web --release
 miniserve ./static --index index.html
 ```
 
+## LLM policy
+Please ensure all contributions to this project are conducted with respect to our [LLM policy](https://nlnetlabs.nl/llm-policy/)
+
 ## License
 This project is licensed under MIT.
 
