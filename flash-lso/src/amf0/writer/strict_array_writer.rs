@@ -1,25 +1,25 @@
-use crate::amf0::writer::strict_array_writer::StrictArrayWriter;
-use crate::types::{Element, ObjectId, Reference, Value};
 use std::rc::Rc;
 
-use super::{ArrayWriter, CacheKey, ObjWriter, TypedObjectWriter};
+use crate::types::{ObjectId, Reference, Value};
 
-/// A writer for encoding the contents of a child object
-pub struct ObjectWriter<'a, 'b> {
-    /// The elements of this object
-    pub(crate) elements: Vec<Element>,
+use super::{ArrayWriter, CacheKey, ObjWriter, ObjectWriter, TypedObjectWriter};
+
+/// A writer for encoding `StrictArray` contents
+pub struct StrictArrayWriter<'a, 'b> {
+    /// The values in this array
+    pub(crate) values: Vec<Rc<Value>>,
 
     /// The parent of this writer
     pub(crate) parent: &'a mut dyn ObjWriter<'b>,
 }
 
-impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
-    fn add_element(&mut self, name: &str, s: Value, inc_ref: bool) {
+impl<'a> ObjWriter<'a> for StrictArrayWriter<'a, '_> {
+    fn add_element(&mut self, _name: &str, s: Value, inc_ref: bool) {
         if inc_ref {
-            self.parent.make_reference();
+            self.make_reference();
         }
 
-        self.elements.push(Element::new(name, Rc::new(s)));
+        self.values.push(Rc::new(s));
     }
 
     fn object<'c: 'a, 'd>(
@@ -145,14 +145,13 @@ impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
     }
 }
 
-impl ObjectWriter<'_, '_> {
-    /// Finalise this object, adding it to it's parent
-    /// If this is not called, the object will not be added
+impl StrictArrayWriter<'_, '_> {
+    /// Finalise this array, adding it to it's parent
+    /// If this is not called, the array will not be added
     pub fn commit<T: AsRef<str>>(self, name: T) {
-        //TODO: this doesn't work for multi level nesting
         self.parent.add_element(
             name.as_ref(),
-            Value::Object(ObjectId::INVALID, self.elements, None),
+            Value::StrictArray(ObjectId::INVALID, self.values),
             false,
         );
     }

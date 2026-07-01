@@ -1,6 +1,6 @@
-use std::{collections::BTreeMap, rc::Rc};
-
+use crate::amf0::writer::strict_array_writer::StrictArrayWriter;
 use crate::types::{AMFVersion, Element, Lso, Reference, Value};
+use std::{collections::BTreeMap, rc::Rc};
 
 use super::{ArrayWriter, CacheKey, ObjWriter, ObjectWriter, TypedObjectWriter};
 
@@ -77,6 +77,33 @@ impl<'a> ObjWriter<'a> for Amf0Writer {
             (
                 Some(ArrayWriter {
                     elements: Vec::new(),
+                    parent: self,
+                }),
+                r,
+            )
+        }
+    }
+
+    fn strict_array<'c: 'a, 'd>(
+        &'d mut self,
+        cache_key: CacheKey,
+    ) -> (Option<StrictArrayWriter<'d, 'c>>, Reference)
+    where
+        'a: 'c,
+        'a: 'd,
+    {
+        if let Some(existing_ref) = self.cache_get(&cache_key) {
+            (None, existing_ref)
+        } else {
+            let r = self.make_reference();
+
+            // Cache this new array
+            self.cache_add(cache_key, r);
+
+            // Return the writer and the reference
+            (
+                Some(StrictArrayWriter {
+                    values: Vec::new(),
                     parent: self,
                 }),
                 r,

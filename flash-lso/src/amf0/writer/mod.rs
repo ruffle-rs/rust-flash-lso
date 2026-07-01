@@ -3,6 +3,7 @@ mod array_writer;
 mod cache_key;
 mod obj_writer;
 mod object_writer;
+mod strict_array_writer;
 mod typed_object_writer;
 
 pub use amf0_writer::Amf0Writer;

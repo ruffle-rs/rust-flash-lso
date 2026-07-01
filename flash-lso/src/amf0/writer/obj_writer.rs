@@ -1,3 +1,4 @@
+use crate::amf0::writer::strict_array_writer::StrictArrayWriter;
 use crate::types::{Reference, Value};
 
 use super::{ArrayWriter, CacheKey, ObjectWriter, TypedObjectWriter};
@@ -27,6 +28,18 @@ pub trait ObjWriter<'a> {
         &'d mut self,
         cache_key: CacheKey,
     ) -> (Option<ArrayWriter<'d, 'c>>, Reference)
+    where
+        'a: 'c,
+        'a: 'd;
+
+    /// Create a writer that can serialize a strict array
+    ///
+    /// If an object with the same `cache_key` has already been written, then this will return `None` for the Writer and the existing reference
+    /// If this key is unique, then both a Writer and a Reference will be returned
+    fn strict_array<'c: 'a, 'd>(
+        &'d mut self,
+        cache_key: CacheKey,
+    ) -> (Option<StrictArrayWriter<'d, 'c>>, Reference)
     where
         'a: 'c,
         'a: 'd;
@@ -80,7 +93,7 @@ pub trait ObjWriter<'a> {
         self.add_element(name, Value::Date(ms, tz), true)
     }
 
-    /// Write a XML
+    /// Write an XML
     fn xml(&mut self, name: &str, v: &str, s: bool) {
         self.add_element(name, Value::XML(v.to_string(), s), true);
     }

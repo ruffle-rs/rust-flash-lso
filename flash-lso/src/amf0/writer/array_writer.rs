@@ -1,6 +1,6 @@
-use std::rc::Rc;
-
+use crate::amf0::writer::strict_array_writer::StrictArrayWriter;
 use crate::types::{Element, ObjectId, Reference, Value};
+use std::rc::Rc;
 
 use super::{CacheKey, ObjWriter, ObjectWriter, TypedObjectWriter};
 
@@ -77,6 +77,33 @@ impl<'a> ObjWriter<'a> for ArrayWriter<'a, '_> {
         }
     }
 
+    fn strict_array<'c: 'a, 'd>(
+        &'d mut self,
+        cache_key: CacheKey,
+    ) -> (Option<StrictArrayWriter<'d, 'c>>, Reference)
+    where
+        'a: 'c,
+        'a: 'd,
+    {
+        if let Some(existing_ref) = self.cache_get(&cache_key) {
+            (None, existing_ref)
+        } else {
+            let r = self.make_reference();
+
+            // Cache this new array
+            self.cache_add(cache_key, r);
+
+            // Return the writer and the reference
+            (
+                Some(StrictArrayWriter {
+                    values: Vec::new(),
+                    parent: self,
+                }),
+                r,
+            )
+        }
+    }
+
     fn typed_object<'c: 'a, 'd>(
         &'d mut self,
         class_name: &str,
@@ -120,7 +147,7 @@ impl<'a> ObjWriter<'a> for ArrayWriter<'a, '_> {
 }
 
 impl ArrayWriter<'_, '_> {
-    /// Finalize this array, adding it to it's parent
+    /// Finalise this array, adding it to it's parent
     /// If this is not called, the array will not be added
     pub fn commit<T: AsRef<str>>(self, name: T, length: u32) {
         self.parent.add_element(
