@@ -6,7 +6,7 @@ use super::{ArrayWriter, CacheKey, ObjectWriter, TypedObjectWriter};
 /// A trait of common functions between writers
 pub trait ObjWriter<'a> {
     /// Add an element to this object
-    fn add_element(&mut self, name: &str, s: Value, inc_ref: bool);
+    fn add_element(&mut self, name: &str, s: Value);
 
     /// Create a writer that can serialize an object
     ///
@@ -60,32 +60,32 @@ pub trait ObjWriter<'a> {
 
     /// Write a string
     fn string(&mut self, name: &str, s: &str) {
-        self.add_element(name, Value::String(s.to_string()), true);
+        self.add_element(name, Value::String(s.to_string()));
     }
 
     /// Write a number
     fn number(&mut self, name: &str, s: f64) {
-        self.add_element(name, Value::Number(s), true);
+        self.add_element(name, Value::Number(s));
     }
 
     /// Write a reference
     fn reference(&mut self, name: &str, v: Reference) {
-        self.add_element(name, Value::Reference(v), false);
+        self.add_element(name, Value::Reference(v));
     }
 
     /// Write an undefined
     fn undefined(&mut self, name: &str) {
-        self.add_element(name, Value::Undefined, true);
+        self.add_element(name, Value::Undefined);
     }
 
     /// Write a null
     fn null(&mut self, name: &str) {
-        self.add_element(name, Value::Null, true);
+        self.add_element(name, Value::Null);
     }
 
     /// Write a bool
     fn bool(&mut self, name: &str, v: bool) {
-        self.add_element(name, Value::Bool(v), true);
+        self.add_element(name, Value::Bool(v));
     }
 
     /// Write a date
@@ -96,7 +96,6 @@ pub trait ObjWriter<'a> {
                 time,
                 timezone_or_utc,
             },
-            true,
         )
     }
 
@@ -108,7 +107,6 @@ pub trait ObjWriter<'a> {
                 value: v.to_string(),
                 is_string,
             },
-            true,
         );
     }
 

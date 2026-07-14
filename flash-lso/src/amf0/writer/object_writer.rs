@@ -13,11 +13,7 @@ pub struct ObjectWriter<'a, 'b> {
 }
 
 impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
-    fn add_element(&mut self, name: &str, s: Value, inc_ref: bool) {
-        if inc_ref {
-            self.parent.make_reference();
-        }
-
+    fn add_element(&mut self, name: &str, s: Value) {
         self.elements.push(Element::new(name, s));
     }
 
@@ -158,7 +154,6 @@ impl ObjectWriter<'_, '_> {
                     class_definition: None,
                 },
             },
-            false,
         );
     }
 }
