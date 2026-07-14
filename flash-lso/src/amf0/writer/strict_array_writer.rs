@@ -12,11 +12,7 @@ pub struct StrictArrayWriter<'a, 'b> {
 }
 
 impl<'a> ObjWriter<'a> for StrictArrayWriter<'a, '_> {
-    fn add_element(&mut self, _name: &str, s: Value, inc_ref: bool) {
-        if inc_ref {
-            self.make_reference();
-        }
-
+    fn add_element(&mut self, _name: &str, s: Value) {
         self.values.push(s);
     }
 
@@ -153,7 +149,6 @@ impl StrictArrayWriter<'_, '_> {
                 id: ObjectId::INVALID,
                 values: self.values,
             },
-            false,
         );
     }
 }

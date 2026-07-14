@@ -18,11 +18,7 @@ pub struct Amf0Writer {
 }
 
 impl<'a> ObjWriter<'a> for Amf0Writer {
-    fn add_element(&mut self, name: &str, s: Value, inc_ref: bool) {
-        if inc_ref {
-            self.ref_num += 1;
-        }
-
+    fn add_element(&mut self, name: &str, s: Value) {
         self.elements.push(Element::new(name, s))
     }
 
