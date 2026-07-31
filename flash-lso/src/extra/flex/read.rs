@@ -17,12 +17,12 @@ fn parse_abstract_message_flags(i: &[u8]) -> AMFResult<'_, Vec<u8>> {
 
     let mut k = i;
     while next_flag {
-        let (i, flag) = be_u8(i)?;
+        let (rest, flag) = be_u8(k)?;
         flags.push(flag);
         if flag & NEXT_FLAG == 0 {
             next_flag = false
         }
-        k = i;
+        k = rest;
     }
 
     Ok((k, flags))
@@ -130,7 +130,7 @@ fn parse_abstract_message<'a>(i: &'a [u8], amf3: &mut AMF3Decoder) -> AMFResult<
         }
     }
 
-    Ok((i, elements))
+    Ok((k, elements))
 }
 
 fn parse_async_message<'a>(i: &'a [u8], amf3: &mut AMF3Decoder) -> AMFResult<'a, Vec<Element>> {
@@ -346,4 +346,28 @@ pub fn register_decoders(decoder: &mut AMF3Decoder) {
         .register_custom_decoder::<FlexObjectProxyParser>("flex.messaging.io.ManagedObjectProxy");
     decoder
         .register_custom_decoder::<FlexObjectProxyParser>("flex.messaging.io.SerializationProxy");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_abstract_message_flags;
+
+    #[test]
+    fn flags_advance_past_each_continuation_byte() {
+        let (rest, flags) = parse_abstract_message_flags(&[128, 128, 0, 0xFF]).expect("Test fail");
+        assert_eq!(flags, vec![128, 128, 0]);
+        assert_eq!(rest, &[0xFF]);
+    }
+
+    #[test]
+    fn flags_stop_at_the_first_byte_without_the_continuation_bit() {
+        let (rest, flags) = parse_abstract_message_flags(&[1, 128]).expect("Test fail");
+        assert_eq!(flags, vec![1]);
+        assert_eq!(rest, &[128]);
+    }
+
+    #[test]
+    fn unterminated_flags_error_instead_of_looping() {
+        assert!(parse_abstract_message_flags(&[128, 128]).is_err());
+    }
 }
