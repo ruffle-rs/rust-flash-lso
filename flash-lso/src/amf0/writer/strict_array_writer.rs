@@ -16,7 +16,7 @@ impl<'a> ObjWriter<'a> for StrictArrayWriter<'a, '_> {
         if s.is_referenced() {
             self.parent.make_reference();
         }
-        
+
         self.values.push(s);
     }
 
