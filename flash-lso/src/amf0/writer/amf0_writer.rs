@@ -19,7 +19,11 @@ pub struct Amf0Writer {
 
 impl<'a> ObjWriter<'a> for Amf0Writer {
     fn add_element(&mut self, name: &str, s: Value) {
-        self.elements.push(Element::new(name, s))
+        if s.is_referenced() {
+            self.ref_num += 1;
+        }
+
+        self.elements.push(Element::new(name, s));
     }
 
     fn object<'c: 'a, 'd>(

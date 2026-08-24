@@ -17,6 +17,10 @@ pub struct TypedObjectWriter<'a, 'b> {
 
 impl<'a> ObjWriter<'a> for TypedObjectWriter<'a, '_> {
     fn add_element(&mut self, name: &str, s: Value) {
+        if s.is_referenced() {
+            self.parent.make_reference();
+        }
+        
         self.elements.push(Element::new(name, s));
     }
 
