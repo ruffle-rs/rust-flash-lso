@@ -67,6 +67,7 @@ impl<'a> ObjWriter<'a> for StrictArrayWriter<'a, '_> {
             (
                 Some(ArrayWriter {
                     elements: Vec::new(),
+                    length: 0,
                     parent: self,
                 }),
                 r,
@@ -130,6 +131,16 @@ impl<'a> ObjWriter<'a> for StrictArrayWriter<'a, '_> {
         }
     }
 
+    fn commit(self, name: &str) {
+        self.parent.add_element(
+            name,
+            Value::StrictArray {
+                id: ObjectId::INVALID,
+                values: self.values,
+            },
+        );
+    }
+
     fn make_reference(&mut self) -> Reference {
         self.parent.make_reference()
     }
@@ -140,19 +151,5 @@ impl<'a> ObjWriter<'a> for StrictArrayWriter<'a, '_> {
 
     fn cache_add(&mut self, cache_key: CacheKey, reference: Reference) {
         self.parent.cache_add(cache_key, reference);
-    }
-}
-
-impl StrictArrayWriter<'_, '_> {
-    /// Finalise this array, adding it to it's parent
-    /// If this is not called, the array will not be added
-    pub fn commit<T: AsRef<str>>(self, name: T) {
-        self.parent.add_element(
-            name.as_ref(),
-            Value::StrictArray {
-                id: ObjectId::INVALID,
-                values: self.values,
-            },
-        );
     }
 }

@@ -8,6 +8,9 @@ pub struct ArrayWriter<'a, 'b> {
     /// The elements in this array
     pub(crate) elements: Vec<Element>,
 
+    /// The length of this array
+    pub(crate) length: u32,
+
     /// The parent of this writer
     pub(crate) parent: &'a mut dyn ObjWriter<'b>,
 }
@@ -68,6 +71,7 @@ impl<'a> ObjWriter<'a> for ArrayWriter<'a, '_> {
             (
                 Some(ArrayWriter {
                     elements: Vec::new(),
+                    length: 0,
                     parent: self,
                 }),
                 r,
@@ -131,6 +135,20 @@ impl<'a> ObjWriter<'a> for ArrayWriter<'a, '_> {
         }
     }
 
+    fn commit(self, name: &str) {
+        self.parent.add_element(
+            name.as_ref(),
+            Value::ECMAArray {
+                id: ObjectId::INVALID,
+                data: ECMAArrayObjectValue {
+                    dense: Vec::new(),
+                    elements: self.elements,
+                    length: self.length,
+                },
+            },
+        );
+    }
+
     fn make_reference(&mut self) -> Reference {
         self.parent.make_reference()
     }
@@ -145,19 +163,8 @@ impl<'a> ObjWriter<'a> for ArrayWriter<'a, '_> {
 }
 
 impl ArrayWriter<'_, '_> {
-    /// Finalise this array, adding it to it's parent
-    /// If this is not called, the array will not be added
-    pub fn commit<T: AsRef<str>>(self, name: T, length: u32) {
-        self.parent.add_element(
-            name.as_ref(),
-            Value::ECMAArray {
-                id: ObjectId::INVALID,
-                data: ECMAArrayObjectValue {
-                    dense: Vec::new(),
-                    elements: self.elements,
-                    length,
-                },
-            },
-        );
+    /// Overwrite the length of this `ArrayWriter` with a new value
+    pub fn set_length(&mut self, length: u32) {
+        self.length = length;
     }
 }
