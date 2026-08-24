@@ -161,6 +161,7 @@ mod tests {
     use crate::types::Value;
 
     #[test]
+    #[allow(clippy::unwrap_used)]
     fn test_dates_are_referenced() {
         let mut writer = Amf0Writer::default();
         let (aw, _) = writer.array(1.into());
@@ -174,30 +175,31 @@ mod tests {
         let lso = writer.commit_lso("Lso");
 
         assert!(matches!(
-            lso.body.get(0).unwrap().value,
+            lso.body.first().unwrap().value,
             Value::ECMAArray { .. }
         ));
-        if let Value::ECMAArray { id: _, data } = &lso.body.get(0).unwrap().value {
+        if let Value::ECMAArray { id: _, data } = &lso.body.first().unwrap().value {
             assert_eq!(
                 data.elements.first().unwrap().value,
                 Value::String("bar".to_string())
             );
             assert_eq!(
-                data.elements.iter().nth(1).unwrap().value,
+                data.elements.get(1).unwrap().value,
                 Value::String("baz".to_string())
             );
             assert!(matches!(
-                data.elements.iter().nth(2).unwrap().value,
+                data.elements.get(2).unwrap().value,
                 Value::Date { .. }
             ));
             assert!(matches!(
-                data.elements.iter().nth(3).unwrap().value,
+                data.elements.get(3).unwrap().value,
                 Value::Reference(crate::types::Reference(1))
             ));
         }
     }
 
     #[test]
+    #[allow(clippy::unwrap_used)]
     fn test_xml_is_referenced() {
         let mut writer = Amf0Writer::default();
         let (aw, _) = writer.array(1.into());
@@ -211,24 +213,24 @@ mod tests {
         let lso = writer.commit_lso("Lso");
 
         assert!(matches!(
-            lso.body.get(0).unwrap().value,
+            lso.body.first().unwrap().value,
             Value::ECMAArray { .. }
         ));
-        if let Value::ECMAArray { id: _, data } = &lso.body.get(0).unwrap().value {
+        if let Value::ECMAArray { id: _, data } = &lso.body.first().unwrap().value {
             assert!(matches!(
-                data.elements.iter().nth(0).unwrap().value,
+                data.elements.first().unwrap().value,
                 Value::XML { .. }
             ));
             assert!(matches!(
-                data.elements.iter().nth(1).unwrap().value,
+                data.elements.get(1).unwrap().value,
                 Value::Reference(crate::types::Reference(1))
             ));
             assert!(matches!(
-                data.elements.iter().nth(2).unwrap().value,
+                data.elements.get(2).unwrap().value,
                 Value::XML { .. }
             ));
             assert!(matches!(
-                data.elements.iter().nth(3).unwrap().value,
+                data.elements.get(3).unwrap().value,
                 Value::Reference(crate::types::Reference(2))
             ));
         }
