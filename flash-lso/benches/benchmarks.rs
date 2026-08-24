@@ -4,7 +4,7 @@ extern crate test;
 
 use flash_lso::read::Reader;
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 
 criterion_group!(benches, criterion_benchmark);
 criterion_main!(benches);
@@ -16,7 +16,7 @@ macro_rules! auto_bench {
                     c.bench_function(concat!("parse_", $path), |b| {
                         let input_bytes = include_bytes!(concat!("../tests/sol/", $path, ".sol"));
                         b.iter(|| {
-                            black_box(Reader::default().parse(input_bytes).unwrap());
+                            std::hint::black_box(Reader::default().parse(input_bytes).unwrap());
                         })
                     });
                 )*
