@@ -14,6 +14,10 @@ pub struct ObjectWriter<'a, 'b> {
 
 impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
     fn add_element(&mut self, name: &str, s: Value) {
+        if s.is_referenced() {
+            self.parent.make_reference();
+        }
+
         self.elements.push(Element::new(name, s));
     }
 
@@ -64,6 +68,7 @@ impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
             (
                 Some(ArrayWriter {
                     elements: Vec::new(),
+                    length: 0,
                     parent: self,
                 }),
                 r,
@@ -127,6 +132,20 @@ impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
         }
     }
 
+    fn commit(self, name: &str) {
+        //TODO: this doesn't work for multi level nesting
+        self.parent.add_element(
+            name,
+            Value::Object {
+                id: ObjectId::INVALID,
+                data: ObjectValue {
+                    elements: self.elements,
+                    class_definition: None,
+                },
+            },
+        );
+    }
+
     fn make_reference(&mut self) -> Reference {
         self.parent.make_reference()
     }
@@ -137,23 +156,5 @@ impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
 
     fn cache_add(&mut self, cache_key: CacheKey, reference: Reference) {
         self.parent.cache_add(cache_key, reference);
-    }
-}
-
-impl ObjectWriter<'_, '_> {
-    /// Finalise this object, adding it to it's parent
-    /// If this is not called, the object will not be added
-    pub fn commit<T: AsRef<str>>(self, name: T) {
-        //TODO: this doesn't work for multi level nesting
-        self.parent.add_element(
-            name.as_ref(),
-            Value::Object {
-                id: ObjectId::INVALID,
-                data: ObjectValue {
-                    elements: self.elements,
-                    class_definition: None,
-                },
-            },
-        );
     }
 }

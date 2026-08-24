@@ -77,6 +77,7 @@ impl<'a> ObjWriter<'a> for Amf0Writer {
             (
                 Some(ArrayWriter {
                     elements: Vec::new(),
+                    length: 0,
                     parent: self,
                 }),
                 r,
@@ -141,6 +142,8 @@ impl<'a> ObjWriter<'a> for Amf0Writer {
             )
         }
     }
+
+    fn commit(self, _name: &str) {}
 
     fn make_reference(&mut self) -> Reference {
         let ref_num = Reference(self.ref_num);

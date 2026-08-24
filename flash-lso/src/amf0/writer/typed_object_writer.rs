@@ -71,6 +71,7 @@ impl<'a> ObjWriter<'a> for TypedObjectWriter<'a, '_> {
             (
                 Some(ArrayWriter {
                     elements: Vec::new(),
+                    length: 0,
                     parent: self,
                 }),
                 r,
@@ -129,6 +130,20 @@ impl<'a> ObjWriter<'a> for TypedObjectWriter<'a, '_> {
             )
         }
     }
+    
+    fn commit(self, name: &str) {
+        //TODO: this doesn't work for multi level nesting
+        self.parent.add_element(
+            name,
+            Value::Object {
+                id: ObjectId::INVALID,
+                data: ObjectValue {
+                    elements: self.elements,
+                    class_definition: Some(ClassDefinition::default_with_name(self.class_name)),
+                },
+            },
+        );
+    }
 
     fn make_reference(&mut self) -> Reference {
         self.parent.make_reference()
@@ -140,23 +155,5 @@ impl<'a> ObjWriter<'a> for TypedObjectWriter<'a, '_> {
 
     fn cache_add(&mut self, cache_key: CacheKey, reference: Reference) {
         self.parent.cache_add(cache_key, reference);
-    }
-}
-
-impl TypedObjectWriter<'_, '_> {
-    /// Finalise this typed object, adding it to its parent
-    /// If this is not called, the object will not be added
-    pub fn commit<T: AsRef<str>>(self, name: T) {
-        //TODO: this doesn't work for multi level nesting
-        self.parent.add_element(
-            name.as_ref(),
-            Value::Object {
-                id: ObjectId::INVALID,
-                data: ObjectValue {
-                    elements: self.elements,
-                    class_definition: Some(ClassDefinition::default_with_name(self.class_name)),
-                },
-            },
-        );
     }
 }

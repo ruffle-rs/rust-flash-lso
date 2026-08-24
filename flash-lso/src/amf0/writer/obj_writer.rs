@@ -110,6 +110,10 @@ pub trait ObjWriter<'a> {
         );
     }
 
+    /// Finalise this object, adding it to its parent
+    /// If this is not called, the object will not be added
+    fn commit(self, name: &str);
+
     /// Create a reference in the root
     fn make_reference(&mut self) -> Reference;
 
