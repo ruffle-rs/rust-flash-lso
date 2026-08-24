@@ -89,25 +89,37 @@ pub trait ObjWriter<'a> {
     }
 
     /// Write a date
-    fn date(&mut self, name: &str, time: f64, timezone_or_utc: Option<u16>) {
-        self.add_element(
-            name,
-            Value::Date {
-                time,
-                timezone_or_utc,
-            },
-        )
+    fn date(&mut self, key: CacheKey, name: &str, time: f64, timezone_or_utc: Option<u16>) {
+        if let Some(existing_ref) = self.cache_get(&key) {
+            self.add_element(name, Value::Reference(existing_ref));
+        } else {
+            let r = self.make_reference();
+            self.cache_add(key, r);
+            self.add_element(
+                name,
+                Value::Date {
+                    time,
+                    timezone_or_utc,
+                },
+            )
+        }
     }
 
     /// Write an XML
-    fn xml(&mut self, name: &str, v: &str, is_string: bool) {
-        self.add_element(
-            name,
-            Value::XML {
-                value: v.to_string(),
-                is_string,
-            },
-        );
+    fn xml(&mut self, key: CacheKey, name: &str, v: &str, is_string: bool) {
+        if let Some(existing_ref) = self.cache_get(&key) {
+            self.add_element(name, Value::Reference(existing_ref));
+        } else {
+            let r = self.make_reference();
+            self.cache_add(key, r);
+            self.add_element(
+                name,
+                Value::XML {
+                    value: v.to_string(),
+                    is_string,
+                },
+            )
+        }
     }
 
     /// Finalise this object, adding it to its parent

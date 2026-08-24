@@ -206,17 +206,3 @@ pub enum Value {
     /// we leave the handling of this to the user, sorry
     Amf3ObjectReference(ObjectId),
 }
-
-impl Value {
-    /// Is this value "referenceable", if so it will consume a reference number when written
-    pub(crate) fn is_referenced(&self) -> bool {
-        matches!(
-            self,
-            Value::Object { .. }
-                | Value::ECMAArray { .. }
-                | Value::StrictArray { .. }
-                | Value::Date { .. }
-                | Value::XML { .. }
-        )
-    }
-}

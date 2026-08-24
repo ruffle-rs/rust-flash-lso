@@ -14,10 +14,6 @@ pub struct ObjectWriter<'a, 'b> {
 
 impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
     fn add_element(&mut self, name: &str, s: Value) {
-        if s.is_referenced() {
-            self.parent.make_reference();
-        }
-
         self.elements.push(Element::new(name, s));
     }
 
@@ -156,5 +152,85 @@ impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
 
     fn cache_add(&mut self, cache_key: CacheKey, reference: Reference) {
         self.parent.cache_add(cache_key, reference);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::amf0::writer::{Amf0Writer, ObjWriter};
+    use crate::types::Value;
+
+    #[test]
+    fn test_dates_are_referenced() {
+        let mut writer = Amf0Writer::default();
+        let (aw, _) = writer.array(1.into());
+        if let Some(mut aw) = aw {
+            aw.string("foo", "bar");
+            aw.string("bar", "baz");
+            aw.date(2.into(), "date1", 0.0f64, None);
+            aw.date(2.into(), "date1", 0.0f64, None);
+            aw.commit("arr");
+        }
+        let lso = writer.commit_lso("Lso");
+
+        assert!(matches!(
+            lso.body.get(0).unwrap().value,
+            Value::ECMAArray { .. }
+        ));
+        if let Value::ECMAArray { id: _, data } = &lso.body.get(0).unwrap().value {
+            assert_eq!(
+                data.elements.first().unwrap().value,
+                Value::String("bar".to_string())
+            );
+            assert_eq!(
+                data.elements.iter().nth(1).unwrap().value,
+                Value::String("baz".to_string())
+            );
+            assert!(matches!(
+                data.elements.iter().nth(2).unwrap().value,
+                Value::Date { .. }
+            ));
+            assert!(matches!(
+                data.elements.iter().nth(3).unwrap().value,
+                Value::Reference(crate::types::Reference(1))
+            ));
+        }
+    }
+
+    #[test]
+    fn test_xml_is_referenced() {
+        let mut writer = Amf0Writer::default();
+        let (aw, _) = writer.array(1.into());
+        if let Some(mut aw) = aw {
+            aw.xml(2.into(), "xml1", "<1></1>", true);
+            aw.xml(2.into(), "xml2", "<1></1>", true);
+            aw.xml(3.into(), "xml3", "<2></2>", true);
+            aw.xml(3.into(), "xml4", "<2></2>", true);
+            aw.commit("arr");
+        }
+        let lso = writer.commit_lso("Lso");
+
+        assert!(matches!(
+            lso.body.get(0).unwrap().value,
+            Value::ECMAArray { .. }
+        ));
+        if let Value::ECMAArray { id: _, data } = &lso.body.get(0).unwrap().value {
+            assert!(matches!(
+                data.elements.iter().nth(0).unwrap().value,
+                Value::XML { .. }
+            ));
+            assert!(matches!(
+                data.elements.iter().nth(1).unwrap().value,
+                Value::Reference(crate::types::Reference(1))
+            ));
+            assert!(matches!(
+                data.elements.iter().nth(2).unwrap().value,
+                Value::XML { .. }
+            ));
+            assert!(matches!(
+                data.elements.iter().nth(3).unwrap().value,
+                Value::Reference(crate::types::Reference(2))
+            ));
+        }
     }
 }
