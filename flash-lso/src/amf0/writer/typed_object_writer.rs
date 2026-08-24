@@ -20,7 +20,7 @@ impl<'a> ObjWriter<'a> for TypedObjectWriter<'a, '_> {
         if s.is_referenced() {
             self.parent.make_reference();
         }
-        
+
         self.elements.push(Element::new(name, s));
     }
 
@@ -130,7 +130,7 @@ impl<'a> ObjWriter<'a> for TypedObjectWriter<'a, '_> {
             )
         }
     }
-    
+
     fn commit(self, name: &str) {
         //TODO: this doesn't work for multi level nesting
         self.parent.add_element(

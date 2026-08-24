@@ -210,6 +210,13 @@ pub enum Value {
 impl Value {
     /// Is this value "referenceable", if so it will consume a reference number when written
     pub(crate) fn is_referenced(&self) -> bool {
-        matches!(self, Value::Object {..} | Value::ECMAArray {..} | Value::StrictArray {..} | Value::Date {..} | Value::XML {..})
+        matches!(
+            self,
+            Value::Object { .. }
+                | Value::ECMAArray { .. }
+                | Value::StrictArray { .. }
+                | Value::Date { .. }
+                | Value::XML { .. }
+        )
     }
 }
