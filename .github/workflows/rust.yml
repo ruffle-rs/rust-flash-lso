@@ -21,5 +21,9 @@ jobs:
       run: cargo test --verbose --all-features
     - name: Run clippy
       run: cargo clippy --all --tests --all-features -- -D warnings
+    - name: Ensure benchmarks build
+      run: cargo +nightly bench --no-run --verbose
+    - name: Ensure fuzzers build
+      run: cargo +nightly fuzz build
     - name: Check formatting
       run: cargo fmt -- --check

@@ -1,0 +1,21 @@
+name: Rust
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v7
+    - name: Fuzz AMF0
+      run: cargo +nightly fuzz run --release fuzz_amf0_body -- -max_total_time=30s
+    - name: Fuzz AMF3
+      run: cargo +nightly fuzz run --release fuzz_amf3_body -- -max_total_time=30s
