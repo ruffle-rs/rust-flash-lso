@@ -1,7 +1,7 @@
 ## [flash-lso](https://crates.io/crates/flash-lso)
 
-[![GitHub license](https://img.shields.io/github/license/CUB3D/rust-sol)](https://github.com/CUB3D/rust-flash-lso/blob/master/LICENSE)
-[![GitHub issues](https://img.shields.io/github/issues/CUB3D/rust-sol)](https://github.com/CUB3D/rust-flash-lso/issues)
+[![GitHub license](https://img.shields.io/github/license/ruffle-rs/rust-flash-lso)](https://github.com/ruffle-rs/rust-flash-lso/blob/master/LICENSE)
+[![GitHub issues](https://img.shields.io/github/issues/ruffle-rs/rust-flash-lso)](https://github.com/ruffle-rs/rust-flash-lso/issues)
 
 A parser/encoder for Adobe Local Shared Object (LSO) file format (.sol), AMF0 and AFM3 in 100% safe rust.
 #### Features:
