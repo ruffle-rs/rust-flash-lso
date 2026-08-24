@@ -13,6 +13,10 @@ pub struct StrictArrayWriter<'a, 'b> {
 
 impl<'a> ObjWriter<'a> for StrictArrayWriter<'a, '_> {
     fn add_element(&mut self, _name: &str, s: Value) {
+        if s.is_referenced() {
+            self.parent.make_reference();
+        }
+        
         self.values.push(s);
     }
 
