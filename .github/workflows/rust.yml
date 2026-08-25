@@ -15,6 +15,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v7
+    - name: Install cargo-fuzz
+      run: cargo install cargo-fuzz
     - name: Build
       run: cargo build --verbose --all-features
     - name: Run tests
