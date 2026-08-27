@@ -8,3 +8,14 @@ impl CacheKey {
         Self(p as usize)
     }
 }
+
+impl<T> From<*const T> for CacheKey {
+    fn from(p: *const T) -> Self {
+        Self(p as usize)
+    }
+}
+impl From<usize> for CacheKey {
+    fn from(p: usize) -> Self {
+        Self(p)
+    }
+}
