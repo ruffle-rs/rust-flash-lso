@@ -14,7 +14,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 yew = { version = "=0.23.0", features = ["csr"] }
-wasm-bindgen = "=0.2.127"
+wasm-bindgen = "=0.2.128"
 web-sys = "0.3.103" # Version of this comes from pin in wasm-bindgen
 js-sys = "0.3.103"# Version of this comes from pin in wasm-bindgen
 log = "=0.4.34"
