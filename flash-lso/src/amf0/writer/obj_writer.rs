@@ -6,7 +6,7 @@ use super::{ArrayWriter, CacheKey, ObjectWriter, TypedObjectWriter};
 /// A trait of common functions between writers
 pub trait ObjWriter<'a> {
     /// Add an element to this object
-    fn add_element(&mut self, name: &str, s: Value, inc_ref: bool);
+    fn add_element(&mut self, name: &str, s: Value);
 
     /// Create a writer that can serialize an object
     ///
@@ -60,57 +60,71 @@ pub trait ObjWriter<'a> {
 
     /// Write a string
     fn string(&mut self, name: &str, s: &str) {
-        self.add_element(name, Value::String(s.to_string()), true);
+        self.add_element(name, Value::String(s.to_string()));
     }
 
     /// Write a number
     fn number(&mut self, name: &str, s: f64) {
-        self.add_element(name, Value::Number(s), true);
+        self.add_element(name, Value::Number(s));
     }
 
     /// Write a reference
     fn reference(&mut self, name: &str, v: Reference) {
-        self.add_element(name, Value::Reference(v), false);
+        self.add_element(name, Value::Reference(v));
     }
 
     /// Write an undefined
     fn undefined(&mut self, name: &str) {
-        self.add_element(name, Value::Undefined, true);
+        self.add_element(name, Value::Undefined);
     }
 
     /// Write a null
     fn null(&mut self, name: &str) {
-        self.add_element(name, Value::Null, true);
+        self.add_element(name, Value::Null);
     }
 
     /// Write a bool
     fn bool(&mut self, name: &str, v: bool) {
-        self.add_element(name, Value::Bool(v), true);
+        self.add_element(name, Value::Bool(v));
     }
 
     /// Write a date
-    fn date(&mut self, name: &str, time: f64, timezone_or_utc: Option<u16>) {
-        self.add_element(
-            name,
-            Value::Date {
-                time,
-                timezone_or_utc,
-            },
-            true,
-        )
+    fn date(&mut self, key: CacheKey, name: &str, time: f64, timezone_or_utc: Option<u16>) {
+        if let Some(existing_ref) = self.cache_get(&key) {
+            self.add_element(name, Value::Reference(existing_ref));
+        } else {
+            let r = self.make_reference();
+            self.cache_add(key, r);
+            self.add_element(
+                name,
+                Value::Date {
+                    time,
+                    timezone_or_utc,
+                },
+            )
+        }
     }
 
     /// Write an XML
-    fn xml(&mut self, name: &str, v: &str, is_string: bool) {
-        self.add_element(
-            name,
-            Value::XML {
-                value: v.to_string(),
-                is_string,
-            },
-            true,
-        );
+    fn xml(&mut self, key: CacheKey, name: &str, v: &str, is_string: bool) {
+        if let Some(existing_ref) = self.cache_get(&key) {
+            self.add_element(name, Value::Reference(existing_ref));
+        } else {
+            let r = self.make_reference();
+            self.cache_add(key, r);
+            self.add_element(
+                name,
+                Value::XML {
+                    value: v.to_string(),
+                    is_string,
+                },
+            )
+        }
     }
+
+    /// Finalise this object, adding it to its parent
+    /// If this is not called, the object will not be added
+    fn commit(self, name: &str);
 
     /// Create a reference in the root
     fn make_reference(&mut self) -> Reference;

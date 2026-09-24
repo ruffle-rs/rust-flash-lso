@@ -18,12 +18,8 @@ pub struct Amf0Writer {
 }
 
 impl<'a> ObjWriter<'a> for Amf0Writer {
-    fn add_element(&mut self, name: &str, s: Value, inc_ref: bool) {
-        if inc_ref {
-            self.ref_num += 1;
-        }
-
-        self.elements.push(Element::new(name, s))
+    fn add_element(&mut self, name: &str, s: Value) {
+        self.elements.push(Element::new(name, s));
     }
 
     fn object<'c: 'a, 'd>(
@@ -77,6 +73,7 @@ impl<'a> ObjWriter<'a> for Amf0Writer {
             (
                 Some(ArrayWriter {
                     elements: Vec::new(),
+                    length: 0,
                     parent: self,
                 }),
                 r,
@@ -141,6 +138,8 @@ impl<'a> ObjWriter<'a> for Amf0Writer {
             )
         }
     }
+
+    fn commit(self, _name: &str) {}
 
     fn make_reference(&mut self) -> Reference {
         let ref_num = Reference(self.ref_num);
