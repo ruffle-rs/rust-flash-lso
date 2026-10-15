@@ -13,11 +13,7 @@ pub struct ObjectWriter<'a, 'b> {
 }
 
 impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
-    fn add_element(&mut self, name: &str, s: Value, inc_ref: bool) {
-        if inc_ref {
-            self.parent.make_reference();
-        }
-
+    fn add_element(&mut self, name: &str, s: Value) {
         self.elements.push(Element::new(name, s));
     }
 
@@ -68,6 +64,7 @@ impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
             (
                 Some(ArrayWriter {
                     elements: Vec::new(),
+                    length: 0,
                     parent: self,
                 }),
                 r,
@@ -131,6 +128,20 @@ impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
         }
     }
 
+    fn commit(self, name: &str) {
+        //TODO: this doesn't work for multi level nesting
+        self.parent.add_element(
+            name,
+            Value::Object {
+                id: ObjectId::INVALID,
+                data: ObjectValue {
+                    elements: self.elements,
+                    class_definition: None,
+                },
+            },
+        );
+    }
+
     fn make_reference(&mut self) -> Reference {
         self.parent.make_reference()
     }
@@ -144,21 +155,84 @@ impl<'a> ObjWriter<'a> for ObjectWriter<'a, '_> {
     }
 }
 
-impl ObjectWriter<'_, '_> {
-    /// Finalise this object, adding it to it's parent
-    /// If this is not called, the object will not be added
-    pub fn commit<T: AsRef<str>>(self, name: T) {
-        //TODO: this doesn't work for multi level nesting
-        self.parent.add_element(
-            name.as_ref(),
-            Value::Object {
-                id: ObjectId::INVALID,
-                data: ObjectValue {
-                    elements: self.elements,
-                    class_definition: None,
-                },
-            },
-            false,
-        );
+#[cfg(test)]
+mod tests {
+    use crate::amf0::writer::{Amf0Writer, ObjWriter};
+    use crate::types::Value;
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn test_dates_are_referenced() {
+        let mut writer = Amf0Writer::default();
+        let (aw, _) = writer.array(1.into());
+        if let Some(mut aw) = aw {
+            aw.string("foo", "bar");
+            aw.string("bar", "baz");
+            aw.date(2.into(), "date1", 0.0f64, None);
+            aw.date(2.into(), "date1", 0.0f64, None);
+            aw.commit("arr");
+        }
+        let lso = writer.commit_lso("Lso");
+
+        assert!(matches!(
+            lso.body.first().unwrap().value,
+            Value::ECMAArray { .. }
+        ));
+        if let Value::ECMAArray { id: _, data } = &lso.body.first().unwrap().value {
+            assert_eq!(
+                data.elements.first().unwrap().value,
+                Value::String("bar".to_string())
+            );
+            assert_eq!(
+                data.elements.get(1).unwrap().value,
+                Value::String("baz".to_string())
+            );
+            assert!(matches!(
+                data.elements.get(2).unwrap().value,
+                Value::Date { .. }
+            ));
+            assert!(matches!(
+                data.elements.get(3).unwrap().value,
+                Value::Reference(crate::types::Reference(1))
+            ));
+        }
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn test_xml_is_referenced() {
+        let mut writer = Amf0Writer::default();
+        let (aw, _) = writer.array(1.into());
+        if let Some(mut aw) = aw {
+            aw.xml(2.into(), "xml1", "<1></1>", true);
+            aw.xml(2.into(), "xml2", "<1></1>", true);
+            aw.xml(3.into(), "xml3", "<2></2>", true);
+            aw.xml(3.into(), "xml4", "<2></2>", true);
+            aw.commit("arr");
+        }
+        let lso = writer.commit_lso("Lso");
+
+        assert!(matches!(
+            lso.body.first().unwrap().value,
+            Value::ECMAArray { .. }
+        ));
+        if let Value::ECMAArray { id: _, data } = &lso.body.first().unwrap().value {
+            assert!(matches!(
+                data.elements.first().unwrap().value,
+                Value::XML { .. }
+            ));
+            assert!(matches!(
+                data.elements.get(1).unwrap().value,
+                Value::Reference(crate::types::Reference(1))
+            ));
+            assert!(matches!(
+                data.elements.get(2).unwrap().value,
+                Value::XML { .. }
+            ));
+            assert!(matches!(
+                data.elements.get(3).unwrap().value,
+                Value::Reference(crate::types::Reference(2))
+            ));
+        }
     }
 }
