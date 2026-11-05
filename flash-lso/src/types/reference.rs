@@ -5,7 +5,7 @@ pub struct Reference(pub(crate) u16);
 
 impl Reference {
     /// Extract the reference index from this `Reference`
-    pub fn index(self) -> u16 {
+    pub const fn index(self) -> u16 {
         self.0
     }
 }
