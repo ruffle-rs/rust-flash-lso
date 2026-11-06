@@ -27,7 +27,7 @@ impl Default for ClassDefinition {
 
 impl ClassDefinition {
     /// Creates a new ClassDefinition with the given name, and no attributes or properties
-    pub fn default_with_name(name: String) -> Self {
+    pub const fn default_with_name(name: String) -> Self {
         Self {
             name,
             attributes: EnumSet::empty(),

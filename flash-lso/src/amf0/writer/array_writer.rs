@@ -160,7 +160,7 @@ impl<'a> ObjWriter<'a> for ArrayWriter<'a, '_> {
 
 impl ArrayWriter<'_, '_> {
     /// Overwrite the length of this `ArrayWriter` with a new value
-    pub fn set_length(&mut self, length: u32) {
+    pub const fn set_length(&mut self, length: u32) {
         self.length = length;
     }
 }
