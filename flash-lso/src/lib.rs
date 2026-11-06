@@ -12,6 +12,7 @@
     variant_size_differences,
     missing_docs,
     missing_copy_implementations,
+    clippy::missing_const_for_fn,
     unsafe_code,
     unused_crate_dependencies,
     clippy::unwrap_used
