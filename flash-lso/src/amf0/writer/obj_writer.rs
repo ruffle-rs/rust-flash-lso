@@ -1,5 +1,5 @@
 use crate::amf0::writer::strict_array_writer::StrictArrayWriter;
-use crate::types::{Reference, Value};
+use crate::types::{DateValue, ObjectId, Reference, Value};
 
 use super::{ArrayWriter, CacheKey, ObjectWriter, TypedObjectWriter};
 
@@ -98,8 +98,11 @@ pub trait ObjWriter<'a> {
             self.add_element(
                 name,
                 Value::Date {
-                    time,
-                    timezone_or_utc,
+                    id: ObjectId::INVALID,
+                    data: DateValue {
+                        time,
+                        timezone_or_utc,
+                    },
                 },
             )
         }

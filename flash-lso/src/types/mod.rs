@@ -18,6 +18,7 @@ pub use lso_header::Header;
 pub use object_id::ObjectId;
 pub use reference::Reference;
 pub use value::CustomObjectValue;
+pub use value::DateValue;
 pub use value::DictionaryEntry;
 pub use value::DictionaryObjectValue;
 pub use value::ECMAArrayObjectValue;

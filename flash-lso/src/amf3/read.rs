@@ -597,13 +597,16 @@ impl AMF3Decoder {
     }
 
     fn parse_element_date<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
-        self.parse_reference_or_val(i, |_this, i, _len, _| {
+        self.parse_reference_or_val(i, |_this, i, _len, id| {
             let (i, time) = be_f64(i)?;
             Ok((
                 i,
                 Value::Date {
-                    time,
-                    timezone_or_utc: None,
+                    id,
+                    data: DateValue {
+                        time,
+                        timezone_or_utc: None,
+                    },
                 },
             ))
         })

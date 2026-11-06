@@ -230,13 +230,7 @@ impl AMF3Encoder {
         writer: &mut W,
         time: f64,
     ) -> Result<()> {
-        let len = self.object_reference_table.to_length(
-            Value::Date {
-                time,
-                timezone_or_utc: None,
-            },
-            0,
-        );
+        let len = Length::Size(0);
 
         self.write_type_marker(writer, TypeMarker::Date)?;
         len.write(writer, self)?;
@@ -666,10 +660,15 @@ impl AMF3Encoder {
 
                 self.write_strict_array_element(writer, values)
             }
-            Value::Date {
-                time,
-                timezone_or_utc: _,
-            } => self.write_date_element(writer, *time),
+            Value::Date { id, data } => {
+                self.object_reference_table.store(s.clone());
+                if let Length::Reference(r) = self.object_reference_table.to_length(s.clone(), 0) {
+                    self.object_id_to_reference
+                        .borrow_mut()
+                        .insert(*id, (TypeMarker::Date, r));
+                }
+                self.write_date_element(writer, data.time)
+            }
             Value::XML { value, is_string } => self.write_xml_element(writer, value, *is_string),
             Value::Integer(i) => self.write_integer_element(writer, *i),
             Value::ByteArray(bytes) => self.write_byte_array_element(writer, bytes),

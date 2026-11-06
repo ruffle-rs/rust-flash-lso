@@ -85,6 +85,17 @@ pub struct ECMAArrayObjectValue {
     pub length: u32,
 }
 
+/// The data contained within a Value of type Object
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct DateValue {
+    /// Number of seconds since the epoch
+    pub time: f64,
+
+    /// The timezone identifier or UTC if missing
+    pub timezone_or_utc: Option<u16>,
+}
+
 //TODO: should amf3 assoc arrays be their own type with a dense and assoc section
 /// A single or compound value
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -134,11 +145,11 @@ pub enum Value {
 
     /// Represent a timestamp
     Date {
-        /// Number of seconds since the epoch
-        time: f64,
+        /// A unique identifier that will be used to refer back to this Date
+        id: ObjectId,
 
-        /// The timezone identifier or UTC if missing
-        timezone_or_utc: Option<u16>,
+        /// The data within this Date
+        data: DateValue,
     },
 
     /// Represent the unsupported type
