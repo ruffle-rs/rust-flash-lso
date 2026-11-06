@@ -635,9 +635,9 @@ impl AMF3Encoder {
     fn write_value<'a, 'b: 'a, W: Write + 'a>(
         &'b self,
         writer: &mut W,
-        s: &'b Value,
+        value: &'b Value,
     ) -> Result<()> {
-        match s {
+        match value {
             Value::Number(x) => self.write_number_element(writer, *x),
             Value::Bool(b) => self.write_boolean_element(writer, *b),
             Value::String(s) => self.write_string_element(writer, s),
@@ -647,8 +647,10 @@ impl AMF3Encoder {
             Value::Null => self.write_null_element(writer),
             Value::Undefined => self.write_undefined_element(writer),
             Value::ECMAArray { id, data } => {
-                self.object_reference_table.store(s.clone());
-                if let Length::Reference(r) = self.object_reference_table.to_length(s.clone(), 0) {
+                self.object_reference_table.store(value.clone());
+                if let Length::Reference(r) =
+                    self.object_reference_table.to_length(value.clone(), 0)
+                {
                     self.object_id_to_reference
                         .borrow_mut()
                         .insert(*id, (TypeMarker::Array, r));
@@ -657,8 +659,10 @@ impl AMF3Encoder {
                 self.write_ecma_array_element(writer, &data.dense, &data.elements)
             }
             Value::StrictArray { id, values } => {
-                self.object_reference_table.store(s.clone());
-                if let Length::Reference(r) = self.object_reference_table.to_length(s.clone(), 0) {
+                self.object_reference_table.store(value.clone());
+                if let Length::Reference(r) =
+                    self.object_reference_table.to_length(value.clone(), 0)
+                {
                     self.object_id_to_reference
                         .borrow_mut()
                         .insert(*id, (TypeMarker::Array, r));
