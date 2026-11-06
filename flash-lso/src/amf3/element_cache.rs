@@ -32,6 +32,17 @@ impl<T: PartialEq + Clone + Debug> ElementCache<T> {
         }
     }
 
+    /// Take the next cache slot for the given item, without deduplicating, and return its index.
+    ///
+    /// A reader allocates one slot per value it decodes, so the writer must too: deduplicating
+    /// would collapse two distinct values into one slot and skew every later reference index.
+    #[inline]
+    pub(crate) fn occupy(&self, val: T) -> usize {
+        let mut cache = self.cache.borrow_mut();
+        cache.push(val);
+        cache.len() - 1
+    }
+
     /// Retrieve the item at the given index from the cache
     #[inline]
     pub fn get_element(&self, index: usize) -> Option<T> {
