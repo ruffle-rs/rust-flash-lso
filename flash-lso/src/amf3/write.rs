@@ -5,10 +5,7 @@ use crate::amf3::custom_encoder::CustomEncoder;
 use crate::amf3::element_cache::ElementCache;
 use crate::amf3::length::Length;
 use crate::amf3::type_marker::TypeMarker;
-use crate::types::{
-    Attribute, ClassDefinition, DictionaryEntry, DictionaryObjectValue, Element, ObjectId, Value,
-    VectorObjectValue, VectorPrimitiveValue,
-};
+use crate::types::{Attribute, ClassDefinition, DateValue, DictionaryEntry, DictionaryObjectValue, Element, ObjectId, Value, VectorObjectValue, VectorPrimitiveValue};
 use crate::write::WriteExt;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
@@ -228,10 +225,30 @@ impl AMF3Encoder {
     fn write_date_element<'a, 'b: 'a, W: Write + 'a>(
         &'a self,
         writer: &mut W,
+        id: ObjectId,
         time: f64,
     ) -> Result<()> {
-        let len = Length::Size(0);
+        // Create object
+        let date_object = Value::Date {
+            id,
+            data: DateValue {
+                time,
+                timezone_or_utc: None,
+            }
+        };
 
+        // Insert into cache if new, else get reference
+        let len = self
+            .object_reference_table
+            .to_length(date_object.clone(), 0);
+        self.object_reference_table.store(date_object.clone());
+        if let Length::Reference(r) = self.object_reference_table.to_length(date_object, 0) {
+            self.object_id_to_reference
+                .borrow_mut()
+                .insert(id, (TypeMarker::Date, r));
+        }
+
+        // Actually write it
         self.write_type_marker(writer, TypeMarker::Date)?;
         len.write(writer, self)?;
         if len.is_size() {
@@ -660,15 +677,7 @@ impl AMF3Encoder {
 
                 self.write_strict_array_element(writer, values)
             }
-            Value::Date { id, data } => {
-                self.object_reference_table.store(s.clone());
-                if let Length::Reference(r) = self.object_reference_table.to_length(s.clone(), 0) {
-                    self.object_id_to_reference
-                        .borrow_mut()
-                        .insert(*id, (TypeMarker::Date, r));
-                }
-                self.write_date_element(writer, data.time)
-            }
+            Value::Date { id, data } => self.write_date_element(writer, *id, data.time),
             Value::XML { value, is_string } => self.write_xml_element(writer, value, *is_string),
             Value::Integer(i) => self.write_integer_element(writer, *i),
             Value::ByteArray(bytes) => self.write_byte_array_element(writer, bytes),
