@@ -1,4 +1,5 @@
 use super::{ClassDefinition, Element, ObjectId, Reference};
+use crate::types::date_value::DateValue;
 
 /// The data contained within a Value of type Object
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -134,11 +135,11 @@ pub enum Value {
 
     /// Represent a timestamp
     Date {
-        /// Number of seconds since the epoch
-        time: f64,
+        /// A unique identifier that will be used to refer back to this Date
+        id: ObjectId,
 
-        /// The timezone identifier or UTC if missing
-        timezone_or_utc: Option<u16>,
+        /// The data within this Date
+        data: DateValue,
     },
 
     /// Represent the unsupported type

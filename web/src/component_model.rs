@@ -4,7 +4,7 @@ use yew::prelude::*;
 use flash_lso::extra::flex;
 use flash_lso::read::Reader;
 use flash_lso::types::{
-    Attribute, Element, Lso, ObjectValue, Value, VectorObjectValue, VectorPrimitiveValue,
+    Attribute, DateValue, Element, Lso, ObjectValue, Value, VectorObjectValue, VectorPrimitiveValue,
 };
 
 use crate::EditableValue;
@@ -373,10 +373,7 @@ impl Model {
                   <label class={"custom-control-label"} for={"customSwitch1"}>{"State"}</label>
                 </div>
             },
-            Value::Date {
-                time,
-                timezone_or_utc,
-            } => html! {
+            Value::Date { id, data } => html! {
                 <>
                 <div class="input-group mb-2">
                     <div class="input-group-prepend">
@@ -388,15 +385,15 @@ impl Model {
 
                             input.map(|input| {
                             if let Ok(time) = input.value().parse::<f64>() {
-                                     Msg::Edited(Value::Date { time, timezone_or_utc})
+                                     Msg::Edited(Value::Date { id, data: DateValue { time, timezone_or_utc: data.timezone_or_utc}})
                                  } else {
-                                     Msg::Edited(Value::Date { time, timezone_or_utc})
+                                     Msg::Edited(Value::Date { id, data })
                                 }
                             })
-                        })} value={format!("{time}")} class="form-control" type="number"/>
+                        })} value={format!("{}", data.time)} class="form-control" type="number"/>
                   </div>
 
-                  { if let Some(tz) = timezone_or_utc { html!{
+                  { if let Some(tz) = data.timezone_or_utc { html!{
                   <div class="input-group mb-2">
                     <div class="input-group-prepend">
                       <div class="input-group-text">{"Timezone"}</div>
@@ -408,9 +405,9 @@ impl Model {
 
                             input.map(|input| {
                             if let Ok(tz) = input.value().parse::<u16>() {
-                                     Msg::Edited(Value::Date { time, timezone_or_utc: Some(tz)})
+                                     Msg::Edited(Value::Date { id, data: DateValue { time: data.time, timezone_or_utc: Some(tz)}})
                                  } else {
-                                     Msg::Edited(Value::Date { time, timezone_or_utc: Some(tz)})
+                                     Msg::Edited(Value::Date { id, data: DateValue { time: data.time, timezone_or_utc: Some(tz)}})
                                 }
                             })
                         })}
