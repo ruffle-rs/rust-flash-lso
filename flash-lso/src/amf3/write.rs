@@ -5,7 +5,10 @@ use crate::amf3::custom_encoder::CustomEncoder;
 use crate::amf3::element_cache::ElementCache;
 use crate::amf3::length::Length;
 use crate::amf3::type_marker::TypeMarker;
-use crate::types::{Attribute, ClassDefinition, DateValue, DictionaryEntry, DictionaryObjectValue, Element, ObjectId, Value, VectorObjectValue, VectorPrimitiveValue};
+use crate::types::{
+    Attribute, ClassDefinition, DateValue, DictionaryEntry, DictionaryObjectValue, Element,
+    ObjectId, Value, VectorObjectValue, VectorPrimitiveValue,
+};
 use crate::write::WriteExt;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
@@ -234,7 +237,7 @@ impl AMF3Encoder {
             data: DateValue {
                 time,
                 timezone_or_utc: None,
-            }
+            },
         };
 
         // Insert into cache if new, else get reference

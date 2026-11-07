@@ -1,4 +1,5 @@
 use super::{ClassDefinition, Element, ObjectId, Reference};
+use crate::types::date_value::DateValue;
 
 /// The data contained within a Value of type Object
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -83,17 +84,6 @@ pub struct ECMAArrayObjectValue {
 
     /// The length of the array in AMF0, this can differ from the actual number of elements
     pub length: u32,
-}
-
-/// The data contained within a Value of type Object
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct DateValue {
-    /// Number of seconds since the epoch
-    pub time: f64,
-
-    /// The timezone identifier or UTC if missing
-    pub timezone_or_utc: Option<u16>,
 }
 
 //TODO: should amf3 assoc arrays be their own type with a dense and assoc section
