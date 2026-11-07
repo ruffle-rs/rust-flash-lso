@@ -61,7 +61,7 @@ fn write_header<'a, 'b: 'a, W: Write + 'a>(
 }
 
 /// Get the serialized length of the header in bytes, this does not include the size of the header length field or the lso version marker
-pub fn header_length(header: &Header) -> usize {
+pub const fn header_length(header: &Header) -> usize {
     // signature + (name size u16 + name_len) + 3*padding + amf_version_marker
     10 + (2 + header.name.len() + 3 + 1)
 }

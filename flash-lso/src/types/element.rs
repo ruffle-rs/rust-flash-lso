@@ -22,12 +22,12 @@ impl Element {
     }
 
     /// Get the Value of this element
-    pub fn value(&self) -> &Value {
+    pub const fn value(&self) -> &Value {
         &self.value
     }
 
     /// Get the name of this element
-    pub fn name(&self) -> &str {
+    pub const fn name(&self) -> &str {
         self.name.as_str()
     }
 }

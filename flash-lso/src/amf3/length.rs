@@ -8,15 +8,15 @@ pub(crate) enum Length {
 }
 
 impl Length {
-    pub(crate) fn is_reference(&self) -> bool {
+    pub(crate) const fn is_reference(&self) -> bool {
         matches!(self, Length::Reference(_))
     }
 
-    pub(crate) fn is_size(&self) -> bool {
+    pub(crate) const fn is_size(&self) -> bool {
         matches!(self, Length::Size(_))
     }
 
-    pub(crate) fn as_position(&self) -> Option<usize> {
+    pub(crate) const fn as_position(&self) -> Option<usize> {
         match self {
             Length::Reference(x) => Some(*x),
             _ => None,
