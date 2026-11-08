@@ -7,7 +7,8 @@ use crate::PADDING;
 use crate::amf3;
 use crate::nom_utils::{AMFResult, take_str};
 use crate::types::{
-    ClassDefinition, ECMAArrayObjectValue, Element, ObjectId, ObjectValue, Reference, Value,
+    ClassDefinition, DateValue, ECMAArrayObjectValue, Element, ObjectId, ObjectValue, Reference,
+    Value,
 };
 use nom::Err;
 use nom::bytes::complete::{tag, take};
@@ -44,8 +45,11 @@ fn parse_element_date(i: &[u8]) -> AMFResult<'_, Value> {
     Ok((
         i,
         Value::Date {
-            time: millis,
-            timezone_or_utc: Some(time_zone),
+            id: ObjectId::INVALID,
+            data: DateValue {
+                time: millis,
+                timezone_or_utc: Some(time_zone),
+            },
         },
     ))
 }

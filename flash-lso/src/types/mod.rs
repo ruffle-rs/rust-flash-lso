@@ -7,11 +7,13 @@ mod lso_header;
 mod reference;
 mod value;
 
+mod date_value;
 mod object_id;
 
 pub use amf_version::AMFVersion;
 pub use attribute::Attribute;
 pub use class_definition::ClassDefinition;
+pub use date_value::DateValue;
 pub use element::Element;
 pub use lso::Lso;
 pub use lso_header::Header;
