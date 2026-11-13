@@ -414,9 +414,8 @@ auto_test! {
     [time_display_config, "timeDisplayConfig"],
     [user_1, "user(1)"],
     [user, "user"],
-    [self_referential, "other/self-referential"]
-    // Should be re-enabled when writer support for references is added.
-    // [fish_tycoon, "other/fishtycoon"]
+    [self_referential, "other/self-referential"],
+    [fish_tycoon, "other/fishtycoon"]
 }
 
 // Packets
