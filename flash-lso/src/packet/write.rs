@@ -24,7 +24,7 @@ fn write_header(
 
     // Value
     let mut value = Vec::new();
-    amf0::write::write_value(&mut value, &header.value)
+    amf0::write::write_single_value(&mut value, &header.value)
         .map_err(|e| Error::IoError(e.to_string(), e.kind()))?;
     if exact_lengths {
         let value_length = u32::try_from(value.len()).map_err(|_| Error::PacketTooLarge)?;
@@ -56,7 +56,7 @@ fn write_message(
 
     // Contents
     let mut contents = Vec::new();
-    amf0::write::write_value(&mut contents, &message.contents)
+    amf0::write::write_single_value(&mut contents, &message.contents)
         .map_err(|e| Error::IoError(e.to_string(), e.kind()))?;
     if exact_lengths {
         let contents_length = u32::try_from(contents.len()).map_err(|_| Error::PacketTooLarge)?;
