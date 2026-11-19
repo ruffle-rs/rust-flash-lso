@@ -38,22 +38,6 @@ fn parse_element_string(i: &[u8]) -> AMFResult<'_, Value> {
     Ok((i, Value::String(v.to_string())))
 }
 
-fn parse_element_date(i: &[u8]) -> AMFResult<'_, Value> {
-    let (i, millis) = be_f64(i)?;
-    let (i, time_zone) = be_u16(i)?;
-
-    Ok((
-        i,
-        Value::Date {
-            id: ObjectId::INVALID,
-            data: DateValue {
-                time: millis,
-                timezone_or_utc: Some(time_zone),
-            },
-        },
-    ))
-}
-
 fn parse_long_string_internal(i: &[u8]) -> AMFResult<'_, &str> {
     let (i, length) = be_u32(i)?;
     map_res(take(length), std::str::from_utf8).parse(i)
@@ -86,26 +70,73 @@ fn read_type_marker(i: &[u8]) -> AMFResult<'_, TypeMarker> {
 /// Handles decoding AMF0
 #[derive(Default)]
 pub struct AMF0Decoder {
-    /// Cache of previously read values, that can be referenced later
-    cache: Vec<Value>,
+    /// Complex values per AMF0 spec §2.11 (Object, TypedObject, ECMAArray, StrictArray, Date)
+    /// used to resolve reference markers back to `ObjectId`.
+    reference_table: Vec<ObjectId>,
 
     #[cfg(feature = "amf3")]
     amf3_decoder: amf3::read::AMF3Decoder,
+
+    #[cfg(not(feature = "amf3"))]
+    object_id: i64,
 }
 
 impl AMF0Decoder {
+    fn register_complex(&mut self) -> ObjectId {
+        let id = self.next_object_id();
+        self.reference_table.push(id);
+        id
+    }
+
+    #[cfg(feature = "amf3")]
+    const fn next_object_id(&mut self) -> ObjectId {
+        self.amf3_decoder.next_object_id()
+    }
+
+    #[cfg(not(feature = "amf3"))]
+    const fn next_object_id(&mut self) -> ObjectId {
+        let id = ObjectId(self.object_id);
+        self.object_id += 1;
+        id
+    }
+
     fn parse_element_reference<'a>(&self, i: &'a [u8]) -> AMFResult<'a, Value> {
         let (i, reference_index) = be_u16(i)?;
 
-        Ok((i, Value::Reference(Reference(reference_index))))
+        let value = match self.reference_table.get(reference_index as usize).copied() {
+            Some(id) => Value::Amf3ObjectReference(id),
+            None => Value::Reference(Reference(reference_index)),
+        };
+
+        Ok((i, value))
+    }
+
+    fn parse_element_date<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
+        let id = self.register_complex();
+
+        let (i, millis) = be_f64(i)?;
+        let (i, time_zone) = be_u16(i)?;
+
+        Ok((
+            i,
+            Value::Date {
+                id,
+                data: DateValue {
+                    time: millis,
+                    timezone_or_utc: Some(time_zone),
+                },
+            },
+        ))
     }
 
     fn parse_element_ecma_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
+        let id = self.register_complex();
         let (i, array_length) = be_u32(i)?;
+
         map(
             |i| self.parse_array_element(i),
             move |elms: Vec<Element>| Value::ECMAArray {
-                id: ObjectId::INVALID,
+                id,
                 data: ECMAArrayObjectValue {
                     dense: Vec::new(),
                     elements: elms,
@@ -117,12 +148,13 @@ impl AMF0Decoder {
     }
 
     fn parse_element_typed_object<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
+        let id = self.register_complex();
         let (i, name) = parse_string(i)?;
 
         map(
             |i| self.parse_array_element(i),
             move |elms: Vec<Element>| Value::Object {
-                id: ObjectId::INVALID,
+                id,
                 data: ObjectValue {
                     elements: elms,
                     class_definition: Some(ClassDefinition::default_with_name(name.to_string())),
@@ -133,11 +165,13 @@ impl AMF0Decoder {
     }
 
     fn parse_element_object<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
+        let id = self.register_complex();
         let (i, v) = self.parse_array_element(i)?;
+
         Ok((
             i,
             Value::Object {
-                id: ObjectId::INVALID,
+                id,
                 data: ObjectValue {
                     elements: v,
                     class_definition: None,
@@ -154,6 +188,7 @@ impl AMF0Decoder {
 
     /// Parse an array of elements
     fn parse_element_strict_array<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
+        let id = self.register_complex();
         let (i, length) = be_u32(i)?;
 
         let length_usize = length
@@ -172,7 +207,7 @@ impl AMF0Decoder {
         Ok((
             i,
             Value::StrictArray {
-                id: ObjectId::INVALID,
+                id,
                 values: elements,
             },
         ))
@@ -216,8 +251,6 @@ impl AMF0Decoder {
         // Get the type of the next element
         let (i, type_) = read_type_marker(i)?;
 
-        self.cache.push(Value::Undefined);
-
         let (i, v) = match type_ {
             TypeMarker::Number => parse_element_number(i),
             TypeMarker::Boolean => parse_element_bool(i),
@@ -240,7 +273,7 @@ impl AMF0Decoder {
                 let (i, v) = self.parse_element_strict_array(i)?;
                 Ok((i, v))
             }
-            TypeMarker::Date => parse_element_date(i),
+            TypeMarker::Date => self.parse_element_date(i),
             TypeMarker::LongString => parse_element_long_string(i),
             TypeMarker::Unsupported => Ok((i, (Value::Unsupported))),
             TypeMarker::Xml => parse_element_xml(i),

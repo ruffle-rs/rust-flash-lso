@@ -507,3 +507,92 @@ pub fn test_externalizable_object_back_reference() {
         "back-ref should resolve to Custom, got {second:?}"
     );
 }
+
+#[test]
+pub fn test_amf0_shared_inner_object() {
+    // Object { first: Object { name: "shared" }, second: Reference(1) }.
+    let data = include_bytes!("./amf/amf0-shared-inner-object.amf");
+    let (_, obj) = flash_lso::amf0::read::AMF0Decoder::default()
+        .parse_single_element(data)
+        .expect("Failed to parse object");
+
+    let Value::Object { data, .. } = &obj else {
+        panic!("expected Object, got {obj:?}");
+    };
+
+    let first = &data
+        .elements
+        .iter()
+        .find(|e| e.name == "first")
+        .unwrap()
+        .value;
+    let second = &data
+        .elements
+        .iter()
+        .find(|e| e.name == "second")
+        .unwrap()
+        .value;
+
+    let Value::Object { id, .. } = first else {
+        panic!("expected inner Object, got {first:?}");
+    };
+
+    assert_eq!(*second, Value::Amf3ObjectReference(*id));
+    assert_ne!(*id, flash_lso::types::ObjectId::INVALID);
+}
+
+#[test]
+pub fn test_amf0_self_referential_object() {
+    // Object { child: Object { back: Reference(0) } } where Reference(0) resolves to the outer.
+    let data = include_bytes!("./amf/amf0-self-referential-object.amf");
+    let (_, obj) = flash_lso::amf0::read::AMF0Decoder::default()
+        .parse_single_element(data)
+        .expect("Failed to parse object");
+
+    let Value::Object { id: outer_id, data } = &obj else {
+        panic!("expected Object, got {obj:?}");
+    };
+
+    let child = &data
+        .elements
+        .iter()
+        .find(|e| e.name == "child")
+        .unwrap()
+        .value;
+
+    let Value::Object {
+        data: child_data, ..
+    } = child
+    else {
+        panic!("expected child Object, got {child:?}");
+    };
+
+    let back = &child_data
+        .elements
+        .iter()
+        .find(|e| e.name == "back")
+        .unwrap()
+        .value;
+
+    assert_eq!(*back, Value::Amf3ObjectReference(*outer_id));
+}
+
+#[test]
+pub fn test_amf0_reference_out_of_range() {
+    // Object { x: Reference(5) } with no prior complex values — index 5 is out of range.
+    let data = include_bytes!("./amf/amf0-reference-out-of-range.amf");
+    let (_, obj) = flash_lso::amf0::read::AMF0Decoder::default()
+        .parse_single_element(data)
+        .expect("Failed to parse object");
+
+    let Value::Object { data, .. } = &obj else {
+        panic!("expected Object, got {obj:?}");
+    };
+
+    let x = &data.elements.iter().find(|e| e.name == "x").unwrap().value;
+
+    assert!(
+        matches!(x, Value::Reference(r) if r.index() == 5),
+        "expected raw Reference fallback, got {x:?}"
+    );
+}
