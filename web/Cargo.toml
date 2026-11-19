@@ -20,4 +20,4 @@ js-sys = "0.3.103"# Version of this comes from pin in wasm-bindgen
 log = "=0.4.35"
 wasm-logger = "=0.2.0"
 flash-lso = { path = "../flash-lso", features = ["serde", "flex"] }
-gloo-file = "=0.4.0"
+gloo-file = "=0.4.1"
