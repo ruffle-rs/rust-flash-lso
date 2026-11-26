@@ -184,6 +184,12 @@ impl AMF3Decoder {
             .insert(name.to_string(), Rc::new(T::default()));
     }
 
+    pub(crate) const fn next_object_id(&mut self) -> ObjectId {
+        let id = ObjectId(self.object_id);
+        self.object_id += 1;
+        id
+    }
+
     fn parse_element_string<'a>(&mut self, i: &'a [u8]) -> AMFResult<'a, Value> {
         let (i, s) = map(|i| self.parse_string(i), Value::String).parse(i)?;
         Ok((i, (s)))
@@ -274,10 +280,9 @@ impl AMF3Decoder {
                     .try_into()
                     .map_err(|_| Err::Error(make_error(i, ErrorKind::Digit)))?;
 
-                let index = self.object_id;
-                self.object_id += 1;
+                let id = self.next_object_id();
 
-                let (i, res) = parser(self, i, len_usize, ObjectId(index))?;
+                let (i, res) = parser(self, i, len_usize, id)?;
 
                 Ok((i, res))
             }
@@ -342,14 +347,15 @@ impl AMF3Decoder {
         }
         length >>= 1;
 
+        let id = self.next_object_id();
+
         let mut obj = Value::Object {
-            id: ObjectId(self.object_id),
+            id,
             data: ObjectValue {
                 elements: Vec::new(),
                 class_definition: None,
             },
         };
-        self.object_id += 1;
 
         // Class def
         let (i, class_def) = self.parse_class_def(length, i)?;
